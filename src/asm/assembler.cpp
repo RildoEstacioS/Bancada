@@ -147,7 +147,7 @@ private:
             std::string_view text = source.substr(0, end);
             source = end == std::string_view::npos ? std::string_view{} : source.substr(end + 1);
             ++number;
-            const std::size_t comment = text.find(';');
+            const std::size_t comment = text.find_first_of(";#");  // ; or #, as in many assemblers
             if (comment != std::string_view::npos) text = text.substr(0, comment);
             text = trim(text);
 
@@ -185,7 +185,11 @@ private:
     std::uint16_t reg(const Line& line, std::string_view text) {
         const std::optional<std::uint16_t> value = parseRegister(text);
         if (value) return *value;
-        fail(line.number, i18n::format("Registrador inválido: {} (use R0 a R7)", {text}));
+        if (!text.empty() && text[0] == '$') {
+            fail(line.number, i18n::format("Registrador inválido: {}. Isso é do MIPS; aqui os registradores são R0 a R7", {text}));
+        } else {
+            fail(line.number, i18n::format("Registrador inválido: {} (use R0 a R7)", {text}));
+        }
         return 0;
     }
 
@@ -308,6 +312,25 @@ private:
             if (expect(line, 1)) {
                 emit(static_cast<std::uint16_t>(ranged(line, o[0], -32768, 65535)));
             }
+            return;
+        }
+        // Someone who knows another assembly, MIPS most of all, is told what this computer has instead.
+        static constexpr std::pair<std::string_view, std::string_view> kElsewhere[] = {
+            {"LW", "LD"}, {"SW", "ST"}, {"J", "JMP"}, {"B", "JMP"}, {"JAL", "CALL"}, {"JALR", "CALL"}, {"SLL", "SHL"}, {"SRL", "SHR"},
+            {"LA", "LIW"}, {"MOVE", "MOV"}, {"ADDU", "ADD"}, {"SUBU", "SUB"}, {"ADDIU", "ADDI"}, {"ANDI", "AND"}, {"ORI", "OR"},
+            {"XORI", "XOR"}, {"NOR", "OR e NOT"}, {"MV", "MOV"}, {"BEQZ", "BEQ Rx, R0"}, {"BNEZ", "BNE Rx, R0"}};
+        for (const auto& [theirs, ours] : kElsewhere) {
+            if (m == theirs) {
+                fail(line.number, i18n::format("Instrução desconhecida: {}. Neste computador, use {}", {m, std::string(ours)}));
+                return;
+            }
+        }
+        if (m == "BGE" || m == "BGT" || m == "BLE" || m == "BLT" || m == "SLT" || m == "SLTI") {
+            fail(line.number, i18n::format("Instrução desconhecida: {}. Aqui só há BEQ e BNE: compare com SUB e veja o resultado", {m}));
+            return;
+        }
+        if (m == "SYSCALL" || m == "ECALL") {
+            fail(line.number, i18n::format("Instrução desconhecida: {}. Aqui se usa OUT para mostrar e HLT para parar", {m}));
             return;
         }
         fail(line.number, i18n::format("Instrução desconhecida: {}", {m}));

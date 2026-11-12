@@ -52,7 +52,7 @@ add_library(bancada_i18n STATIC src/i18n/i18n.cpp src/i18n/english.cpp)
 target_include_directories(bancada_i18n PUBLIC src)
 target_link_libraries(bancada_i18n PRIVATE bancada_warnings)
 
-add_library(bancada_asm STATIC src/asm/assembler.cpp)
+add_library(bancada_asm STATIC src/asm/assembler.cpp src/asm/mips.cpp)
 target_include_directories(bancada_asm PUBLIC src)
 target_link_libraries(bancada_asm PUBLIC bancada_i18n PRIVATE bancada_warnings)
 
@@ -60,6 +60,8 @@ add_library(bancada_editor STATIC
     src/editor/board.cpp
     src/editor/boxes.cpp
     src/editor/computer16.cpp
+    src/editor/computer32.cpp
+    src/editor/computer32_view.cpp
     src/editor/computer_view.cpp
     src/editor/analog.cpp
     src/editor/electric_examples.cpp
@@ -119,6 +121,14 @@ add_test(NAME analog COMMAND bancada_analog_tests)
 add_executable(bancada_cpu_tests tests/cpu_tests.cpp)
 target_link_libraries(bancada_cpu_tests PRIVATE bancada_editor bancada_warnings)
 add_test(NAME cpu COMMAND bancada_cpu_tests)
+
+add_executable(bancada_mips_tests tests/mips_tests.cpp)
+target_link_libraries(bancada_mips_tests PRIVATE bancada_asm bancada_warnings)
+add_test(NAME mips COMMAND bancada_mips_tests)
+
+add_executable(bancada_cpu32_tests tests/cpu32_tests.cpp)
+target_link_libraries(bancada_cpu32_tests PRIVATE bancada_editor bancada_warnings)
+add_test(NAME cpu32 COMMAND bancada_cpu32_tests)
 
 add_executable(bancada_lesson_tests tests/lesson_tests.cpp)
 target_link_libraries(bancada_lesson_tests PRIVATE bancada_editor bancada_warnings)

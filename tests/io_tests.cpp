@@ -685,7 +685,7 @@ TEST(impossible_parts_in_the_third_format_are_refused) {
         R"({"id":1,"kind":"box","at":[0,0],"rot":0,"inputs":0,"scale":1,"box":"ram","width":8,"address":21})",
         R"({"id":1,"kind":"box","at":[0,0],"rot":0,"inputs":0,"scale":1,"box":"ram","width":8})",
         R"({"id":1,"kind":"box","at":[0,0],"rot":0,"inputs":0,"scale":1,"box":"rom","width":8,"address":1,"rom":[1,2,3]})",
-        R"({"id":1,"kind":"box","at":[0,0],"rot":0,"inputs":0,"scale":1,"box":"ram","width":8,"address":2,"rom":[1]})",
+        R"({"id":1,"kind":"box","at":[0,0],"rot":0,"inputs":0,"scale":1,"box":"register","width":8,"rom":[1]})",
         R"({"id":1,"kind":"splitter","at":[0,0],"rot":0,"inputs":9,"scale":1,"width":8})",
         R"({"id":1,"kind":"chip","at":[0,0],"rot":0,"inputs":0,"scale":1})",
         R"({"id":1,"kind":"nand","at":[0,0],"rot":0,"inputs":2,"scale":1,"chip":1})",

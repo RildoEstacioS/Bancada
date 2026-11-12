@@ -407,15 +407,21 @@ void shiftRegisterN(Netlist& n, In in, Out out, Params params) {
     out[0] = q;
 }
 
+// What it holds after reset can come with it, like a ROM's: a program's .data, for one.
 void ram(Netlist& n, In in, Out out, Params params) {
-    const std::uint32_t memory = n.memory(params.address, params.width);
+    std::vector<std::uint64_t> contents;
+    if (params.contents != nullptr) contents = *params.contents;
+    const std::uint32_t memory = n.memory(params.address, params.width, std::move(contents));
     n.memoryWrite(memory, in[0], in[1], in[2], in[3]);
     out[0] = n.memoryRead(memory, in[0]);
 }
 
 // Two registers read at once and one written on the clock, with register 0 always reading 0.
+// It can come with what the registers hold when the computer comes on, as MIPS's $sp and $gp do.
 void registerFile(Netlist& n, In in, Out out, Params params) {
-    const std::uint32_t memory = n.memory(params.address, params.width);
+    std::vector<std::uint64_t> contents;
+    if (params.contents != nullptr) contents = *params.contents;
+    const std::uint32_t memory = n.memory(params.address, params.width, std::move(contents));
     NetId notZero = n.slice(in[2], 0, 1);
     for (unsigned i = 1; i < params.address; ++i) notZero = g::orGate(n, notZero, n.slice(in[2], i, 1));
     n.memoryWrite(memory, in[2], in[3], g::andGate(n, in[4], notZero), in[5]);

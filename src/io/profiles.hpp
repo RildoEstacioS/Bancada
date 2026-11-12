@@ -49,6 +49,7 @@ public:
     // The computer the player writes their own programs on, kept apart from everything else.
     //   <data>/perfis/p1/programa.bancada
     std::filesystem::path programPath() const;
+    std::filesystem::path program32Path() const;  // the same, for the 32-bit computer
 
     // The game's language, for every profile: its code, "pt" or "en", or empty if none was chosen.
     std::string language() const;

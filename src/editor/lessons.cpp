@@ -1136,7 +1136,7 @@ std::vector<Lesson> makeLessons() {
     all.push_back(machine(program("binario-primeiro", "Três instruções em binário",
                                   "Para a CPU, um programa é uma lista de números de 16 bits. Escreva à mão as três palavras de LI R1, 7, OUT R1 e HLT, "
                                   "campo por campo, para a saída mostrar 7.",
-                                  {"Selecione a ROM e clique em Editar programa: o programa em assembly está nos comentários.",
+                                  {"O editor de programa abre sozinho: o programa em assembly está nos comentários.",
                                    "Troque cada .word pela palavra certa. LI R1, 7: op 2 (0010), rd 1 (001), imm9 7 (000000111).",
                                    "Faça o mesmo com OUT R1 e HLT, monte com Ctrl+Enter e aperte Rodar."},
                                   {"LI R1, 7 é 0b0010_001_000000111.", "OUT R1: op 11 é 1011, os 3 bits seguintes não são usados, e rs é 001.",
@@ -1169,7 +1169,7 @@ std::vector<Lesson> makeLessons() {
     all.push_back(program("primeiro-programa", "O primeiro programa",
                           "O computador de 16 bits está pronto na placa: ele lê as instruções da ROM, uma por uma. Para mudar o que ele faz você não "
                           "mexe em fio nenhum: escreve um programa. Faça a saída mostrar 42.",
-                          {"Selecione a ROM e clique em Editar programa, no painel da direita.", "Escreva LI R1, 42, depois OUT R1, e por fim HLT.",
+                          {"O editor de programa abre sozinho com o exercício; se o fechar, Programar a ROM o abre de novo.", "Escreva LI R1, 42, depois OUT R1, e por fim HLT.",
                            "Ctrl+Enter monta e grava. Feche o editor e aperte Rodar: a saída mostra 42."},
                           {"LI coloca um número num registrador; OUT mostra um registrador na saída.", "Cada instrução numa linha. HLT para o computador."},
                           "Seu primeiro programa rodou! Os fios são os mesmos de antes: só mudou o que está escrito na ROM.", {42},
@@ -1806,7 +1806,7 @@ LessonResult checkProgram(const Lesson& lesson, const Board& board, const ChipBo
             if (op == needed.op) return needed.func < 0 || static_cast<int>(word & 7u) == needed.func;
             return needed.alsoOp >= 0 && op == static_cast<unsigned>(needed.alsoOp);
         });
-        if (!used) return {false, format("O programa precisa usar {}. Selecione a ROM e use Editar programa.", {tr(needed.name)})};
+        if (!used) return {false, format("O programa precisa usar {}. Clique em Programar a ROM para mudar o código.", {tr(needed.name)})};
     }
 
     std::vector<ProgramRun> runs = lesson.runs;

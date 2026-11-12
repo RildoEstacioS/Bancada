@@ -87,7 +87,10 @@ bool shapeIsValid(const Part& part) {
     }
     if (!part.source.empty() && part.rom == nullptr) return false;
     if (part.rom != nullptr) {
-        if (part.kind != PartKind::Box || !boxSpec(part.box).hasContents) return false;
+        // A ROM holds its program; a RAM or a register file may start with words in it: a program's .data,
+        // the stack pointer.
+        if (part.kind != PartKind::Box) return false;
+        if (!boxSpec(part.box).hasContents && part.box != boxFromKey("ram") && part.box != boxFromKey("regfile")) return false;
         if (part.rom->size() > (std::size_t{1} << part.address)) return false;
     }
     if (part.kind == PartKind::Box) return true;

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <map>
@@ -111,6 +112,10 @@ public:
     void setValue(std::uint64_t value);
     void setLabel(std::string label);
     void setRomWords(std::vector<std::uint64_t> words, std::string source = {});
+    // A program into its ROM and its data into its RAM at once, so that one undo takes both back.
+    void setMemories(PartId rom, std::vector<std::uint64_t> words, std::string source, PartId ram, std::vector<std::uint64_t> data);
+    // Called just before each rising edge of the clock, with the circuit settled: what's about to happen.
+    void watchClock(std::function<void()> watch) { watchClock_ = std::move(watch); }
 
     // Selects just this part on the current circuit, the way a click on it would.
     void selectOnly(PartId part);
@@ -231,6 +236,7 @@ private:
 
     bool running_ = false;
     bool clockLevel_ = false;
+    std::function<void()> watchClock_;
     int speedIndex_ = 3;
     double cycleDebt_ = 0;
     double measuredSpeed_ = 0;

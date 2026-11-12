@@ -211,6 +211,7 @@ void Session::openChipUnderCursor() {
 void Session::setRunning(bool running) { running_ = running && circuit_->hasClock(); }
 
 void Session::stepClock() {
+    if (!clockLevel_ && watchClock_) watchClock_();
     clockLevel_ = !clockLevel_;
     circuit_->setClocks(clockLevel_);
     circuit_->settle();
@@ -506,6 +507,23 @@ void Session::setRomWords(std::vector<std::uint64_t> words, std::string source) 
     shape.rom = std::make_shared<const std::vector<std::uint64_t>>(std::move(words));
     shape.source = std::move(source);
     reconfigure(std::move(shape));
+}
+
+void Session::setMemories(PartId rom, std::vector<std::uint64_t> words, std::string source, PartId ram, std::vector<std::uint64_t> data) {
+    Board next = board_;
+    const auto fill = [&next](PartId id, std::vector<std::uint64_t> contents, std::string text, bool program) {
+        const Part* part = next.part(id);
+        if (part == nullptr || part->kind != PartKind::Box) return;
+        Part shape = *part;
+        contents.resize(std::min(contents.size(), std::size_t{1} << shape.address));
+        for (std::uint64_t& word : contents) word &= sim::widthMask(shape.width);
+        shape.rom = program || !contents.empty() ? std::make_shared<const std::vector<std::uint64_t>>(std::move(contents)) : nullptr;
+        if (program) shape.source = std::move(text);
+        next.reconfigurePart(id, std::move(shape));
+    };
+    fill(rom, std::move(words), std::move(source), true);
+    if (ram != 0) fill(ram, std::move(data), {}, false);
+    commit(std::move(next));
 }
 
 void Session::selectOnly(PartId part) {

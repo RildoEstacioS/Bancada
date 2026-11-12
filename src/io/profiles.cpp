@@ -63,6 +63,7 @@ std::vector<std::string> ProfileStore::finishedLessons() const {
 }
 
 fs::path ProfileStore::programPath() const { return folderOf(current().id) / "programa.bancada"; }
+fs::path ProfileStore::program32Path() const { return folderOf(current().id) / "programa32.bancada"; }
 
 std::string ProfileStore::language() const {
     const json file = readJson(data_ / "idioma.json");

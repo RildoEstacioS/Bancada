@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "asm/assembler.hpp"
+#include "editor/computer32_view.hpp"
 #include "editor/computer_view.hpp"
 #include "editor/session.hpp"
 #include "editor/text_edit.hpp"
@@ -168,6 +169,7 @@ struct ExampleStrip;
 struct DebugView;
 
 struct InterfaceText {
+    bool programShown = false;  // the program editor is the view now
     const char* dataNote = "";
     const char* profile = "";
     const char* project = "";
@@ -181,6 +183,8 @@ struct InterfaceText {
     float mouseY = -1.0f;
     bool searching = false;
     const editor::ComputerState* computer = nullptr;  // a computer on this board, which the panel can show
+    const editor::Computer32State* computer32 = nullptr;  // or the 32-bit one
+    const std::string* console = nullptr;                 // what the 32-bit one printed with syscall
     const LessonStrip* lesson = nullptr;              // during a lesson
     const ExampleStrip* example = nullptr;            // while an example from the gallery is open
     const LibraryLimit* limit = nullptr;              // the library a lesson allows
@@ -211,6 +215,7 @@ constexpr float kDebugWidth = 340.0f;
 struct DebugView {
     const std::vector<std::uint16_t>* breakpoints = nullptr;  // ROM addresses
     std::array<std::uint16_t, 8> before{};                    // the registers before the last instruction
+    std::array<std::uint32_t, 32> before32{};                 // the same, on the 32-bit computer
     std::vector<std::uint16_t> memoryBefore;
     bool hasBefore = false;
     bool running = false;
@@ -226,11 +231,23 @@ struct DebugHit {
 DebugHit debuggerAt(const editor::ComputerState& state, const SDL_FRect& area, float x, float y);
 void drawDebugger(SDL_Renderer* renderer, const editor::ComputerState& state, const DebugView& view, const SDL_FRect& area, float mouseX, float mouseY);
 
+// The same for the 32-bit computer, and its panel: all 32 registers, the console, the data and the stack. Its
+// X-ray is still to come; for now that view says so.
+DebugHit debugger32At(const editor::Computer32State& state, const SDL_FRect& area, float x, float y);
+void drawDebugger32(SDL_Renderer* renderer, const editor::Computer32State& state, const DebugView& view, const std::string& console,
+                    const SDL_FRect& area, float mouseX, float mouseY);
+void drawComputer32Panel(SDL_Renderer* renderer, const editor::Computer32State& state, const std::string& console, const DebugView* debug,
+                         const SDL_FRect& area, float mouseX, float mouseY);
+void drawXray32(SDL_Renderer* renderer, const SDL_FRect& area);
+
 // The first screen. lessonsLine says how far the player got in the lessons.
 // Portuguese and English are the language switch, top right: they don't leave the home screen.
-enum class HomeChoice : std::uint8_t { None, Continue, New, Example, Open, Lessons, Program, Portuguese, English };
-HomeChoice homeAt(float x, float y, int width, int height);
-void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine);
+enum class HomeChoice : std::uint8_t {
+    None, Continue, New, Example, Open, Lessons, Program, Portuguese, English, Computers, Computer16, Computer32, Back,
+};
+// The home's first page, or, with computers set, the page that picks a computer to program.
+HomeChoice homeAt(float x, float y, int width, int height, bool computers);
+void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine, bool computers);
 
 // The gallery: every example, group by group in columns.
 constexpr int kGalleryBack = -2;
@@ -244,8 +261,10 @@ struct LessonListView {
     float scroll = 0.0f;
     const std::vector<std::string>* finished = nullptr;
     bool confirming = false;  // the reset button was pressed once, and asks to be pressed again
+    bool unlocked = false;    // the developer's switch: every act open, whatever is done
+    bool denied = false;      // a wrong password was just typed
 };
-enum class LessonListKind : std::uint8_t { None, Back, Reset, Act, Reading, Exercise };
+enum class LessonListKind : std::uint8_t { None, Back, Reset, Act, Reading, Exercise, Unlock };
 struct LessonListHit {
     LessonListKind kind = LessonListKind::None;
     int index = -1;  // the act, the topic or the lesson
@@ -267,7 +286,7 @@ void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, fl
 
 // The strip over the board during a lesson: what it's about, the steps, and its buttons.
 constexpr float kLessonStripHeight = 236.0f;
-enum class LessonButton : std::uint8_t { None, Check, Hint, Restart, List, Next };
+enum class LessonButton : std::uint8_t { None, Check, Hint, Restart, List, Next, Program };
 
 struct LessonStrip {
     int index = 0;
@@ -276,6 +295,7 @@ struct LessonStrip {
     bool problem = false;  // the message says what's wrong
     bool hint = false;     // the message is a hint
     bool hasNext = false;
+    bool program = false;  // a programming lesson: its first button opens the code editor
 };
 
 LessonButton lessonStripAt(const SDL_FRect& area, const LessonStrip& strip, float x, float y);
@@ -338,10 +358,33 @@ struct CodeView {
     const char* warning = "";
     bool help = false;        // the list of every instruction covers the code
     float helpScroll = 0.0f;
+    // The column on the right has tabs: the lesson's task (in a lesson), the instructions, and the program as
+    // blocks, one per word, the one running lit.
+    int tab = 0;
+    std::vector<std::uint16_t> program;  // the program as it assembles now
+    bool mips = false;                     // the 32-bit computer's ROM: MIPS, with its own commands and help
+    std::vector<std::uint32_t> program32;  // its program as it assembles now
+    std::vector<int> lines;            // for each word, its line, counted from 1
+    int runningLine = -1;              // the line the computer is on, when the ROM holds this very text
+    int runningAddress = -1;
+    // During a programming lesson, its task is the first tab.
+    int lesson = -1;
+    std::string lessonMessage;
+    bool lessonPassed = false;
+    bool lessonProblem = false;
 };
 
 // How far the instruction list scrolls.
-float codeHelpMaxScroll(SDL_Renderer* renderer, int width, int height);
+float codeHelpMaxScroll(SDL_Renderer* renderer, int width, int height, bool mips);
+
+// The tabs of the editor's right column: which one is at this point, or -1.
+constexpr int kCodeTabTask = 0;
+constexpr int kCodeTabCommands = 1;
+constexpr int kCodeTabBlocks = 2;
+int codeTabAt(const CodeView& view, float x, float y, int width, int height);
+
+// The toolbar's button that shows the program, beside Placa, Painel and Raio-X.
+SDL_FRect programSwitchRect(float rightEdge);
 
 // Which problem is listed at this height, or -1.
 int codeProblemAt(const CodeView& view, float y, int width, int height);

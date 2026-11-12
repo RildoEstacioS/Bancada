@@ -800,6 +800,24 @@ TEST(a_whole_program_disassembles_and_assembles_back_with_its_branches) {
     CHECK(text.find("BNE R1, R0, 2") != std::string::npos);
 }
 
+// # starts a comment too; MIPS instructions and registers are named, and pointed to what this computer has.
+TEST(hash_comments_work_and_mips_gets_pointed_to_ours) {
+    const assembly::Result commented = assembly::assemble("        LI R1, 5   # five\n# a whole line\n        HLT\n");
+    CHECK(commented.ok());
+    CHECK_EQ(commented.words.size(), 2);
+    const assembly::Result mips = assembly::assemble("        lw $t0, 0($t1)\n        syscall\n        bge R1, R2, x\n");
+    CHECK(!mips.ok());
+    bool load = false, call = false, branch = false;
+    for (const assembly::Error& error : mips.errors) {
+        load = load || error.message.find("LD") != std::string::npos;
+        call = call || error.message.find("OUT") != std::string::npos;
+        branch = branch || error.message.find("BEQ e BNE") != std::string::npos;
+    }
+    CHECK(load && call && branch);
+    const assembly::Result dollar = assembly::assemble("        ADD $t0, R1, R2\n");
+    CHECK(!dollar.ok() && dollar.errors.front().message.find("MIPS") != std::string::npos);
+}
+
 TEST(accented_labels_work_because_people_will_write_them) {
     CHECK_EQ(assembled("la\xC3\xA7o: NOP\nJMP la\xC3\xA7o\n")[1], 0x8000);
 }

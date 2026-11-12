@@ -12,6 +12,7 @@
 //                      "raiox[:S[:I]]" (the X-ray, I instructions into the example, on step S), "aulas" (the list)
 //                      or "aula:N[:v][:r]" (lesson N, with Verificar pressed, or its first resistor's value open
 //                      with one Backspace typed)
+//   --dev              every act of the lessons open, for this run
 //   --tamanho WxH      the window's size (1280x720 if not given)
 //   --stress N         fill the board with N connected NANDs and report frame times
 #include <SDL3/SDL.h>
@@ -33,8 +34,11 @@
 #include "app/draw.hpp"
 #include "app/paths.hpp"
 #include "asm/assembler.hpp"
+#include "asm/mips.hpp"
 #include "editor/boxes.hpp"
 #include "editor/computer16.hpp"
+#include "editor/computer32.hpp"
+#include "editor/computer32_view.hpp"
 #include "editor/electric_examples.hpp"
 #include "editor/gallery.hpp"
 #include "editor/course.hpp"
@@ -58,7 +62,9 @@ constexpr Uint64 kAutosaveEveryMs = 30'000;
 constexpr Uint64 kNoteMs = 4'000;
 constexpr std::size_t kMaxNameBytes = 24;
 
-enum class Prompt : std::uint8_t { None, Name, Value, Contents, NewChip };
+enum class Prompt : std::uint8_t { None, Name, Value, Contents, NewChip, DevPassword };
+
+constexpr const char* kDevPassword = "1111";  // opens every act of the lessons, for this run
 
 // A program being edited. It's only a draft until it's assembled into the ROM.
 struct CodeEditing {
@@ -66,6 +72,10 @@ struct CodeEditing {
     std::string original;
     std::vector<assembly::Error> problems;
     std::vector<std::uint16_t> words;
+    bool mips = false;                  // the 32-bit computer's ROM, in MIPS
+    std::vector<std::uint32_t> words32;  // its program
+    std::vector<std::uint32_t> data32;   // and its .data
+    editor::PartId rom = 0;
     std::size_t capacity = 0;
     int scrollLine = 0;
     int scrollColumn = 0;
@@ -73,6 +83,8 @@ struct CodeEditing {
     std::string warning;
     bool help = false;  // the list of every instruction is open over the code
     float helpScroll = 0.0f;
+    std::vector<int> lines;  // for each assembled word, its line
+    int tab = 1;             // the right column's tab: task, commands or blocks
 };
 
 std::optional<std::uint64_t> parseHex(const std::string& text) {
@@ -96,6 +108,7 @@ public:
         openEvent_ = SDL_RegisterEvents(2);
         saveEvent_ = openEvent_ + 1;
         chooseStartingLanguage();
+        session_.watchClock([this] { watchPrints(); });
         syncPalette();
         resetView();
         updateSize();
@@ -108,6 +121,9 @@ public:
     int width() const { return width_; }
     bool quitting() const { return quitting_; }
     bool codeOpen() const { return code_.has_value(); }
+    // The program editor is the view now: under the toolbar, which keeps working, over everything else.
+    bool codeVisible() const { return code_.has_value() && codeShown_ && !homeOpen_ && !lessonsOpen_ && !galleryOpen_ && topic_ < 0; }
+    int codeHeight() const { return height_ - static_cast<int>(app::kToolbarHeight); }
     std::size_t codeProblems() const { return code_ ? code_->problems.size() : 0; }
 
     void updateSize() { SDL_GetCurrentRenderOutputSize(renderer_, &width_, &height_); }
@@ -149,7 +165,7 @@ public:
                 typeOnKeyboard(event.key.key, event.key.mod, false);
                 break;
             case SDL_EVENT_TEXT_INPUT:
-                if (code_) {
+                if (codeVisible()) {
                     if (!code_->text.insert(event.text.text)) code_->warning = kCodeTooBig;
                     codeEdited();
                     break;
@@ -212,7 +228,7 @@ public:
         const int acts = static_cast<int>(editor::lessonActs().size());
         lessonAct_ = 0;
         for (int a = 0; a < acts; ++a) {
-            if (!editor::actOpen(a, finished_)) break;
+            if (!devUnlocked_ && !editor::actOpen(a, finished_)) break;
             lessonAct_ = a;
             if (editor::actDone(a, finished_) < static_cast<int>(editor::actLessons(a).size())) break;
         }
@@ -225,6 +241,8 @@ public:
         view.scroll = lessonScroll_;
         view.finished = &finished_;
         view.confirming = SDL_GetTicks() < resetConfirmUntil_;
+        view.unlocked = devUnlocked_;
+        view.denied = SDL_GetTicks() < devDeniedUntil_;
         return view;
     }
 
@@ -273,7 +291,7 @@ public:
     void goToLesson(int index) {
         if (index < 0 || index >= static_cast<int>(editor::lessons().size())) return;
         finished_ = profiles_.finishedLessons();
-        if (!editor::actOpen(editor::lessons()[static_cast<std::size_t>(index)].act, finished_)) {
+        if (!devUnlocked_ && !editor::actOpen(editor::lessons()[static_cast<std::size_t>(index)].act, finished_)) {
             autosave();
             showLessons();
             return;
@@ -293,6 +311,8 @@ public:
         autosave();
         lessonsOpen_ = false;
         homeOpen_ = false;
+        programMode_ = false;  // else the lesson's board would be saved over the player's program
+        program32_ = false;
         lesson_ = index;
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(index)];
         lessonLimit_ = {};
@@ -321,6 +341,8 @@ public:
         lessonHint_ = -1;
         palette_.folder = lessonFolder(lesson);
         syncPalette();
+        // A programming lesson is about the code: it opens on the editor, the task beside it.
+        if (lesson.check == editor::LessonCheck::Program) openLessonProgram();
     }
 
     // The library opens on the folder of the lesson's first part: the one the lesson is about.
@@ -360,6 +382,7 @@ public:
         autosave();
         lesson_ = -1;
         programMode_ = false;
+        program32_ = false;
         restoreAutosave();
         syncPalette();
     }
@@ -412,6 +435,7 @@ public:
                 autosave();
                 showLessons();
                 break;
+            case app::LessonButton::Program: openLessonProgram(); break;
             case app::LessonButton::Next: goToLesson(lesson_ + 1); break;
             case app::LessonButton::None: break;
         }
@@ -423,6 +447,7 @@ public:
         strip.passed = lessonResult_.passed;
         strip.hasNext = lesson_ + 1 < static_cast<int>(editor::lessons().size());
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
+        strip.program = lesson.check == editor::LessonCheck::Program;
         if (strip.passed) {
             strip.message = lessonResult_.message;
         } else if (lessonHint_ >= 0) {
@@ -464,10 +489,16 @@ public:
         text.mouseY = mouseY_;
         text.searching = palette_.searching;
         const std::optional<editor::ComputerState> computer = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards());
-        computerHere_ = computer.has_value();
+        const std::optional<editor::Computer32State> computer32 =
+            computer ? std::nullopt : editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards());
+        computerHere_ = computer.has_value() || computer32.has_value();
+        is32_ = computer32.has_value();
         if (!computerHere_) view_ = app::kViewBoard;
         text.computer = computer ? &*computer : nullptr;
+        text.computer32 = computer32 ? &*computer32 : nullptr;
+        text.console = &console_;
         text.view = view_;
+        text.programShown = codeVisible();
         if (view_ == app::kViewXray && computer) advanceXray(*computer, text);
         app::DebugView debug;
         if (computer) {
@@ -475,6 +506,13 @@ public:
             debug.breakpoints = &breakpoints_;
             debug.before = registersBefore_;
             debug.memoryBefore = memoryBefore_;
+            debug.hasBefore = hasBefore_;
+            debug.running = session_.running();
+            text.debug = &debug;
+        } else if (computer32) {
+            followComputer32(*computer32);
+            debug.breakpoints = &breakpoints_;
+            debug.before32 = registers32Before_;
             debug.hasBefore = hasBefore_;
             debug.running = session_.running();
             text.debug = &debug;
@@ -503,14 +541,32 @@ public:
             if (prompt_ == Prompt::Value && electricValue()) unit = electric::unitSymbol(*editor::valueQuantity(session_.inspected()->part.kind));
             app::drawPrompt(renderer_, promptTitle(), typing_, width_, height_, unit);
         }
-        if (code_) app::drawCode(renderer_, codeView(), width_, height_);
-        if (homeOpen_) app::drawHome(renderer_, width_, height_, mouseX_, mouseY_, lessonsLine());
+        if (codeVisible()) {
+            const SDL_Rect below{0, static_cast<int>(app::kToolbarHeight), width_, codeHeight()};
+            SDL_SetRenderViewport(renderer_, &below);
+            app::drawCode(renderer_, codeView(), width_, codeHeight());
+            SDL_SetRenderViewport(renderer_, nullptr);
+        }
+        if (homeOpen_) app::drawHome(renderer_, width_, height_, mouseX_, mouseY_, lessonsLine(), homeComputers_);
         if (lessonsOpen_) app::drawLessonList(renderer_, width_, height_, mouseX_, mouseY_, lessonListView());
+        if (lessonsOpen_ && prompt_ == Prompt::DevPassword) app::drawPrompt(renderer_, promptTitle(), std::string(typing_.size(), '*'), width_, height_);
         if (topic_ >= 0) app::drawReading(renderer_, width_, height_, mouseX_, mouseY_, readingView());
         if (galleryOpen_) app::drawGallery(renderer_, width_, height_, mouseX_, mouseY_);
     }
 
-    void showHome() { homeOpen_ = true; }
+    void showHome() {
+        homeOpen_ = true;
+        homeComputers_ = false;
+    }
+
+    void showComputers() {
+        homeOpen_ = true;
+        homeComputers_ = true;
+    }
+    void setCodeTab(int tab) {
+        if (code_) code_->tab = tab;
+    }
+    void unlockEverything() { devUnlocked_ = true; }
     void openCodeHelp(float scroll) {
         if (!code_) return;
         code_->help = true;
@@ -594,6 +650,52 @@ public:
         }
     }
 
+    // The same for the 32-bit computer. Its breakpoints are words of the ROM, as the debugger lists them.
+    void followComputer32(const editor::Computer32State& computer) {
+        if (computer.pc != debugPc_) {
+            if (debugPc_ != UINT32_MAX) {
+                registers32Before_ = registers32Now_;
+                hasBefore_ = true;
+            }
+            debugPc_ = computer.pc;
+            registers32Now_ = computer.registers;
+            if (computer.index != leavingBreakpoint_) leavingBreakpoint_ = UINT32_MAX;
+        }
+        const bool stop = std::find(breakpoints_.begin(), breakpoints_.end(), computer.index) != breakpoints_.end();
+        if (session_.running() && stop && computer.index != leavingBreakpoint_) {
+            session_.setRunning(false);
+            showNote("Parou no ponto de parada.", false);
+        }
+    }
+
+    // The console is outside the CPU, as a terminal is: just before each clock edge, a syscall that prints
+    // has its number or character on the CPU's pins, and it's written here.
+    void watchPrints() {
+        for (const editor::Part& part : session_.board().parts()) {
+            if (part.kind != editor::PartKind::Chip || part.interface == nullptr || part.interface->name != editor::kCpu32Name) continue;
+            unsigned number = UINT32_MAX, character = UINT32_MAX, value = UINT32_MAX;
+            for (unsigned pin = 0; pin < editor::pinCount(part); ++pin) {
+                const std::string_view name = editor::pinName(part, pin);
+                if (name == "ImprimeNum") number = pin;
+                if (name == "ImprimeCar") character = pin;
+                if (name == "Valor") value = pin;
+            }
+            if (number == UINT32_MAX || character == UINT32_MAX || value == UINT32_MAX) return;
+            const auto printed = static_cast<std::uint32_t>(session_.circuit().pinValue(part.id, value));
+            if (session_.circuit().pinOn(part.id, number)) console_ += std::to_string(static_cast<std::int32_t>(printed));
+            if (session_.circuit().pinOn(part.id, character)) console_ += static_cast<char>(printed & 0xFFu);
+            if (console_.size() > 8000) console_.erase(0, console_.size() - 6000);
+            return;
+        }
+    }
+
+    void resetComputer() {
+        session_.resetSimulation();
+        console_.clear();
+        hasBefore_ = false;
+        debugPc_ = UINT32_MAX;
+    }
+
     // Play and pause, the same from the toolbar, the debugger and the space bar. Running on leaves a
     // breakpoint the computer is stopped at, instead of stopping there again at once; a program that already
     // ended at its HLT starts over from the beginning.
@@ -603,13 +705,13 @@ public:
             return;
         }
         const std::optional<editor::ComputerState> computer = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards());
-        if (computer && computer->halted) {
-            session_.resetSimulation();
-            hasBefore_ = false;
-            debugPc_ = UINT32_MAX;
-        }
+        const std::optional<editor::Computer32State> computer32 = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards());
+        if ((computer && computer->halted) || (computer32 && computer32->halted)) resetComputer();
         if (const std::optional<editor::ComputerState> now = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards())) {
             leavingBreakpoint_ = now->pc;
+        }
+        if (const std::optional<editor::Computer32State> now = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
+            leavingBreakpoint_ = now->index;
         }
         session_.setRunning(true);
     }
@@ -625,7 +727,10 @@ public:
                 break;
             case app::DebugAction::Stage:
                 session_.setRunning(false);
-                if (xrayStage_ + 1 < editor::kTraceStages) {
+                if (is32_) {  // no X-ray steps yet on the 32-bit computer: a whole instruction
+                    session_.stepClock();
+                    session_.stepClock();
+                } else if (xrayStage_ + 1 < editor::kTraceStages) {
                     chooseXrayStage(xrayStage_ + 1);
                 } else {
                     session_.stepClock();
@@ -634,8 +739,7 @@ public:
                 break;
             case app::DebugAction::Reset:
                 session_.setRunning(false);
-                session_.resetSimulation();
-                hasBefore_ = false;
+                resetComputer();
                 break;
             case app::DebugAction::Breakpoint: {
                 const auto found = std::find(breakpoints_.begin(), breakpoints_.end(), hit.address);
@@ -692,6 +796,18 @@ public:
             chooseLanguage(choice == app::HomeChoice::English ? i18n::Language::English : i18n::Language::Portuguese);
             return;
         }
+        // The computers have a page of their own; the 32-bit one isn't open yet.
+        if (choice == app::HomeChoice::Computers || choice == app::HomeChoice::Back) {
+            homeComputers_ = choice != app::HomeChoice::Back;
+            return;
+        }
+        if (choice == app::HomeChoice::Computer32) {
+            homeComputers_ = false;
+            openProgram32();
+            return;
+        }
+        if (choice == app::HomeChoice::Computer16) choice = app::HomeChoice::Program;
+        homeComputers_ = false;
         homeOpen_ = false;
         // Anything but continuing leaves a lesson for the player's own projects.
         if (choice != app::HomeChoice::Continue && choice != app::HomeChoice::Lessons && choice != app::HomeChoice::Example &&
@@ -756,7 +872,11 @@ public:
         leaveLesson();
         autosave();
         io::LoadedProject saved = io::loadProject(profiles_.programPath());
-        if (saved.project) {
+        // Only a computer is the player's program: anything else saved there by mistake is left aside.
+        const auto isComputer = [](const io::Project& project) {
+            return std::any_of(project.chips.begin(), project.chips.end(), [](const editor::ChipData& chip) { return chip.name == editor::kCpuName; });
+        };
+        if (saved.project && isComputer(*saved.project)) {
             saved.project->hasUnsavedChanges = false;
             applyProject(std::move(*saved.project), std::nullopt);
         } else {
@@ -780,10 +900,72 @@ public:
             autosavedRevision_ = UINT64_MAX;  // written at the next autosave, so it's there next time
         }
         programMode_ = true;
+        program32_ = false;
         projectName_ = "Meu programa";
         view_ = app::kViewPanel;
         for (const editor::Part& part : session_.board().parts()) {
             if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom") && part.width == editor::kWordBits) {
+                session_.selectOnly(part.id);
+                openCode();
+                break;
+            }
+        }
+    }
+
+    // The 32-bit computer, the same way: in a file of its own, opened on its program.
+    void openProgram32() {
+        homeOpen_ = false;
+        galleryOpen_ = false;
+        leaveLesson();
+        autosave();
+        io::LoadedProject saved = io::loadProject(profiles_.program32Path());
+        const auto isComputer = [](const io::Project& project) {
+            return std::any_of(project.chips.begin(), project.chips.end(), [](const editor::ChipData& chip) { return chip.name == editor::kCpu32Name; });
+        };
+        if (saved.project && isComputer(*saved.project)) {
+            saved.project->hasUnsavedChanges = false;
+            applyProject(std::move(*saved.project), std::nullopt);
+        } else {
+            static constexpr const char* kStarter =
+                "# O seu programa em MIPS. Escreva aqui e aperte Ctrl+Enter para montar e gravar na ROM.\n"
+                "# Os dados vão depois de .data, as instruções depois de .text. Rode e veja no Painel.\n"
+                "# A aba Comandos, à direita, tem as instruções; Ajuda explica cada uma.\n"
+                "\n"
+                "        .data\n"
+                "vetor:  .word 1, 2, 3, 4, 5\n"
+                "n:      .word 5\n"
+                "\n"
+                "        .text\n"
+                "main:   la   $t0, vetor      # onde o vetor começa\n"
+                "        lw   $t1, n          # quantos são\n"
+                "        li   $t2, 0          # a soma\n"
+                "laco:   beq  $t1, $zero, fim\n"
+                "        lw   $t3, 0($t0)\n"
+                "        add  $t2, $t2, $t3\n"
+                "        addi $t0, $t0, 4     # a próxima palavra\n"
+                "        addi $t1, $t1, -1\n"
+                "        j    laco\n"
+                "fim:    move $a0, $t2        # mostra a soma\n"
+                "        li   $v0, 1\n"
+                "        syscall\n"
+                "        li   $v0, 10         # e termina\n"
+                "        syscall\n";
+            const mips::Program program = mips::assemble(i18n::tr(kStarter));
+            editor::Computer32Project computer = editor::buildComputer32(program, kStarter);
+            io::Project project;
+            project.board = std::move(computer.board);
+            project.chips = std::move(computer.chips);
+            applyProject(std::move(project), std::nullopt);
+            fit();
+            autosavedRevision_ = UINT64_MAX;  // written at the next autosave, so it's there next time
+        }
+        programMode_ = true;
+        program32_ = true;
+        console_.clear();
+        projectName_ = "Meu programa 32 bits";
+        view_ = app::kViewPanel;
+        for (const editor::Part& part : session_.board().parts()) {
+            if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom") && part.width == editor::kWord32Bits) {
                 session_.selectOnly(part.id);
                 openCode();
                 break;
@@ -805,24 +987,42 @@ public:
         showNote("Aperte Rodar. Para mudar o programa, selecione a ROM.", false);
     }
 
+    // A programming lesson's code, in the editor: the ROM chosen, the way a click on it and Editar programa would.
+    void openLessonProgram() {
+        for (const editor::Part& part : session_.board().parts()) {
+            if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom")) {
+                session_.selectOnly(part.id);
+                openCode();
+                return;
+            }
+        }
+    }
+
     void openCode() {
         const std::optional<editor::Inspected> shown = session_.inspected();
         if (!shown) return;
-        if (shown->part.width != editor::kWordBits) {
-            showNote("O programa precisa de uma ROM de 16 bits.", true);
+        const bool mips = shown->part.width == editor::kWord32Bits;
+        if (shown->part.width != editor::kWordBits && !mips) {
+            showNote("O programa precisa de uma ROM de 16 ou de 32 bits.", true);
             return;
         }
         std::string source = shown->part.source;
         if (source.empty() && shown->part.rom != nullptr) {
             const std::vector<std::uint64_t>& words = *shown->part.rom;
             for (std::size_t i = 0; i < words.size(); ++i) {
-                source += assembly::disassemble(static_cast<std::uint16_t>(words[i]), i) + "\n";
+                source += mips ? "        " + mips::disassemble(static_cast<std::uint32_t>(words[i]), mips::kTextBase + static_cast<std::uint32_t>(4 * i)) + "\n"
+                               : assembly::disassemble(static_cast<std::uint16_t>(words[i]), i) + "\n";
             }
         }
         code_.emplace();
+        code_->mips = mips;
+        code_->rom = shown->part.id;
         code_->text = editor::TextEdit(source);
         code_->original = code_->text.text();
         code_->capacity = std::size_t{1} << shown->part.address;
+        code_->tab = lesson_ >= 0 && editor::lessons()[static_cast<std::size_t>(lesson_)].check == editor::LessonCheck::Program ? app::kCodeTabTask
+                                                                                                                              : app::kCodeTabCommands;
+        codeShown_ = true;
         checkCode();
         SDL_StartTextInput(window_);
     }
@@ -847,8 +1047,8 @@ public:
     void autosave() {
         if (session_.revision() == autosavedRevision_) return;
         io::Project project = snapshot();
-        if (programMode_) {
-            if (io::saveProject(profiles_.programPath(), project)) autosavedRevision_ = session_.revision();
+        if (programMode_ && lesson_ < 0) {
+            if (io::saveProject(program32_ ? profiles_.program32Path() : profiles_.programPath(), project)) autosavedRevision_ = session_.revision();
             return;
         }
         if (lesson_ >= 0) {
@@ -960,6 +1160,7 @@ private:
     }
 
     void applyProject(io::Project project, std::optional<fs::path> file) {
+        if (code_) closeCode();
         example_ = -1;  // anything opened replaces the example; opening an example sets it again after
         session_.adoptProjectChips(std::move(project.chips));
         session_.adopt(std::move(project.board), project.togglesOn, !project.hasUnsavedChanges);
@@ -1057,10 +1258,10 @@ private:
     }
 
     void mouseMoved(float x, float y) {
-        if (code_) {
+        if (codeVisible()) {
             mouseX_ = x;
             mouseY_ = y;
-            if (code_->selecting) placeCodeCursor(x, y, true);
+            if (code_->selecting) placeCodeCursor(x, y - app::kToolbarHeight, true);
             return;
         }
         if (panning_) camera_.pan(x - mouseX_, y - mouseY_);
@@ -1088,7 +1289,7 @@ private:
     }
 
     bool modal() const {
-        return profilesOpen_ || helpOpen_ || prompt_ != Prompt::None || code_.has_value() || homeOpen_ || lessonsOpen_ || galleryOpen_ ||
+        return profilesOpen_ || helpOpen_ || prompt_ != Prompt::None || codeVisible() || homeOpen_ || lessonsOpen_ || galleryOpen_ ||
                topic_ >= 0;
     }
 
@@ -1096,25 +1297,95 @@ private:
         app::CodeView view;
         view.text = &code_->text;
         view.problems = &code_->problems;
-        view.words = code_->words.size();
+        view.words = code_->mips ? code_->words32.size() : code_->words.size();
+        view.mips = code_->mips;
+        view.program32 = code_->words32;
         view.capacity = code_->capacity;
         view.scrollLine = code_->scrollLine;
         view.scrollColumn = code_->scrollColumn;
         view.warning = code_->warning.c_str();
         view.help = code_->help;
         view.helpScroll = code_->helpScroll;
+        view.tab = code_->tab;
+        view.program = code_->words;
+        view.lines = code_->lines;
+        if (const std::optional<editor::ComputerState> computer = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards())) {
+            if (computer->source == code_->text.text() && computer->pc < code_->lines.size()) {
+                view.runningAddress = computer->pc;
+                view.runningLine = code_->lines[computer->pc] - 1;
+            }
+        } else if (const std::optional<editor::Computer32State> computer32 =
+                       editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
+            if (computer32->source == code_->text.text() && computer32->index < code_->lines.size()) {
+                view.runningAddress = static_cast<int>(computer32->index);
+                view.runningLine = code_->lines[computer32->index] - 1;
+            }
+        }
+        if (lesson_ >= 0 && editor::lessons()[static_cast<std::size_t>(lesson_)].check == editor::LessonCheck::Program) {
+            const app::LessonStrip strip = lessonStrip();
+            view.lesson = lesson_;
+            view.lessonMessage = strip.message;
+            view.lessonPassed = strip.passed;
+            view.lessonProblem = strip.problem;
+        }
         return view;
     }
 
+    // The program view: the draft kept from before, or the ROM's program opened.
+    void showProgram() {
+        if (code_) {
+            codeShown_ = true;
+            SDL_StartTextInput(window_);
+            return;
+        }
+        openLessonProgram();
+    }
+
+    // Over the editor the toolbar keeps working: running, stepping, the speed, and the other views.
+    void pressToolbarOverCode(float x, float y) {
+        const auto hit = [&](const SDL_FRect& r) { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; };
+        if (computerHere_) {
+            for (int which = 0; which < app::kViewCount; ++which) {
+                if (hit(app::viewSwitchRect(boardRightEdge(), which))) {
+                    codeShown_ = false;  // the draft stays, for the program button to bring back
+                    SDL_StopTextInput(window_);
+                    view_ = which;
+                    xrayPc_ = UINT32_MAX;
+                    return;
+                }
+            }
+        }
+        const int tool = app::toolbarAt(x, y);
+        if (tool >= 0 && app::kToolbar[tool].sim != app::SimButton::None) pressSimButton(app::kToolbar[tool].sim);
+    }
+
     void closeCode() {
+        codeShown_ = false;
         code_.reset();
         SDL_StopTextInput(window_);
     }
 
     void checkCode() {
         CodeEditing& code = *code_;
+        if (code.mips) {
+            mips::Program program = mips::assemble(code.text.text());
+            code.words32 = std::move(program.text);
+            code.data32 = std::move(program.data);
+            code.lines = std::move(program.lines);
+            code.problems = std::move(program.errors);
+            if (code.problems.empty() && code.words32.size() > code.capacity) {
+                code.problems.push_back({0, i18n::format("O programa tem {} palavras, e esta ROM guarda {}.",
+                                                         {std::to_string(code.words32.size()), std::to_string(code.capacity)})});
+            }
+            if (code.problems.empty() && code.data32.size() > mips::kMemoryWords) {
+                code.problems.push_back({0, i18n::format("O .data tem {} palavras, e a RAM guarda {}.",
+                                                         {std::to_string(code.data32.size()), std::to_string(mips::kMemoryWords)})});
+            }
+            return;
+        }
         assembly::Result result = assembly::assemble(code.text.text());
         code.words = std::move(result.words);
+        code.lines = std::move(result.lines);
         code.problems = std::move(result.errors);
         if (code.problems.empty() && code.words.size() > code.capacity) {
             code.problems.push_back(
@@ -1124,7 +1395,7 @@ private:
 
     void showCodeCursor() {
         CodeEditing& code = *code_;
-        const app::CodeLayout layout = app::codeLayout(width_, height_);
+        const app::CodeLayout layout = app::codeLayout(width_, codeHeight());
         const editor::TextPosition cursor = code.text.cursor();
         code.scrollLine = std::clamp(code.scrollLine, cursor.line - layout.lines + 1, cursor.line);
         const int column = code.text.displayColumn(cursor);
@@ -1144,11 +1415,21 @@ private:
             goToProblem(0);
             return;
         }
+        if (code.mips) {
+            const std::optional<editor::Computer32State> computer = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards());
+            const std::vector<std::uint64_t> words(code.words32.begin(), code.words32.end());
+            const std::vector<std::uint64_t> data(code.data32.begin(), code.data32.end());
+            session_.setMemories(code.rom, words, code.text.text(), computer ? computer->ram : 0, data);
+            console_.clear();
+            code.original = code.text.text();
+            code.warning = i18n::format("Programa gravado: {} instruções e {} palavras de dados.", {std::to_string(words.size()), std::to_string(data.size())});
+            return;
+        }
         const std::vector<std::uint64_t> words(code.words.begin(), code.words.end());
         const std::string text = i18n::format("Programa gravado: {} palavras.", {std::to_string(words.size())});
         session_.setRomWords(words, code.text.text());
-        closeCode();
-        showNote(text.c_str(), false);
+        code.original = code.text.text();
+        code.warning = text;
     }
 
     // A draft nobody means to lose: leaving with changes takes a second request.
@@ -1170,7 +1451,7 @@ private:
 
     void placeCodeCursor(float x, float y, bool extend) {
         CodeEditing& code = *code_;
-        const app::CodeLayout layout = app::codeLayout(width_, height_);
+        const app::CodeLayout layout = app::codeLayout(width_, codeHeight());
         const int line = code.scrollLine + static_cast<int>(std::floor((y - layout.text.y) / app::kCodeLineHeight));
         const int column = code.scrollColumn + static_cast<int>(std::lround((x - layout.text.x) / app::kCodeCharWidth));
         code.text.place(line, column, extend);
@@ -1182,7 +1463,12 @@ private:
     }
 
     void pressCode(float x, float y) {
-        const app::CodeLayout layout = app::codeLayout(width_, height_);
+        const app::CodeLayout layout = app::codeLayout(width_, codeHeight());
+        if (const int tab = app::codeTabAt(codeView(), x, y, width_, codeHeight()); tab >= 0) {
+            code_->tab = tab;
+            code_->help = false;
+            return;
+        }
         if (inside(layout.help, x, y)) {
             code_->help = !code_->help;
             code_->helpScroll = 0.0f;
@@ -1197,7 +1483,7 @@ private:
             placeCodeCursor(x, y, (SDL_GetModState() & SDL_KMOD_SHIFT) != 0);
             code_->selecting = true;
         } else if (inside(layout.problems, x, y)) {
-            const int problem = app::codeProblemAt(codeView(), y, width_, height_);
+            const int problem = app::codeProblemAt(codeView(), y, width_, codeHeight());
             if (problem >= 0) goToProblem(static_cast<std::size_t>(problem));
         }
     }
@@ -1205,7 +1491,7 @@ private:
     void scrollCode(float amount) {
         CodeEditing& code = *code_;
         if (code.help) {
-            code.helpScroll = std::clamp(code.helpScroll - amount * 60.0f, 0.0f, app::codeHelpMaxScroll(renderer_, width_, height_));
+            code.helpScroll = std::clamp(code.helpScroll - amount * 60.0f, 0.0f, app::codeHelpMaxScroll(renderer_, width_, codeHeight(), code.mips));
             return;
         }
         const int limit = std::max(0, code.text.lineCount() - 1);
@@ -1217,7 +1503,7 @@ private:
         const bool shift = (mod & SDL_KMOD_SHIFT) != 0;
         editor::TextEdit& text = code_->text;
         code_->warning.clear();
-        const int page = std::max(1, app::codeLayout(width_, height_).lines - 1);
+        const int page = std::max(1, app::codeLayout(width_, codeHeight()).lines - 1);
         switch (key) {
             case SDLK_ESCAPE:
                 if (code_->help) {
@@ -1289,8 +1575,8 @@ private:
     }
 
     void wheel(float amount) {
-        if (code_) {
-            scrollCode(amount);
+        if (codeVisible()) {
+            if (mouseY_ >= app::kToolbarHeight) scrollCode(amount);
             return;
         }
         if (lessonsOpen_) {
@@ -1352,6 +1638,7 @@ private:
             }
             case Prompt::Contents: return "Conteúdo: palavras em hexadecimal, separadas por espaco";
             case Prompt::NewChip: return "Nome do novo chip";
+            case Prompt::DevPassword: return "Senha de desenvolvedor";
             default: return "";
         }
     }
@@ -1393,6 +1680,14 @@ private:
         const std::string text = typing_;
         const Prompt prompt = prompt_;
         closePrompt();
+        if (prompt == Prompt::DevPassword) {
+            if (text == kDevPassword) {
+                devUnlocked_ = true;
+            } else {
+                devDeniedUntil_ = SDL_GetTicks() + kNoteMs;
+            }
+            return;
+        }
         if (prompt == Prompt::NewChip) {
             if (!text.empty()) {
                 session_.createChip(text);
@@ -1449,7 +1744,7 @@ private:
                 autosave();
                 homeOpen_ = true;
                 break;
-            case app::SimButton::Reset: session_.resetSimulation(); break;
+            case app::SimButton::Reset: resetComputer(); break;
             case app::SimButton::Slower: session_.changeSpeed(-1); break;
             case app::SimButton::Faster: session_.changeSpeed(1); break;
             default: break;
@@ -1459,12 +1754,24 @@ private:
     void mouseDown(Uint8 button, float x, float y) {
         mouseX_ = x;
         mouseY_ = y;
-        if (code_) {
-            if (button == SDL_BUTTON_LEFT) pressCode(x, y);
+        if (codeVisible()) {
+            if (button != SDL_BUTTON_LEFT) return;
+            if (y >= app::kToolbarHeight) {
+                pressCode(x, y - app::kToolbarHeight);
+            } else {
+                pressToolbarOverCode(x, y);
+            }
             return;
         }
+        if (button == SDL_BUTTON_LEFT && computerHere_ && y < app::kToolbarHeight) {
+            const SDL_FRect r = app::programSwitchRect(boardRightEdge());
+            if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
+                showProgram();
+                return;
+            }
+        }
         if (homeOpen_) {
-            if (button == SDL_BUTTON_LEFT) chooseHome(app::homeAt(x, y, width_, height_));
+            if (button == SDL_BUTTON_LEFT) chooseHome(app::homeAt(x, y, width_, height_, homeComputers_));
             return;
         }
         if (galleryOpen_) {
@@ -1487,6 +1794,14 @@ private:
                     homeOpen_ = true;
                     break;
                 case app::LessonListKind::Reset: resetLessons(); break;
+                case app::LessonListKind::Unlock:
+                    // Opening asks for the password; closing again doesn't.
+                    if (devUnlocked_) {
+                        devUnlocked_ = false;
+                    } else {
+                        openPrompt(Prompt::DevPassword);
+                    }
+                    break;
                 case app::LessonListKind::Act:
                     lessonAct_ = hit.index;
                     lessonScroll_ = 0.0f;
@@ -1531,6 +1846,9 @@ private:
                 if (const std::optional<editor::ComputerState> computer =
                         editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards())) {
                     pressDebugger(app::debuggerAt(*computer, debuggerArea(), x, y));
+                } else if (const std::optional<editor::Computer32State> computer32 =
+                               editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
+                    pressDebugger(app::debugger32At(*computer32, debuggerArea(), x, y));
                 }
             }
             return;
@@ -1609,7 +1927,7 @@ private:
     }
 
     void mouseUp(Uint8 button) {
-        if (code_) {
+        if (codeVisible()) {
             code_->selecting = false;
             return;
         }
@@ -1767,12 +2085,16 @@ private:
     }
 
     void keyDown(SDL_Keycode key, SDL_Keymod mod) {
-        if (code_) {
+        if (codeVisible()) {
             codeKey(key, mod);
             return;
         }
         if (homeOpen_) {
-            if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) homeOpen_ = false;
+            if (homeComputers_) {
+                if (key == SDLK_ESCAPE) homeComputers_ = false;
+            } else if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+                homeOpen_ = false;
+            }
             return;
         }
         if (topic_ >= 0) {
@@ -1783,6 +2105,12 @@ private:
                 readingScroll_ = std::min(limit, readingScroll_ + (key == SDLK_DOWN ? 60.0f : page));
             }
             if (key == SDLK_UP || key == SDLK_PAGEUP) readingScroll_ = std::max(0.0f, readingScroll_ - (key == SDLK_UP ? 60.0f : page));
+            return;
+        }
+        if (lessonsOpen_ && prompt_ == Prompt::DevPassword) {
+            if (key == SDLK_ESCAPE) closePrompt();
+            if (key == SDLK_RETURN || key == SDLK_KP_ENTER) confirmPrompt();
+            if (key == SDLK_BACKSPACE && !typing_.empty()) typing_.pop_back();
             return;
         }
         if (lessonsOpen_ || galleryOpen_) {
@@ -1912,8 +2240,12 @@ private:
     Prompt prompt_ = Prompt::None;
     std::optional<CodeEditing> code_;
     bool homeOpen_ = false;
+    bool homeComputers_ = false;  // the home shows the page that picks a computer
     bool lessonsOpen_ = false;  // the list of lessons covers the window
+    bool codeShown_ = false;    // the program editor is open as the view, under the toolbar
     int lessonAct_ = 0;         // the act it shows
+    bool devUnlocked_ = false;  // the developer's switch: every act open, for this run only
+    Uint64 devDeniedUntil_ = 0;  // a wrong password says so on the button until then
     float lessonScroll_ = 0.0f;
     int topic_ = -1;            // the reading that covers the window, or -1
     float readingScroll_ = 0.0f;
@@ -1944,6 +2276,11 @@ private:
     Uint64 xrayStart_ = 0;  // when the step began
     bool xrayPinned_ = false;  // a step the player chose: it stays until the next instruction
     bool computerHere_ = false;  // a computer on the board, as of the last frame
+    bool is32_ = false;          // and it's the 32-bit one
+    std::string console_;        // what the 32-bit computer printed with syscall since it last started
+    std::array<std::uint32_t, 32> registers32Now_{};
+    std::array<std::uint32_t, 32> registers32Before_{};
+    bool program32_ = false;  // the player's program computer is the 32-bit one
     std::string reading_;
     Uint64 lastTick_ = 0;
     bool tableVisible_ = true;
@@ -2409,8 +2746,9 @@ void runProgram(App& app, SDL_Window* window) {
     s.key(SDLK_BACKSPACE);
     s.text(kFactorial);
     const std::size_t afterFix = app.codeProblems();
-    const app::CodeLayout layout = app::codeLayout(app.width(), app.height());
-    s.clickScreen(layout.assemble.x + 20.0f, layout.assemble.y + 10.0f);
+    const app::CodeLayout layout = app::codeLayout(app.width(), app.height() - static_cast<int>(app::kToolbarHeight));
+    s.clickScreen(layout.assemble.x + 20.0f, layout.assemble.y + 10.0f + app::kToolbarHeight);
+    s.key(SDLK_ESCAPE);  // assembled, the editor stays; Esc closes it
     const bool closed = !app.codeOpen();
 
     const editor::Part* rom = app.session().board().part(parts.rom);
@@ -2502,7 +2840,14 @@ int main(int argc, char** argv) {
     int stress = 0;
     int windowWidth = 1280;  // --tamanho WxH, for screenshots
     int windowHeight = 720;
-    for (int i = 1; i + 1 < argc; i += 2) {
+    bool devArgument = false;  // --dev: every act open from the start
+    for (int i = 1; i < argc; i += 2) {
+        if (std::strcmp(argv[i], "--dev") == 0) {
+            devArgument = true;
+            --i;  // it takes no value
+            continue;
+        }
+        if (i + 1 >= argc) break;
         if (std::strcmp(argv[i], "--frames") == 0) maxFrames = std::strtol(argv[i + 1], nullptr, 10);
         if (std::strcmp(argv[i], "--screenshot") == 0) screenshot = argv[i + 1];
         if (std::strcmp(argv[i], "--script") == 0) script = argv[i + 1];
@@ -2546,6 +2891,7 @@ int main(int argc, char** argv) {
     if (dataDirectory.empty()) dataDirectory = fs::temp_directory_path() / "bancada";
 
     App app(window, renderer, dataDirectory);
+    if (devArgument) app.unlockEverything();
     // For this run only, without saving it: the screenshots of each language.
     if (languageArgument != nullptr) {
         if (const auto language = i18n::languageFromCode(languageArgument)) i18n::setLanguage(*language);
@@ -2574,11 +2920,57 @@ int main(int argc, char** argv) {
     if (script != nullptr && std::strcmp(script, "velocidade") == 0) startSpeedRun(app, window);
     if (script != nullptr && std::strncmp(script, "dentro:", 7) == 0) showInside(app, window, std::atoi(script + 7));
     if (script != nullptr && std::strcmp(script, "inicio") == 0) app.showHome();
+    if (script != nullptr && std::strcmp(script, "computadores") == 0) app.showComputers();
+    if (script != nullptr && std::strcmp(script, "programar32") == 0) app.openProgram32();
+    // rodar32:N:V: the 32-bit program computer, N instructions in, on view V (1 Panel, 2 X-ray).
+    if (script != nullptr && std::strncmp(script, "rodar32:", 8) == 0) {
+        Script s(app, window);
+        app.openProgram32();
+        for (int i = 0; i < 2 * std::atoi(script + 8); ++i) app.session().stepClock();
+        app.draw("");
+        const char* view = std::strchr(script + 8, ':');
+        if (view != nullptr) {
+            const SDL_FRect r = app::viewSwitchRect(app.boardRightEdge(), std::atoi(view + 1));
+            s.clickScreen(r.x + 20.0f, r.y + 10.0f);
+        }
+        s.moveScreen(700, 400);
+    }
     if (script != nullptr && std::strcmp(script, "aulas") == 0) app.showLessons();
     // leitura:N, the reading of topic N; leitura:N:S, scrolled S pixels down.
     if (script != nullptr && std::strncmp(script, "leitura:", 8) == 0) {
         app.openReading(std::atoi(script + 8));
         if (const char* colon = std::strchr(script + 8, ':')) app.scrollReading(static_cast<float>(std::atof(colon + 1)));
+    }
+    // senha:TEXTO[:enter], the lesson list with the developer's password field open and TEXTO typed (and confirmed).
+    if (script != nullptr && std::strncmp(script, "senha:", 6) == 0) {
+        Script s(app, window);
+        app.showLessons();
+        app.showAct(7);
+        app.draw("");
+        s.clickScreen(static_cast<float>(app.width()) - 24.0f - 230.0f - 12.0f - 100.0f, 40.0f);
+        const std::string spec(script + 6);
+        const std::size_t colon = spec.find(':');
+        s.text(spec.substr(0, colon).c_str());
+        if (colon != std::string::npos) s.key(SDLK_RETURN);
+        s.moveScreen(10.0f, 300.0f);
+    }
+    // codigo:STEPS:TAB, the "conte até 5" lesson with its program written and assembled, STEPS instructions run
+    // and the editor's right column on TAB (0 task, 1 commands, 2 blocks).
+    if (script != nullptr && std::strncmp(script, "codigo:", 7) == 0) {
+        Script s(app, window);
+        app.startLesson(editor::lessonIndex("conte-ate-cinco"));
+        app.draw("");
+        s.keyWithControl(SDLK_A);
+        s.text("        LI   R1, 1\n        LI   R2, 6\nla\xC3\xA7o:   OUT  R1\n        ADDI R1, R1, 1\n        BNE  R1, R2, la\xC3\xA7o\n        HLT\n");
+        s.keyWithControl(SDLK_RETURN);
+        const int steps = std::atoi(script + 7);
+        for (int i = 0; i < steps; ++i) {
+            app.session().stepClock();
+            app.session().stepClock();
+            app.draw("");
+        }
+        if (const char* colon = std::strchr(script + 7, ':')) app.setCodeTab(std::atoi(colon + 1));
+        s.moveScreen(600, 400);
     }
     // ato:N, the list of lessons on act N.
     if (script != nullptr && std::strncmp(script, "ato:", 4) == 0) {
@@ -2615,6 +3007,7 @@ int main(int argc, char** argv) {
         Script s(app, window);
         app.startLesson(std::atoi(script + 5));
         app.draw("");
+        if (std::strstr(script + 5, ":f") != nullptr) s.key(SDLK_ESCAPE);  // the code editor closed, back on the board
         if (std::strstr(script + 5, ":v") != nullptr) {
             const SDL_FRect strip = app.lessonStripArea();
             s.clickScreen(strip.x + strip.w - 106.0f, strip.y + 33.0f);
