@@ -1,0 +1,9 @@
+build/
+out/
+dados/
+*.exe
+!jogar/windows/bancada.exe
+*.AppImage
+.vscode/
+.idea/
+NVIDIA Corporation/

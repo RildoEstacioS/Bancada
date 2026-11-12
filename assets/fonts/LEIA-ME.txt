@@ -1,0 +1,3 @@
+Fontes Ubuntu (Ubuntu-R, Ubuntu-M e UbuntuMono-R), copyright Canonical Ltd.
+Distribuidas sob a Ubuntu Font Licence 1.0, cujo texto completo esta em LICENCA-fonte-ubuntu.txt.
+Elas vao embutidas no executavel por tools/embed_fonts.py, sem alteracao.

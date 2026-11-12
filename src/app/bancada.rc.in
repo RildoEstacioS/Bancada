@@ -1,0 +1,36 @@
+// What Windows shows about bancada.exe: its icon, and the name, version and description in Properties,
+// in the taskbar and in the security prompts. CMake fills in the @...@ fields and writes the result to
+// the build folder, next to a copy of the icon, so no path here has to survive the accent in a user name.
+// The text stays in plain ASCII because windres reads it in the Windows code page.
+#include <winver.h>
+
+1 ICON "bancada.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041604B0"
+        BEGIN
+            VALUE "CompanyName",      "@BANCADA_AUTHOR@"
+            VALUE "FileDescription",  "Bancada - circuitos do LED ao computador"
+            VALUE "FileVersion",      "@PROJECT_VERSION@"
+            VALUE "InternalName",     "bancada"
+            VALUE "LegalCopyright",   "(c) @BANCADA_YEAR@ @BANCADA_AUTHOR@"
+            VALUE "OriginalFilename", "bancada.exe"
+            VALUE "ProductName",      "Bancada"
+            VALUE "ProductVersion",   "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0416, 1200
+    END
+END
