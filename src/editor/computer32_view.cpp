@@ -117,6 +117,12 @@ std::optional<Computer32State> readComputer32(const Board& board, const BoardCir
         for (std::uint32_t i = 0; i < 8 && top + i < mips::kMemoryWords; ++i) {
             state.stack.push_back(static_cast<std::uint32_t>(circuit.memoryWord(ramPath, top + i)));
         }
+        const std::uint32_t op = state.instruction >> 26;
+        if (op == mips::kOpLw || op == mips::kOpSw) {
+            const auto offset = static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(state.instruction & 0xFFFFu)));
+            const std::uint32_t address = state.registers[(state.instruction >> 21) & 31u] + offset;
+            state.memoryAtAddress = static_cast<std::uint32_t>(circuit.memoryWord(ramPath, (address >> 2) % mips::kMemoryWords));
+        }
     }
     const unsigned switchesPin = pinNamed(*cpu, "Chaves");
     if (switchesPin != UINT_MAX) state.switches = static_cast<std::uint32_t>(circuit.pinValue(cpu->id, switchesPin));
@@ -209,6 +215,303 @@ std::string explainInstruction32(const Computer32State& state) {
         case kOpLw: return i18n::format("lw: lê a RAM no endereço {} + {} = {} e guarda em {}.", {with(f.rs), std::to_string(f.simm), hex(address), name(f.rt)});
         case kOpSw: return i18n::format("sw: grava {} na RAM, no endereço {} + {} = {}.", {with(f.rt), with(f.rs), std::to_string(f.simm), hex(address)});
         default: return i18n::format("{}: uma instrução que este computador não tem.", {state.text});
+    }
+}
+
+Trace32 traceInstruction32(std::uint32_t word, std::uint32_t pc, const std::array<std::uint32_t, 32>& registers, std::uint32_t switches,
+                           std::uint32_t memoryAtAddress) {
+    using namespace mips;
+    using Back = Trace32::Back;
+    using Next = Trace32::Next;
+    Trace32 t;
+    const Fields f = fieldsOf(word);
+    t.pc = pc;
+    t.pc4 = pc + 4;
+    t.word = word;
+    t.text = disassemble(word, pc);
+    t.name = t.text.substr(0, t.text.find(' '));
+    t.op = f.op;
+    t.funct = f.funct;
+    t.rs = f.rs;
+    t.rt = f.rt;
+    t.rd = f.rd;
+    t.shamt = f.shamt;
+    t.imm = f.imm;
+    t.format = f.op == kOpSpecial ? 'R' : f.op == kOpJ || f.op == kOpJal ? 'J' : 'I';
+    t.branchTarget = t.pc4 + (static_cast<std::uint32_t>(f.simm) << 2);
+    t.jumpTarget = (t.pc4 & 0xF0000000u) | ((word & 0x03FFFFFFu) << 2);
+    t.nextPc = t.pc4;
+
+    const auto readA = [&](unsigned r) {
+        t.readsA = true;
+        t.registerA = r;
+        t.valueA = registers[r];
+    };
+    const auto readB = [&](unsigned r) {
+        t.readsB = true;
+        t.registerB = r;
+        t.valueB = registers[r];
+    };
+    const auto immediate = [&](bool sign) {
+        t.usesImmediate = true;
+        t.signExtends = sign;
+        t.extended = sign ? static_cast<std::uint32_t>(f.simm) : f.imm;
+    };
+    const auto alu = [&](const char* operation, std::uint32_t a, std::uint32_t b, std::uint32_t result) {
+        t.usesAlu = true;
+        t.aluOperation = operation;
+        t.aluA = a;
+        t.aluB = b;
+        t.aluResult = result;
+        t.zero = result == 0;
+    };
+    const auto write = [&](Back back, unsigned destination, unsigned reg, std::uint32_t value) {
+        t.destination = destination;
+        if (reg == 0) return;
+        t.back = back;
+        t.written = reg;
+        t.writtenValue = value;
+    };
+    const auto stop = [&](bool invalid) {
+        t.halts = true;
+        t.invalid = invalid;
+        t.next = Next::Stay;
+        t.nextPc = pc;
+    };
+    const auto lessSigned = [](std::uint32_t a, std::uint32_t b) { return static_cast<std::int32_t>(a) < static_cast<std::int32_t>(b) ? 1u : 0u; };
+
+    if (f.op == kOpSpecial) {
+        const auto three = [&](const char* operation, std::uint32_t result) {
+            readA(f.rs);
+            readB(f.rt);
+            alu(operation, t.valueA, t.valueB, result);
+            write(Back::Alu, 1, f.rd, result);
+        };
+        const std::uint32_t a = registers[f.rs];
+        const std::uint32_t b = registers[f.rt];
+        switch (f.funct) {
+            case kFnSll:
+            case kFnSrl:
+            case kFnSra: {
+                readB(f.rt);
+                t.shifts = true;
+                const std::uint32_t result = f.funct == kFnSll ? b << f.shamt
+                                             : f.funct == kFnSrl ? b >> f.shamt
+                                                                 : static_cast<std::uint32_t>(static_cast<std::int32_t>(b) >> f.shamt);
+                alu(f.funct == kFnSll ? "<<" : f.funct == kFnSrl ? ">>" : ">>±", f.shamt, b, result);
+                write(Back::Alu, 1, f.rd, result);
+                break;
+            }
+            case kFnJr:
+                readA(f.rs);
+                t.next = Next::Register;
+                t.nextPc = t.valueA;
+                break;
+            case kFnSyscall:
+                t.syscall = true;
+                readA(kV0);
+                readB(kA0);
+                t.call = t.valueA;
+                switch (t.call) {
+                    case kPrintInt:
+                        t.printsNumber = true;
+                        t.printed = t.valueB;
+                        break;
+                    case kPrintChar:
+                        t.printsChar = true;
+                        t.printed = t.valueB;
+                        break;
+                    case kReadInt: write(Back::Switches, 3, kV0, switches); break;
+                    case kExit: stop(false); break;
+                    default: stop(true); break;
+                }
+                if (t.back == Back::None) t.destination = 3;
+                break;
+            case kFnAdd:
+            case kFnAddu: three("+", a + b); break;
+            case kFnSub:
+            case kFnSubu: three("-", a - b); break;
+            case kFnAnd: three("E", a & b); break;
+            case kFnOr: three("OU", a | b); break;
+            case kFnXor: three("OUX", a ^ b); break;
+            case kFnNor: three("NOU", ~(a | b)); break;
+            case kFnSlt: three("<", lessSigned(a, b)); break;
+            case kFnSltu: three("<u", a < b ? 1u : 0u); break;
+            default: stop(true); break;
+        }
+        return t;
+    }
+    switch (f.op) {
+        case kOpJ:
+            t.next = Next::Jump;
+            t.nextPc = t.jumpTarget;
+            break;
+        case kOpJal:
+            t.next = Next::Jump;
+            t.nextPc = t.jumpTarget;
+            write(Back::Link, 2, kRa, t.pc4);
+            break;
+        case kOpBeq:
+        case kOpBne: {
+            readA(f.rs);
+            readB(f.rt);
+            immediate(true);
+            alu("-", t.valueA, t.valueB, t.valueA - t.valueB);
+            t.branches = true;
+            t.taken = (f.op == kOpBeq) == (t.valueA == t.valueB);
+            if (t.taken) {
+                t.next = Next::Branch;
+                t.nextPc = t.branchTarget;
+            }
+            break;
+        }
+        case kOpAddi:
+        case kOpAddiu:
+        case kOpSlti:
+        case kOpSltiu:
+        case kOpAndi:
+        case kOpOri:
+        case kOpXori:
+        case kOpLui: {
+            const bool sign = f.op == kOpAddi || f.op == kOpAddiu || f.op == kOpSlti || f.op == kOpSltiu;
+            if (f.op != kOpLui) readA(f.rs);
+            immediate(sign);
+            t.aluTakesImmediate = true;
+            const std::uint32_t a = t.valueA;
+            const std::uint32_t b = t.extended;
+            switch (f.op) {
+                case kOpAddi:
+                case kOpAddiu: alu("+", a, b, a + b); break;
+                case kOpSlti: alu("<", a, b, lessSigned(a, b)); break;
+                case kOpSltiu: alu("<u", a, b, a < b ? 1u : 0u); break;
+                case kOpAndi: alu("E", a, b, a & b); break;
+                case kOpOri: alu("OU", a, b, a | b); break;
+                case kOpXori: alu("OUX", a, b, a ^ b); break;
+                default:
+                    t.shifts = true;
+                    alu("<<16", 16, b, b << 16);
+                    break;
+            }
+            write(Back::Alu, 0, f.rt, t.aluResult);
+            break;
+        }
+        case kOpLw:
+        case kOpSw:
+            readA(f.rs);
+            if (f.op == kOpSw) readB(f.rt);
+            immediate(true);
+            t.aluTakesImmediate = true;
+            alu("+", t.valueA, t.extended, t.valueA + t.extended);
+            t.address = t.aluResult;
+            if (f.op == kOpLw) {
+                t.readsMemory = true;
+                t.memoryValue = memoryAtAddress;
+                write(Back::Memory, 0, f.rt, memoryAtAddress);
+            } else {
+                t.writesMemory = true;
+                t.memoryValue = t.valueB;
+            }
+            break;
+        default: stop(true); break;
+    }
+    return t;
+}
+
+Trace32 traceInstruction32(const Computer32State& state) {
+    return traceInstruction32(state.instruction, state.pc, state.registers, state.switches, state.memoryAtAddress);
+}
+
+std::string explainStage32(const Trace32& t, int stage) {
+    using Back = Trace32::Back;
+    using Next = Trace32::Next;
+    using i18n::format;
+    using i18n::tr;
+    const auto name = [](unsigned index) { return std::string(mips::registerName(index)); };
+    const auto with = [&](unsigned index, std::uint32_t value) { return name(index) + " (" + number(value) + ")"; };
+    switch (stage) {
+        case 0:
+            return format("O PC vale {}: é o endereço da instrução. A ROM de instruções entrega a palavra desse endereço, {}, que é {}. Ao mesmo "
+                          "tempo, o somador PC + 4 calcula {}: cada instrução ocupa 4 bytes, então a seguinte está 4 endereços adiante.",
+                          {hex(t.pc), hex(t.word), t.text, hex(t.pc4)});
+        case 1: {
+            if (t.invalid && !t.syscall) {
+                return format("Os 6 bits de cima, op = {}, e o funct = {} não formam nenhuma instrução deste computador: o controle liga Inválida, e ele para.",
+                              {std::to_string(t.op), std::to_string(t.funct)});
+            }
+            std::string fields;
+            if (t.format == 'R') {
+                fields = format("Os 6 bits de cima, op = 0, dizem que é do tipo R: o funct = {}, nos 6 de baixo, diz qual é: {}.", {std::to_string(t.funct), t.name});
+            } else if (t.format == 'J') {
+                fields = format("Os 6 bits de cima, op = {}, dizem que é do tipo J: {}, com um alvo de 26 bits.", {std::to_string(t.op), t.name});
+            } else {
+                fields = format("Os 6 bits de cima, op = {}, dizem que é do tipo I: {}, com um imediato de 16 bits.", {std::to_string(t.op), t.name});
+            }
+            if (t.syscall) {
+                fields += " " + format("Num syscall, o controle faz os registradores lerem $v0 ({}) e $a0 ({}).", {number(t.valueA), number(t.valueB)});
+            } else if (t.readsA && t.readsB) {
+                fields += " " + format("Os registradores lidos são {} e {}.", {with(t.registerA, t.valueA), with(t.registerB, t.valueB)});
+            } else if (t.readsA) {
+                fields += " " + format("O registrador lido é {}.", {with(t.registerA, t.valueA)});
+            } else if (t.readsB) {
+                fields += " " + format("O registrador lido é {}.", {with(t.registerB, t.valueB)});
+            }
+            if (t.usesImmediate) {
+                fields += " " + format("O imediato {} vira 32 bits no extensor, {}: {}.",
+                                       {hex(t.imm).substr(6), tr(t.signExtends ? "copiando o sinal" : "com zeros em cima"), number(t.extended)});
+            }
+            if (t.back != Back::None) {
+                static constexpr const char* kWhich[] = {"rt", "rd", "$ra", "$v0"};
+                fields += " " + format("O resultado vai para {}: o MUX do destino escolhe {}.", {name(t.written), kWhich[t.destination]});
+            }
+            return fields;
+        }
+        case 2: {
+            if (t.syscall) {
+                switch (t.call) {
+                    case mips::kPrintInt: return format("A unidade Sistema vê $v0 = 1: liga ImprimeNum, e o console mostra o número em $a0, {}.", {number(t.printed)});
+                    case mips::kPrintChar: return format("A unidade Sistema vê $v0 = 11: liga ImprimeCar, e o console mostra o caractere de código {}.", {number(t.printed)});
+                    case mips::kReadInt: return tr("A unidade Sistema vê $v0 = 5: liga LeChaves, e o que as chaves formam vai voltar para $v0.");
+                    case mips::kExit: return tr("A unidade Sistema vê $v0 = 10: liga Pare, e o PC deixa de andar.");
+                    default: return format("A unidade Sistema não conhece o código $v0 = {}: liga Desconhecida, e o computador para.", {number(t.call)});
+                }
+            }
+            if (t.next == Next::Jump) {
+                return format("O alvo do salto junta os 4 bits de cima de PC + 4 com o alvo × 4: {}. A ULA não é usada.", {hex(t.jumpTarget)});
+            }
+            if (t.next == Next::Register) return format("jr não usa a ULA: o endereço de volta já está em {}: {}.", {name(t.registerA), hex(t.valueA)});
+            if (!t.usesAlu) return tr("Esta instrução não usa a ULA.");
+            if (t.branches) {
+                return format("A ULA subtrai para comparar: {} - {} = {}, então Z = {}. Ao mesmo tempo, o somador do desvio calcula PC + 4 + imediato × 4 = {}.",
+                              {number(t.aluA), number(t.aluB), number(t.aluResult), std::to_string(t.zero ? 1 : 0), hex(t.branchTarget)});
+            }
+            if (t.shifts) {
+                return format("O deslocador da ULA move {} {} casas ({}): dá {}.", {hex(t.aluB), number(t.aluA), t.aluOperation, hex(t.aluResult)});
+            }
+            const std::string second = t.aluTakesImmediate ? tr("o imediato") : tr("o registrador B");
+            std::string sentence = format("A ULA faz {} {} {} = {}. A entrada B é {}, escolhido pelo MUX B.",
+                                          {number(t.aluA), tr(t.aluOperation.c_str()), number(t.aluB), number(t.aluResult), second});
+            if (t.readsMemory || t.writesMemory) sentence += " " + format("O resultado é um endereço: {}.", {hex(t.address)});
+            return sentence;
+        }
+        case 3:
+            if (t.readsMemory) return format("A RAM de dados lê o endereço {} e entrega {}.", {hex(t.address), number(t.memoryValue)});
+            if (t.writesMemory) return format("A RAM de dados grava {} no endereço {}, na subida do clock.", {number(t.memoryValue), hex(t.address)});
+            return tr("Esta instrução não usa a RAM.");
+        case 4: {
+            if (t.back == Back::None) return tr("Nada é gravado nos registradores.");
+            const char* from = t.back == Back::Alu ? "o resultado da ULA" : t.back == Back::Memory ? "o que veio da RAM" : t.back == Back::Link ? "PC + 4, o endereço de volta" : "as chaves";
+            return format("O MUX de volta escolhe {}, {}, e ele é gravado em {} na subida do clock.", {tr(from), number(t.writtenValue), name(t.written)});
+        }
+        default:
+            switch (t.next) {
+                case Next::Branch: return format("O desvio é tomado: o MUX do próximo PC escolhe o alvo do desvio, e o PC recebe {}.", {hex(t.nextPc)});
+                case Next::Jump: return format("O MUX do próximo PC escolhe o alvo do salto: o PC recebe {}.", {hex(t.nextPc)});
+                case Next::Register: return format("O MUX do próximo PC escolhe o registrador: o PC recebe {}.", {hex(t.nextPc)});
+                case Next::Stay: return format("O computador para: o PC fica em {}.", {hex(t.pc)});
+                default:
+                    if (t.branches) return format("O desvio não é tomado: o MUX do próximo PC escolhe PC + 4, e o PC recebe {}.", {hex(t.nextPc)});
+                    return format("O MUX do próximo PC escolhe PC + 4: o PC recebe {}.", {hex(t.nextPc)});
+            }
     }
 }
 

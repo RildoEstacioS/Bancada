@@ -159,6 +159,37 @@ Board transistorGate(std::initializer_list<const char*> inputs) {
     return board;
 }
 
+// --- Bits ---------------------------------------------------------------------------------------------
+
+// Four switches, one for each bit, named by what the bit is worth; and a display for the number they make.
+Board fourSwitches() {
+    Board board;
+    Layout l(board);
+    // The bit worth 1 on top, as the joiner takes it: the wires go straight across.
+    const char* names[] = {"1", "2", "4", "8"};
+    for (int i = 0; i < 4; ++i) l.input(names[i], {0, 2 + 7 * i});
+    l.output("N", {44, 12}, 4);  // the number, in a digit
+    return board;
+}
+
+// A number of four bits coming in on one bus, and a real LED for each of its bits.
+Board fourLeds() {
+    Board board;
+    Layout l(board);
+    l.input("N", {0, 12}, 4);
+    const char* names[] = {"1", "2", "4", "8"};
+    for (int i = 0; i < 4; ++i) ledOutput(l, names[i], {36, 1 + 9 * i});
+    return board;
+}
+
+Board noBoard() { return Board{}; }
+
+// The four switches worth 8, 4, 2 and 1, as one number.
+std::uint64_t weighed(std::span<const std::uint64_t> in, std::size_t) { return 8 * in[0] + 4 * in[1] + 2 * in[2] + in[3]; }
+
+// The bit of the number each LED is worth: 8, 4, 2, then 1.
+std::uint64_t bitOfNumber(std::span<const std::uint64_t> in, std::size_t output) { return (in[0] >> (3 - output)) & 1u; }
+
 Board notTransistor() { return transistorGate({"A"}); }
 Board twoTransistors() { return transistorGate({"A", "B"}); }
 Board gateOneInput() { return namedSignals({"A"}, {"S"}); }
@@ -761,11 +792,143 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 3: logic gates.
+    // Act 3: bits. What a wire's 0 and 1 are, and how a few of them make a number.
+    {
+        Lesson l;
+        l.id = "dois-bits";
+        l.act = 2;
+        l.title = "Dois bits, quatro números";
+        l.story = "Cada chave é um bit: ligada vale 1, desligada vale 0. Com dois bits dá para escrever quatro números: 00, 01, 10 e 11, ou "
+                  "seja, 0, 1, 2 e 3. Ligue cada chave ao seu LED e veja os quatro números aparecerem, um bit em cada luz.";
+        l.steps = {"Ligue a chave B1 ao resistor do LED L1, e a chave B0 ao resistor do LED L0.",
+                   "Ligue as chaves de todos os jeitos e veja: o fio de um bit 1 fica claro, o de um bit 0 fica escuro.",
+                   "A tabela-verdade ao lado mostra as quatro combinações: 00, 01, 10 e 11."};
+        l.hints = {"O fio sai do pino da direita da chave e entra no pino de cima do resistor de cada LED.",
+                   "B1 é o bit da esquerda, que vale 2; B0 é o da direita, que vale 1. Com os dois ligados: 2 + 1 = 3."};
+        l.success = "Dois fios, quatro números. Cada bit a mais dobra a conta: três bits fazem 8 números, quatro fazem 16.";
+        l.start = [] { return namedSignals({"B1", "B0"}, {"L1", "L0"}); };
+        l.check = LessonCheck::Table;
+        l.inputs = {"B1", "B0"};
+        l.outputs = {"L1", "L0"};
+        l.table = "00011011";
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "quatro-bits-numero";
+        l.act = 2;
+        l.title = "Quatro bits viram um número";
+        l.story = "Cada chave tem o seu peso: 8, 4, 2 e 1. O Juntador junta os quatro fios num só fio grosso, o barramento, e a Saída N mostra o "
+                  "número que eles formam. Ligue as chaves dos pesos 4 e 1: N mostra 5, porque 4 + 1 = 5.";
+        l.steps = {"Arraste um Juntador (Fios) para o meio. No painel da direita, deixe-o com 4 bits e 4 entradas.",
+                   "Ligue a chave 1 na entrada de cima do Juntador, a 2 na seguinte, depois a 4, e a 8 na de baixo.",
+                   "Ligue a saída do Juntador à Saída N, e teste: 4 e 1 ligadas mostram 5."};
+        l.hints = {"A entrada de cima do Juntador é o bit 0, o que vale 1. A de baixo é o bit 3, o que vale 8.",
+                   "Se N mostrar 10 em vez de 5, os fios estão de cabeça para baixo: a chave 1 tem de ir na entrada de cima.",
+                   "A Saída mostra o número em hexadecimal: de 10 a 15 aparecem as letras A a F. A próxima leitura conta por quê."};
+        l.success = "Quatro fios, um número de 0 a 15. O barramento é o mesmo número, num fio só: o fio grosso fica azul-claro quando algum bit é 1.";
+        l.start = fourSwitches;
+        l.parts = {PartKind::Joiner};
+        l.required = {PartKind::Joiner};
+        l.check = LessonCheck::Table;
+        l.inputs = {"8", "4", "2", "1"};
+        l.outputs = {"N"};
+        l.expect = weighed;
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "numero-em-bits";
+        l.act = 2;
+        l.title = "Um número vira quatro bits";
+        l.story = "Agora o contrário: o número N chega num barramento, e cada LED tem de mostrar um bit dele. O Separador abre o barramento em "
+                  "fios de um bit. Com N = 5, ou 0101, acendem o 4 e o 1.";
+        l.steps = {"Arraste um Separador (Fios) e deixe-o com 4 bits e 4 saídas.",
+                   "Ligue a entrada N no Separador. A saída de cima vai ao LED 1, a seguinte ao 2, depois ao 4, e a de baixo ao 8.",
+                   "Mude N clicando nos seus bits: os LEDs acendem como os bits do número."};
+        l.hints = {"Como no Juntador, a saída de cima do Separador é o bit 0, o que vale 1.",
+                   "Cada LED tem o seu resistor: o fio do Separador entra no pino de cima do resistor."};
+        l.success = "Juntador e Separador fazem o caminho de ida e volta: de fios a número e de número a fios. A CPU faz isso o tempo todo.";
+        l.start = fourLeds;
+        l.parts = {PartKind::Splitter};
+        l.required = {PartKind::Splitter};
+        l.check = LessonCheck::Table;
+        l.inputs = {"N"};
+        l.outputs = {"8", "4", "2", "1"};
+        l.expect = bitOfNumber;
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "quanto-vale";
+        l.act = 2;
+        l.title = "Quanto vale?";
+        l.story = "Sem montar nada desta vez: ler e escrever números em binário, de cabeça. As luzes acesas são os bits 1; embaixo de cada uma "
+                  "está o quanto ela vale. Some o valor das acesas.";
+        l.steps = {"Leia as luzes e digite a resposta no teclado.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Os pesos dobram da direita para a esquerda: 1, 2, 4, 8, 16, 32, 64, 128.",
+                   "Para escrever um número em binário, tire o maior peso que cabe, depois o seguinte, até sobrar zero. 9 = 8 + 1: 1001."};
+        l.success = "Agora você lê e escreve binário. É só somar pesos.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quanto vale este número? Digite em decimal.", "0011", 10, "3", "2 + 1 = 3.",
+             "Some os números embaixo das luzes acesas: aqui estão acesas a do 2 e a do 1."},
+            {"E este?", "0101", 10, "5", "4 + 1 = 5.", "Acesas estão a luz que vale 4 e a que vale 1. Some as duas."},
+            {"E este?", "1010", 10, "10", "8 + 2 = 10.", "Acesas estão a luz que vale 8 e a que vale 2."},
+            {"E este, com as quatro luzes acesas?", "1111", 10, "15", "8 + 4 + 2 + 1 = 15: o maior número de 4 bits.",
+             "Todas acesas: some 8, 4, 2 e 1."},
+            {"Agora com 8 bits, um byte. Quanto vale?", "0010 1010", 10, "42", "32 + 8 + 2 = 42.",
+             "Com 8 bits os pesos vão até 128. Some os das luzes acesas: 32, 8 e 2."},
+            {"E este byte?", "1000 0000", 10, "128", "Só o bit que vale 128 está aceso.", "Só uma luz está acesa: o número é o que está embaixo dela."},
+            {"Escreva 9 em binário, com 4 bits.", "", 2, "1001", "9 = 8 + 1: acendem o 8 e o 1.",
+             "As casas valem 8, 4, 2 e 1. Que casas somam 9? Escreva 1 nelas e 0 nas outras, da casa do 8 para a do 1."},
+            {"Escreva 6 em binário, com 4 bits.", "", 2, "0110", "6 = 4 + 2.", "6 = 4 + 2. As casas são 8, 4, 2 e 1: ponha 1 nas do 4 e do 2."},
+            {"Escreva 200 em binário, com 8 bits.", "", 2, "11001000", "200 = 128 + 64 + 8.",
+             "Tire o maior peso que cabe: 200 - 128 = 72, 72 - 64 = 8, 8 - 8 = 0. As casas são 128, 64, 32, 16, 8, 4, 2 e 1."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "contar-binario";
+        l.act = 2;
+        l.title = "Contar e o hexadecimal";
+        l.story = "Contar em binário é somar 1, com vai-um: 1 + 1 dá 0 e vai 1 para a casa da esquerda. E como os números ficam compridos, "
+                  "eles costumam ser escritos em hexadecimal, um dígito de 0 a F para cada 4 bits. A Saída do simulador mostra assim.";
+        l.steps = {"Leia a pergunta e digite a resposta: em binário, decimal ou hexadecimal, como ela pede.",
+                   "Enter (ou Responder) confere."};
+        l.hints = {"Somar 1: troque os 1 da direita por 0 até achar um 0, e troque esse 0 por 1. 0111 + 1 = 1000.",
+                   "Hexadecimal: 10 = A, 11 = B, 12 = C, 13 = D, 14 = E, 15 = F. Cada grupo de 4 bits vira um dígito."};
+        l.success = "Binário, decimal e hexadecimal são o mesmo número escrito de três jeitos. Agora as portas lógicas vão fazer contas com eles.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Qual é o número seguinte? Digite em binário.", "0111", 2, "1000", "0111 + 1: o vai-um anda até o bit que vale 8. 7 + 1 = 8.",
+             "O seguinte é este mais 1. Troque os 1 da direita por 0 até achar um 0, e troque esse 0 por 1. Responda só com 0 e 1."},
+            {"E depois deste?", "1001", 2, "1010", "1 + 1 dá 0 e vai 1: 1001 + 1 = 1010. 9 + 1 = 10.",
+             "O último bit é 1: vira 0, e o vai-um passa para o bit ao lado, que é 0 e vira 1."},
+            {"E depois deste byte?", "0011 1111", 2, "01000000", "Seis bits 1 viram 0, e o vai-um acende o que vale 64. 63 + 1 = 64.",
+             "Os seis 1 da direita viram 0, e o primeiro 0 depois deles vira 1."},
+            {"Com só 4 bits, o que vem depois de 1111?", "1111", 2, "0000",
+             "15 + 1 = 16 não cabe em 4 bits: o vai-um sai pela esquerda e sobra 0000. É o estouro.",
+             "Todos os 1 viram 0, e o vai-um não tem mais casa para onde ir: fica só o que cabe nos 4 bits."},
+            {"Escreva este número em hexadecimal.", "1011", 16, "B", "1011 = 11, e 11 em hexadecimal é B.",
+             "Primeiro some os pesos das luzes acesas. Depois: em hexadecimal, 10 é A, 11 é B, 12 é C, 13 é D, 14 é E e 15 é F."},
+            {"E este byte, em hexadecimal?", "0010 1010", 16, "2A", "Quatro bits por dígito: 0010 = 2 e 1010 = A. 0x2A é 42.",
+             "Cada grupo de 4 luzes vira um dígito. Leia cada grupo com os pesos 8, 4, 2 e 1, e escreva os dois dígitos lado a lado."},
+            {"Quanto vale 0x1F em decimal?", "", 10, "31", "1 × 16 + F (15) = 31.", "O 1 está na casa do 16, e o F vale 15. Some 16 com 15."},
+            {"Uma Saída de 8 bits mostra FF. Quanto é em decimal?", "", 10, "255", "15 × 16 + 15 = 255: os oito bits acesos.",
+             "F vale 15. O primeiro F está na casa do 16: 15 × 16, mais o segundo F."},
+        };
+        all.push_back(l);
+    }
+
+    // Act 4: logic gates.
     {
         Lesson l;
         l.id = "porta-e";
-        l.act = 2;
+        l.act = 3;
         l.title = "Acenda um LED com uma porta";
         l.story = "Daqui em diante cada porta é uma caixinha pronta, feita dos transistores que você já montou. A saída de uma porta tem "
                   "força para acender um LED de verdade, com o resistor de sempre. A porta E (AND) liga a saída só quando todas as entradas estão ligadas.";
@@ -784,7 +947,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "nao-com-nand";
-        l.act = 2;
+        l.act = 3;
         l.title = "NÃO feito de NAND";
         l.story = "A NAND é universal: com ela dá para fazer qualquer porta. Comece pela mais simples. Se as duas entradas de uma NAND "
                   "recebem o mesmo sinal, o que ela faz?";
@@ -802,7 +965,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "e-com-nand";
-        l.act = 2;
+        l.act = 3;
         l.title = "E feito de NAND";
         l.story = "NAND quer dizer NÃO-E: é um E com a saída invertida. Então, para ter um E, basta inverter a saída de uma NAND de novo.";
         l.steps = {"Ligue A e B numa NAND.", "Faça um NÃO com outra NAND, como na aula anterior.",
@@ -820,7 +983,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "ou-com-nand";
-        l.act = 2;
+        l.act = 3;
         l.title = "OU feito de NAND";
         l.story = "Um desafio: o LED tem que acender quando A OU B estiver ligada, usando só NANDs. A NAND só dá 0 quando as duas entradas são 1... "
                   "e se as entradas chegarem invertidas?";
@@ -839,7 +1002,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "xor";
-        l.act = 2;
+        l.act = 3;
         l.title = "OU exclusivo";
         l.story = "O XOR liga quando as entradas são diferentes: uma ou outra, mas não as duas. Ele é o coração da soma: em binário, 1 + 1 dá 0 e vai 1.";
         l.steps = {"Monte com as portas que quiser: E, OU, NÃO e NAND.", "O LED S acende só quando A e B são diferentes."};
@@ -875,7 +1038,7 @@ std::vector<Lesson> makeLessons() {
         return l;
     };
     {
-        Lesson l = gatesLesson("decodificador", 2, "Decodificador: um fio por número",
+        Lesson l = gatesLesson("decodificador", 3, "Decodificador: um fio por número",
                                "Dois bits, A1 e A0, formam um número de 0 a 3. Um decodificador acende só a saída desse número: Y0 com 00, Y3 "
                                "com 11. A CPU usa um destes para escolher qual registrador vai ser escrito.",
                                {"Faça NÃO A1 e NÃO A0 com duas portas NOT.", "Cada saída é uma E: Y0 quer NÃO A1 e NÃO A0; Y3 quer A1 e A0.",
@@ -888,7 +1051,7 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
     {
-        Lesson l = gatesLesson("mux4", 2, "Escolher entre quatro",
+        Lesson l = gatesLesson("mux4", 3, "Escolher entre quatro",
                                "Um multiplexador 4:1 escolhe uma de quatro entradas, D0 a D3, pelo número que S1 e S0 formam. É ele que, dentro "
                                "da ULA, escolhe qual operação vai para o resultado.",
                                {"Faça NÃO S1 e NÃO S0.", "Para cada D, uma E de três entradas que só deixa passar com o seu número: D2, por "
@@ -903,11 +1066,11 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 4: arithmetic.
+    // Act 5: arithmetic.
     {
         Lesson l;
         l.id = "meio-somador";
-        l.act = 3;
+        l.act = 4;
         l.title = "Meio somador";
         l.story = "Somar dois bits dá um resultado de dois bits: 0+0=0, 0+1=1, 1+1=10 (dois, em binário). O bit de baixo é a soma S, "
                   "o de cima é o vai-um C.";
@@ -926,7 +1089,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "somador-completo";
-        l.act = 3;
+        l.act = 4;
         l.title = "Somador completo";
         l.story = "Para somar números de vários bits, cada coluna recebe o vai-um da coluna anterior: são três bits para somar, A, B e Ce. "
                   "O resultado é a soma S e o novo vai-um Cs.";
@@ -946,7 +1109,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "somador-4-bits";
-        l.act = 3;
+        l.act = 4;
         l.title = "Somador de 4 bits";
         l.story = "A e B agora são números de 0 a 15, quatro fios cada. O separador abre um barramento em fios de 1 bit, e o juntador faz o contrário. "
                   "Com quatro somadores completos em fila, o vai-um de cada um entra no próximo.";
@@ -965,9 +1128,9 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 4, more: subtracting, comparing, and the ALU slice.
+    // Act 5, more: subtracting, comparing, and the ALU slice.
     {
-        Lesson l = gatesLesson("subtrator", 3, "Subtrator completo",
+        Lesson l = gatesLesson("subtrator", 4, "Subtrator completo",
                                "Subtrair um bit é parecido com somar: D é A − B − Ve, e Vs, o empresta-um, liga quando a conta fica abaixo de "
                                "zero e precisa pedir à coluna de cima. Ve é o pedido que chega da coluna de baixo.",
                                {"D é A XOR B XOR Ve: duas XORs, como na soma.", "Vs liga com NÃO A e B, ou com NÃO (A XOR B) e Ve.",
@@ -981,7 +1144,7 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
     {
-        Lesson l = gatesLesson("comparador", 3, "Comparar dois bits",
+        Lesson l = gatesLesson("comparador", 4, "Comparar dois bits",
                                "Um comparador diz se A é maior, igual ou menor que B. É com ele que um programa decide: o BEQ da CPU desvia "
                                "quando dois números são iguais.",
                                {"A>B é A E NÃO B.", "A<B é NÃO A E B.", "A=B é a XNOR de A e B. Ligue cada uma no resistor do seu LED."},
@@ -993,7 +1156,7 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
     {
-        Lesson l = gatesLesson("ula-1-bit", 3, "Uma fatia da ULA",
+        Lesson l = gatesLesson("ula-1-bit", 4, "Uma fatia da ULA",
                                "A ULA faz uma de quatro operações com A e B, escolhida por Op1 e Op0: 00 E, 01 OU, 10 XOR, 11 soma. Monte as "
                                "quatro e deixe um multiplexador escolher. Cs é o vai-um, mas só na soma.",
                                {"Faça A E B, A OU B e A XOR B com portas, e A + B + Ce com um somador completo.",
@@ -1009,11 +1172,11 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 5: memory.
+    // Act 6: memory.
     {
         Lesson l;
         l.id = "latch-sr";
-        l.act = 4;
+        l.act = 5;
         l.title = "Um circuito que lembra";
         l.story = "Até aqui a saída dependia só das entradas de agora. Ligando a saída de cada porta na entrada da outra, o circuito passa a "
                   "lembrar: S liga, R desliga, e com os dois em 0 ele fica como estava. É o começo da memória.";
@@ -1033,7 +1196,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "latch-d";
-        l.act = 4;
+        l.act = 5;
         l.title = "Latch D: guardar um dado";
         l.story = "O latch SR tem dois botões. O latch D tem um dado, D, e um porteiro, En: com En ligado, Q copia D; com En desligado, Q guarda "
                   "o que tinha, mude D como mudar.";
@@ -1052,7 +1215,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "flip-flop";
-        l.act = 4;
+        l.act = 5;
         l.title = "O flip-flop e o clock";
         l.story = "O flip-flop D só olha o D no instante em que o clock sobe. Entre um pulso e outro, D pode mudar à vontade que Q não muda. "
                   "É assim que o computador inteiro anda em compasso.";
@@ -1072,7 +1235,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "registrador";
-        l.act = 4;
+        l.act = 5;
         l.title = "Registrador de 8 bits";
         l.story = "Oito flip-flops lado a lado guardam um número de 0 a 255: é um registrador. Com Grava ligado, ele guarda o Dado no próximo pulso "
                   "do clock; com Grava desligado, continua com o que tinha.";
@@ -1090,7 +1253,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "contador";
-        l.act = 4;
+        l.act = 5;
         l.title = "Monte um contador";
         l.story = "Um contador é um registrador que guarda o próprio valor mais 1 a cada pulso. Ele é o coração do PC, que conta qual instrução "
                   "vem a seguir.";
@@ -1108,12 +1271,12 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 7: programming the computer.
+    // Act 8: programming the computer.
     const auto program = [&](const char* id, const char* title, const char* story, std::vector<const char*> steps, std::vector<const char*> hints,
                              const char* success, std::vector<std::uint16_t> shows, std::vector<NeededInstruction> needs) {
         Lesson l;
         l.id = id;
-        l.act = 6;
+        l.act = 7;
         l.title = title;
         l.story = story;
         l.steps = std::move(steps);
@@ -1126,9 +1289,9 @@ std::vector<Lesson> makeLessons() {
         l.needs = std::move(needs);
         return l;
     };
-    // Act 6: machine code. The same computer, programmed with the numbers themselves.
+    // Act 7: machine code. The same computer, programmed with the numbers themselves.
     const auto machine = [&](Lesson l, Board (*start)()) {
-        l.act = 5;
+        l.act = 6;
         l.start = start;
         l.machineCode = true;
         return l;
@@ -1178,7 +1341,7 @@ std::vector<Lesson> makeLessons() {
                           "LI só aceita números até 511. Para chegar em 512, a ULA tem que trabalhar: guarde 300 num registrador, 212 em outro, some os "
                           "dois e mostre o resultado.",
                           {"LI R1, 300 e LI R2, 212.", "ADD R3, R1, R2 soma e guarda em R3.", "OUT R3, e HLT."},
-                          {"No Raio-X dá para ver a ULA somando os dois números."}, "512! A ULA somou dois registradores, do jeito que você montou no Ato 4.",
+                          {"No Raio-X dá para ver a ULA somando os dois números."}, "512! A ULA somou dois registradores, do jeito que você montou no Ato 5.",
                           {512}, {{assembly::kOpAlu, assembly::kAdd, "ADD", -1}}));
     all.push_back(program("conte-ate-cinco", "Um laço: conte até 5",
                           "Em vez de escrever OUT cinco vezes, um laço repete as mesmas instruções. O desvio BNE volta para cima enquanto a conta não "
@@ -1209,11 +1372,11 @@ std::vector<Lesson> makeLessons() {
                           "Sub-rotinas são as funções dos programas. O sistema operacional é feito de muitas delas.", {6, 12, 24},
                           {{assembly::kOpCall, -1, "CALL", -1}, {assembly::kOpJr, -1, "JR", -1}}));
 
-    // Act 8: the operating system. The computer talks to the world, waits for it, and then gets a small
+    // Act 9: the operating system. The computer talks to the world, waits for it, and then gets a small
     // system that serves the programs and takes turns between them; the last lesson has the player write
     // the turn-taking itself.
     const auto inAct7 = [&](Lesson l) {
-        l.act = 7;
+        l.act = 8;
         return l;
     };
     {
@@ -1298,7 +1461,7 @@ std::vector<Lesson> makeLessons() {
         all.push_back(l);
     }
 
-    // Act 9: more parts, each built from the ones before.
+    // Act 10: more parts, each built from the ones before.
     std::vector<Lesson> extra;
     const auto table = [&](const char* id, const char* title, const char* story, std::vector<const char*> steps, std::vector<const char*> hints,
                            const char* success, Board (*start)(), std::vector<PartKind> parts, std::vector<const char*> boxes,
@@ -1306,7 +1469,7 @@ std::vector<Lesson> makeLessons() {
                            std::uint64_t (*expect)(std::span<const std::uint64_t>, std::size_t)) {
         Lesson l;
         l.id = id;
-        l.act = 8;
+        l.act = 9;
         l.title = title;
         l.story = story;
         l.steps = std::move(steps);
@@ -1368,7 +1531,7 @@ std::vector<Lesson> makeLessons() {
                           {PartKind::And, PartKind::Splitter, PartKind::Joiner}, {"half_adder"}, {"A", "B"}, {"P"}, productOf));
     for (Lesson& l : extra) all.push_back(std::move(l));
 
-    // Act 10: input and output.
+    // Act 11: input and output.
     {
         Lesson l = table("sete-segmentos", "Desenhar números",
                          "Um display de 7 segmentos desenha algarismos com sete barras, a até g: a em cima, b e c à direita, d embaixo, e e f "
@@ -1384,13 +1547,13 @@ std::vector<Lesson> makeLessons() {
                          {PartKind::And, PartKind::Or, PartKind::Not, PartKind::Nor, PartKind::Constant}, {}, {"B1", "B0"},
                          {"a", "b", "c", "d", "e", "f", "g"}, nullptr);
         l.table = "1111110" "0110000" "1101101" "1111001";
-        l.act = 9;
+        l.act = 10;
         all.push_back(l);
     }
     {
         Lesson l;
         l.id = "contador-botao";
-        l.act = 9;
+        l.act = 10;
         l.title = "Contar apertos";
         l.story = "Um botão vale 1 só enquanto está apertado e volta a 0 quando é solto. Ligado no clock de um contador, cada aperto vira "
                   "um pulso: o visor S conta quantas vezes o Botão foi apertado.";
@@ -1410,7 +1573,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "aleatorio";
-        l.act = 9;
+        l.act = 10;
         l.title = "Números ao acaso";
         l.story = "Computadores não sorteiam: calculam números que parecem sorteados. Um registrador que desloca os bits para cima a cada "
                   "pulso, recebendo embaixo uma XNOR dos dois bits mais altos, passa por 15 valores misturados antes de repetir.";
@@ -1431,7 +1594,7 @@ std::vector<Lesson> makeLessons() {
     {
         Lesson l;
         l.id = "teclado-terminal";
-        l.act = 9;
+        l.act = 10;
         l.title = "Do teclado à tela";
         l.story = "Cada tecla é um número, o código ASCII: a é 97, o espaço é 32. O Teclado entrega esse código em Código e liga Tecla "
                   "enquanto ela está apertada. Ligue-o num terminal, que guarda cada código e desenha a letra, e mostre no visor S quantas "
@@ -1874,14 +2037,15 @@ const std::vector<LessonAct>& lessonActs() {
     static const std::vector<LessonAct> acts{
         {"Ato 1: Eletricidade", "Bateria, LED, resistor e chaves", true, {}},
         {"Ato 2: Transistores", "A chave que se liga sozinha", true, {}},
-        {"Ato 3: Portas lógicas", "E, OU, NÃO, NAND e XOR", true, {}},
-        {"Ato 4: Aritmética", "Somar com portas", true, {}},
-        {"Ato 5: Memória", "Circuitos que lembram", true, {}},
-        {"Ato 6: Linguagem de máquina", "A CPU por dentro e as instruções em binário", true, {}},
-        {"Ato 7: Programação", "Assembly no computador de 16 bits", true, {}},
-        {"Ato 8: Sistema operacional", "O programa que cuida dos outros", true, {}},
-        {"Ato 9: Mais peças", "Paridade, seleção e contas", true, {}},
-        {"Ato 10: Entrada e saída", "Displays, botões e teclado", true, {}},
+        {"Ato 3: Bits", "Zeros e uns: como os fios guardam números", true, {}},
+        {"Ato 4: Portas lógicas", "E, OU, NÃO, NAND e XOR", true, {}},
+        {"Ato 5: Aritmética", "Somar com portas", true, {}},
+        {"Ato 6: Memória", "Circuitos que lembram", true, {}},
+        {"Ato 7: Linguagem de máquina", "A CPU por dentro e as instruções em binário", true, {}},
+        {"Ato 8: Programação", "Assembly no computador de 16 bits", true, {}},
+        {"Ato 9: Sistema operacional", "O programa que cuida dos outros", true, {}},
+        {"Ato 10: Mais peças", "Paridade, seleção e contas", true, {}},
+        {"Ato 11: Entrada e saída", "Displays, botões e teclado", true, {}},
     };
     return acts;
 }
@@ -1889,6 +2053,27 @@ const std::vector<LessonAct>& lessonActs() {
 const std::vector<Lesson>& lessons() {
     static const std::vector<Lesson> all = makeLessons();
     return all;
+}
+
+bool answers(const Question& question, std::string_view typed) {
+    const auto number = [&](std::string_view text) -> std::optional<std::uint64_t> {
+        std::string kept;
+        for (const char c : text) {
+            if (c != ' ' && c != '_') kept += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+        if (kept.size() > 2 && kept[0] == '0' && (kept[1] == 'X' || kept[1] == 'B')) kept = kept.substr(2);
+        if (kept.empty() || kept.size() > 20) return std::nullopt;
+        std::uint64_t value = 0;
+        for (const char c : kept) {
+            const int digit = std::isdigit(static_cast<unsigned char>(c)) != 0 ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : 99;
+            if (digit >= question.base) return std::nullopt;
+            value = value * static_cast<std::uint64_t>(question.base) + static_cast<std::uint64_t>(digit);
+        }
+        return value;
+    };
+    const std::optional<std::uint64_t> wanted = number(question.answer);
+    const std::optional<std::uint64_t> got = number(typed);
+    return wanted && got && *wanted == *got;
 }
 
 int lessonIndex(std::string_view id) {
@@ -1968,6 +2153,7 @@ LessonResult checkLesson(const Lesson& lesson, const Board& board, const ChipBoa
         case LessonCheck::Table: return checkTable(lesson, board);
         case LessonCheck::Sequence: return checkSequence(lesson, board);
         case LessonCheck::Program: return checkProgram(lesson, board, chips);
+        case LessonCheck::Answer: return {false, "Responda as perguntas na tela."};
     }
     return {};
 }

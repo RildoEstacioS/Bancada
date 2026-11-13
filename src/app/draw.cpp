@@ -3695,6 +3695,39 @@ namespace {
 
 void drawCodeBlocks32(SDL_Renderer* renderer, const CodeView& view, const SDL_FRect& area);  // with the 32-bit computer
 
+constexpr float kBlock16 = 56.0f;
+constexpr float kBlock32 = 60.0f;
+constexpr float kBlockGap = 6.0f;
+
+// The blocks' place under the tabs.
+SDL_FRect codeBlocksArea(int width, int height) {
+    const CodeLayout layout = codeLayout(width, height);
+    const float referenceLeft = layout.problems.w;
+    const float y = kCodeBarHeight + 62.0f;
+    return {referenceLeft + 12.0f, y - 14.0f, static_cast<float>(width) - referenceLeft - 24.0f, static_cast<float>(height) - y};
+}
+
+int blocksThatFit(const SDL_FRect& area, bool mips) {
+    return std::max(1, static_cast<int>((area.h - 8.0f) / ((mips ? kBlock32 : kBlock16) + kBlockGap)));
+}
+
+// When there are more blocks than room, a thin bar on the right says where the list is.
+void drawBlocksBar(SDL_Renderer* renderer, const SDL_FRect& area, int first, int fit, int count) {
+    if (count <= fit) return;
+    const SDL_FRect track{area.x + area.w - 4.0f, area.y, 4.0f, area.h - 8.0f};
+    fillRound(renderer, track, 2, kRule);
+    const float h = std::max(24.0f, track.h * static_cast<float>(fit) / static_cast<float>(count));
+    const float y = track.y + (track.h - h) * static_cast<float>(first) / static_cast<float>(count - fit);
+    fillRound(renderer, {track.x, y, track.w, h}, 2, kTextDim);
+}
+
+// A bit in a field: a 1 bright and bold, a 0 faint, so the ones stand out at a glance.
+void writeBit(SDL_Renderer* renderer, bool one, float cx, float baseline, float size) {
+    const char* digit = one ? "1" : "0";
+    const Face face = one ? Face::Medium : Face::Mono;
+    write(renderer, face, size, cx - textWidth(renderer, face, size, digit) / 2.0f, baseline, digit, one ? kText : Color{112, 128, 132});
+}
+
 std::vector<int> codeTabs(const CodeView& view) {
     if (view.lesson >= 0) return {kCodeTabTask, kCodeTabCommands, kCodeTabBlocks};
     return {kCodeTabCommands, kCodeTabBlocks};
@@ -3718,15 +3751,16 @@ void drawCodeBlocks(SDL_Renderer* renderer, const CodeView& view, const SDL_FRec
         }
         return;
     }
-    constexpr float kBlock = 56.0f;
-    const int fit = std::max(1, static_cast<int>((area.h - 40.0f) / (kBlock + 6.0f)));
+    constexpr float kBlock = kBlock16;
     const int count = static_cast<int>(view.program.size());
-    int first = 0;
-    if (view.runningAddress >= 0) first = std::clamp(view.runningAddress - fit / 3, 0, std::max(0, count - fit));
+    const int fit = std::min(count, blocksThatFit(area, false));
+    const int first = std::clamp(view.blocksFirst, 0, std::max(0, count - fit));
+    drawBlocksBar(renderer, area, first, fit, count);
+    const float blockW = count > fit ? area.w - 10.0f : area.w;
     float y = area.y;
     for (int i = first; i < count && i < first + fit; ++i) {
         const bool running = i == view.runningAddress;
-        const SDL_FRect r{area.x, y, area.w, kBlock};
+        const SDL_FRect r{area.x, y, blockW, kBlock};
         fillRound(renderer, r, 8, running ? mixed(kPanelRaised, kToneProgram, 0.28f) : kPanelRaised);
         frameRound(renderer, r, 8, running ? 1.8f : 1.0f, running ? kToneProgram : kBodyEdge);
         ComputerState state;
@@ -3752,12 +3786,11 @@ void drawCodeBlocks(SDL_Renderer* renderer, const CodeView& view, const SDL_FRec
         for (const WordField& field : wordFields(trace)) {
             const int bits = field.high - field.low + 1;
             const SDL_FRect box{bx, r.y + 29.0f, cell * static_cast<float>(bits) - 2.0f, 18.0f};
-            fillRound(renderer, box, 3, mixed(kBackground, field.color, field.name[0] == '\0' ? 0.22f : 0.36f));
+            fillRound(renderer, box, 3, mixed(kBackground, field.color, field.name[0] == '\0' ? 0.12f : 0.2f));
             frameRound(renderer, box, 3, 1.0f, field.color);
             for (int bit = field.high; bit >= field.low; --bit) {
-                const char digit[2] = {((trace.word >> bit) & 1u) != 0 ? '1' : '0', '\0'};
                 const float cx = bx + cell * static_cast<float>(field.high - bit) + cell / 2.0f - 1.0f;
-                write(renderer, Face::Mono, 10.5f, cx - textWidth(renderer, Face::Mono, 10.5f, digit) / 2.0f, box.y + 13.0f, digit, kText);
+                writeBit(renderer, ((trace.word >> bit) & 1u) != 0, cx, box.y + 13.5f, 11.5f);
             }
             bx += cell * static_cast<float>(bits);
         }
@@ -3774,6 +3807,13 @@ void drawCodeBlocks(SDL_Renderer* renderer, const CodeView& view, const SDL_FRec
 }
 
 }  // namespace
+
+int codeBlocksVisible(int width, int height, bool mips) { return blocksThatFit(codeBlocksArea(width, height), mips); }
+
+bool overCodeBlocks(int width, int height, float x, float y) {
+    const SDL_FRect area = codeBlocksArea(width, height);
+    return x >= area.x && x < area.x + area.w + 12.0f && y >= area.y && y < area.y + area.h;
+}
 
 int codeTabAt(const CodeView& view, float x, float y, int width, int height) {
     const std::vector<int> tabs = codeTabs(view);
@@ -4004,30 +4044,39 @@ void drawCode(SDL_Renderer* renderer, const CodeView& view, int width, int heigh
 
 namespace {
 
-constexpr float kHomeCardWidth = 178.0f;
-constexpr float kHomeCardHeight = 118.0f;
+// --- The home: a sheet of glass over the circuits, the lessons as the big way in, the rest beside them -----
 
-struct HomeCard {
-    HomeChoice choice;
-    Icon icon;
-    const char* title;
-    const char* line;
+struct HomeLayout {
+    SDL_FRect panel;     // the glass
+    SDL_FRect content;   // under the title
+    SDL_FRect hero;      // the lessons
+    SDL_FRect tiles[5];  // continue, new, examples, open, computers
 };
 
-constexpr HomeCard kHomeCards[] = {
-    {HomeChoice::Lessons, Icon::Home, "Aulas", ""},
-    {HomeChoice::Continue, Icon::Play, "Continuar", "Volta ao último circuito"},
-    {HomeChoice::New, Icon::Plus, "Novo circuito", "Uma bancada vazia"},
-    {HomeChoice::Example, Icon::Step, "Exemplos", "Circuitos e programas"},
-    {HomeChoice::Computers, Icon::ChevronRight, "Computadores", "16 e 32 bits"},
-    {HomeChoice::Open, Icon::ChevronRight, "Abrir arquivo", "Um projeto salvo"},
-};
-constexpr int kHomeCardCount = static_cast<int>(std::size(kHomeCards));
+constexpr HomeChoice kHomeTiles[5] = {HomeChoice::Continue, HomeChoice::New, HomeChoice::Example, HomeChoice::Open, HomeChoice::Computers};
 
-constexpr const char* kComingModes[][2] = {
-    {"Puzzles", "Desafios com estrelas"},
-    {"Laboratório", "Medir e experimentar"},
-};
+HomeLayout homeLayout(int width, int height) {
+    HomeLayout l;
+    const auto w = static_cast<float>(width);
+    const auto h = static_cast<float>(height);
+    const float panelW = std::min(w - 48.0f, 1060.0f);
+    const float panelH = std::min(h - 84.0f, 500.0f);
+    l.panel = {(w - panelW) / 2.0f, std::max(70.0f, (h - panelH) / 2.0f + 10.0f), panelW, panelH};
+    const float pad = 34.0f;
+    l.content = {l.panel.x + pad, l.panel.y + 124.0f, panelW - 2.0f * pad, panelH - 124.0f - 52.0f};
+    const float heroW = std::max(300.0f, l.content.w * 0.4f);
+    l.hero = {l.content.x, l.content.y, heroW, l.content.h};
+    const float gap = 14.0f;
+    const float gx = l.hero.x + heroW + gap;
+    const float gw = l.content.x + l.content.w - gx;
+    const float rowH = (l.content.h - 2.0f * gap) / 3.0f;
+    const float colW = (gw - gap) / 2.0f;
+    for (int i = 0; i < 4; ++i) {
+        l.tiles[i] = {gx + static_cast<float>(i % 2) * (colW + gap), l.content.y + static_cast<float>(i / 2) * (rowH + gap), colW, rowH};
+    }
+    l.tiles[4] = {gx, l.content.y + 2.0f * (rowH + gap), gw, rowH};
+    return l;
+}
 
 // The computers' page: one card for each computer, wide enough to say what it has, and a way back.
 struct ComputerCard {
@@ -4042,29 +4091,23 @@ constexpr ComputerCard kComputerCards[] = {
      {"O computador do curso: 8 registradores,", "instruções de 16 bits, ROM e RAM.", "Programe a ROM e veja rodar no Raio-X."},
      true},
     {HomeChoice::Computer32, "32 bits · MIPS",
-     {"32 registradores ($t0, $s0, $sp...), lw, sw,", "la, li, jal e syscall, como nas aulas.", "Programe em MIPS. Raio-X em breve."},
+     {"32 registradores ($t0, $s0, $sp...), lw, sw,", "la, li, jal e syscall, como nas aulas.", "Programe em MIPS e veja no Raio-X."},
      true},
 };
 constexpr int kComputerCardCount = static_cast<int>(std::size(kComputerCards));
-constexpr float kComputerCardWidth = 340.0f;
 
 SDL_FRect computerCard(int index, int width, int height) {
-    const float total = static_cast<float>(kComputerCardCount) * kComputerCardWidth + static_cast<float>(kComputerCardCount - 1) * 20.0f;
-    const float left = (static_cast<float>(width) - total) / 2.0f;
-    const float top = static_cast<float>(height) / 2.0f - 44.0f;
-    return {left + static_cast<float>(index) * (kComputerCardWidth + 20.0f), top, kComputerCardWidth, kHomeCardHeight + 30.0f};
+    const HomeLayout home = homeLayout(width, height);
+    const float gap = 20.0f;
+    const float cardW = std::min(360.0f, (home.content.w - gap) / 2.0f);
+    const float total = 2.0f * cardW + gap;
+    const float left = home.content.x + (home.content.w - total) / 2.0f;
+    return {left + static_cast<float>(index) * (cardW + gap), home.content.y + 34.0f, cardW, 150.0f};
 }
 
 SDL_FRect computersBackRect(int width, int height) {
     const SDL_FRect first = computerCard(0, width, height);
     return {first.x, first.y + first.h + 22.0f, 120.0f, 34.0f};
-}
-
-SDL_FRect homeCard(int index, int width, int height) {
-    const float total = static_cast<float>(kHomeCardCount) * kHomeCardWidth + static_cast<float>(kHomeCardCount - 1) * 16.0f;
-    const float left = (static_cast<float>(width) - total) / 2.0f;
-    const float top = static_cast<float>(height) / 2.0f - 70.0f;
-    return {left + static_cast<float>(index) * (kHomeCardWidth + 16.0f), top, kHomeCardWidth, kHomeCardHeight};
 }
 
 // --- The lesson list: the acts on the left, the chosen act's readings and exercises on the right -----
@@ -4322,8 +4365,10 @@ HomeChoice homeAt(float x, float y, int width, int height, bool computers) {
         }
         return inside(computersBackRect(width, height), x, y) ? HomeChoice::Back : HomeChoice::None;
     }
-    for (int i = 0; i < kHomeCardCount; ++i) {
-        if (inside(homeCard(i, width, height), x, y)) return kHomeCards[i].choice;
+    const HomeLayout home = homeLayout(width, height);
+    if (inside(home.hero, x, y)) return HomeChoice::Lessons;
+    for (int i = 0; i < 5; ++i) {
+        if (inside(home.tiles[i], x, y)) return kHomeTiles[i];
     }
     return HomeChoice::None;
 }
@@ -4331,7 +4376,7 @@ HomeChoice homeAt(float x, float y, int width, int height, bool computers) {
 namespace {
 SDL_Texture* figureTexture(SDL_Renderer* renderer, TheoryFigure (*make)(), int w, int h, bool redraw);  // below
 void drawComputerCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY);
-void drawHomeCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine);
+void drawHomeCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const HomeInfo& info);
 void drawHomeLanguages(SDL_Renderer* renderer, int width, float mouseX, float mouseY);
 }  // namespace
 
@@ -4377,25 +4422,24 @@ void drawChipMark(SDL_Renderer* renderer, Vec2 centre, float size) {
     fillRound(renderer, {body.x + size * 0.12f, body.y + size * 0.14f, size * 0.1f, size * 0.1f}, size * 0.05f, kWirePreview);
 }
 
-void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine, bool computers) {
+void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const HomeInfo& info, bool computers) {
     setColor(renderer, kBackground);
     SDL_RenderClear(renderer);
     drawHomeBackdrop(renderer, width, height);
-    const SDL_FRect first = homeCard(0, width, height);
-    const SDL_FRect last = homeCard(kHomeCardCount - 1, width, height);
+    const HomeLayout home = homeLayout(width, height);
     // A sheet of dark glass under the menu, so the circuits behind never get in the way of reading.
-    const SDL_FRect glass{first.x - 36.0f, first.y - 150.0f, last.x + last.w - first.x + 72.0f, kHomeCardHeight + 150.0f + 176.0f};
-    fillRound(renderer, glass, 22, kBackground, 0.86f);
-    frameRound(renderer, glass, 22, 1.0f, mixed(kBackground, kWirePreview, 0.3f));
-    drawChipMark(renderer, {first.x + 26.0f, first.y - 86.0f}, 46.0f);
-    write(renderer, Face::Medium, 46, first.x + 66.0f, first.y - 70.0f, "Bancada", kText);
-    write(renderer, Face::Regular, 16, first.x + 68.0f, first.y - 44.0f, "Do LED ao computador, montando cada peça", kWirePreview);
+    fillRound(renderer, home.panel, 24, kBackground, 0.9f);
+    frameRound(renderer, home.panel, 24, 1.0f, mixed(kBackground, kWirePreview, 0.35f));
+    const float x = home.panel.x + 34.0f;
+    drawChipMark(renderer, {x + 22.0f, home.panel.y + 60.0f}, 44.0f);
+    write(renderer, Face::Medium, 44, x + 60.0f, home.panel.y + 76.0f, "Bancada", kText);
+    write(renderer, Face::Regular, 16, x + 62.0f, home.panel.y + 100.0f, "Do LED ao computador, montando cada peça", kWirePreview);
     if (computers) {
         drawComputerCards(renderer, width, height, mouseX, mouseY);
     } else {
-        drawHomeCards(renderer, width, height, mouseX, mouseY, lessonsLine);
+        drawHomeCards(renderer, width, height, mouseX, mouseY, info);
     }
-    write(renderer, Face::Regular, 12, first.x, static_cast<float>(height) - 24.0f,
+    write(renderer, Face::Regular, 12, home.panel.x + 8.0f, std::min(static_cast<float>(height) - 12.0f, home.panel.y + home.panel.h + 26.0f),
           computers ? "Esc: voltar ao menu" : "Esc ou Enter: continuar  ·  F1 na bancada: atalhos", kTextOff);
     drawHomeLanguages(renderer, width, mouseX, mouseY);
 }
@@ -4404,21 +4448,18 @@ namespace {
 
 void drawComputerCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY) {
     const SDL_FRect first = computerCard(0, width, height);
-    write(renderer, Face::Medium, 18, first.x, first.y - 18.0f, "Escolha um computador para programar", kText);
+    write(renderer, Face::Medium, 18, first.x, first.y - 14.0f, "Escolha um computador para programar", kText);
     for (int i = 0; i < kComputerCardCount; ++i) {
         const ComputerCard& card = kComputerCards[i];
         const SDL_FRect r = computerCard(i, width, height);
         const bool hovered = inside(r, mouseX, mouseY) && card.ready;
-        // The 32-bit one is still being built: shown, so its place is known, but not open yet.
-        fillRound(renderer, r, 12, hovered ? kPanelHover : kPanelRaised, card.ready ? 1.0f : 0.6f);
-        frameRound(renderer, r, 12, hovered ? 1.6f : 1.0f, hovered ? kToneProgram : card.ready ? kBodyEdge : kRule);
+        fillRound(renderer, r, 14, hovered ? mixed(kPanelRaised, kToneProgram, 0.12f) : kPanelRaised);
+        frameRound(renderer, r, 14, hovered ? 1.8f : 1.0f, hovered ? kToneProgram : kBodyEdge);
         drawChipMark(renderer, {r.x + 34.0f, r.y + 36.0f}, 34.0f);
-        write(renderer, Face::Medium, 20, r.x + 64.0f, r.y + 44.0f, card.title, card.ready ? kText : kTextDim);
+        write(renderer, Face::Medium, 20, r.x + 64.0f, r.y + 44.0f, card.title, kText);
         for (int line = 0; line < 3; ++line) {
-            const bool last = line == 2;
-            const Color color = !card.ready && last ? kToneProgram : card.ready ? kTextDim : kTextOff;
-            write(renderer, Face::Regular, 13, r.x + 20.0f, r.y + 84.0f + 20.0f * static_cast<float>(line),
-                  fitted(renderer, Face::Regular, 13, card.lines[line], r.w - 34.0f), color);
+            write(renderer, Face::Regular, 13, r.x + 20.0f, r.y + 88.0f + 20.0f * static_cast<float>(line),
+                  fitted(renderer, Face::Regular, 13, card.lines[line], r.w - 34.0f), line == 2 ? kToneProgram : kTextDim);
         }
     }
     const SDL_FRect back = computersBackRect(width, height);
@@ -4428,32 +4469,116 @@ void drawComputerCards(SDL_Renderer* renderer, int width, int height, float mous
     write(renderer, Face::Medium, kUiText, back.x + (back.w - w) / 2.0f, back.y + 22.0f, "Voltar", kText);
 }
 
-void drawHomeCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine) {
-    const SDL_FRect first = homeCard(0, width, height);
-    for (int i = 0; i < kHomeCardCount; ++i) {
-        const HomeCard& card = kHomeCards[i];
-        const SDL_FRect r = homeCard(i, width, height);
-        const bool hovered = inside(r, mouseX, mouseY);
-        const bool lessonsCard = card.choice == HomeChoice::Lessons;
-        // The lessons are the way in for someone new, so their card stands out.
-        fillRound(renderer, r, 12, lessonsCard ? kPanelActive : hovered ? kPanelHover : kPanelRaised);
-        frameRound(renderer, r, 12, hovered || lessonsCard ? 1.6f : 1.0f, hovered || lessonsCard ? kWirePreview : kBodyEdge);
-        drawIcon(renderer, card.icon, {r.x + 28.0f, r.y + 30.0f}, 22, lessonsCard ? kText : kWirePreview);
-        write(renderer, Face::Medium, 15, r.x + 18.0f, r.y + 72.0f, card.title, kText);
-        const std::string line = lessonsCard ? lessonsLine : card.line;
-        write(renderer, Face::Regular, 12.5f, r.x + 18.0f, r.y + 94.0f, fitted(renderer, Face::Regular, 12.5f, line, r.w - 30.0f), lessonsCard ? kText : kTextDim);
+// The small pictures on the home's tiles, each in its tile's colour.
+enum class HomeIcon : std::uint8_t { Continue, New, Examples, Open, Computers };
+
+void drawHomeIcon(SDL_Renderer* renderer, HomeIcon icon, Vec2 c, Color color) {
+    Mesh mesh;
+    switch (icon) {
+        case HomeIcon::Continue:
+            mesh.addFan({{c.x - 6.0f, c.y - 9.0f}, {c.x + 9.0f, c.y}, {c.x - 6.0f, c.y + 9.0f}}, {c.x - 1.0f, c.y}, color);
+            mesh.flush(renderer);
+            return;
+        case HomeIcon::New:
+            mesh.addLine({c.x - 9.0f, c.y}, {c.x + 9.0f, c.y}, 3.0f, color);
+            mesh.addLine({c.x, c.y - 9.0f}, {c.x, c.y + 9.0f}, 3.0f, color);
+            mesh.flush(renderer);
+            return;
+        case HomeIcon::Examples:
+            for (int i = 0; i < 4; ++i) {
+                const float dx = i % 2 == 0 ? -9.5f : 1.5f;
+                const float dy = i < 2 ? -9.5f : 1.5f;
+                fillRound(renderer, {c.x + dx, c.y + dy, 8.0f, 8.0f}, 2.0f, i == 3 ? mixed(kPanelRaised, color, 0.5f) : color);
+            }
+            return;
+        case HomeIcon::Open:
+            fillRound(renderer, {c.x - 11.0f, c.y - 9.0f, 9.0f, 5.0f}, 2.0f, color);
+            fillRound(renderer, {c.x - 11.0f, c.y - 6.0f, 22.0f, 15.0f}, 3.0f, color);
+            fillRound(renderer, {c.x - 8.0f, c.y - 2.0f, 16.0f, 2.0f}, 1.0f, mixed(color, kBackground, 0.45f));
+            return;
+        case HomeIcon::Computers: drawChipMark(renderer, c, 22.0f); return;
     }
-    const float total = static_cast<float>(kHomeCardCount) * kHomeCardWidth + static_cast<float>(kHomeCardCount - 1) * 16.0f;
-    const float y = first.y + kHomeCardHeight + 46.0f;
-    write(renderer, Face::Medium, 13, first.x, y, "Em breve", kTextOff);
-    constexpr int kComing = static_cast<int>(std::size(kComingModes));
-    for (int i = 0; i < kComing; ++i) {
-        const float w = (total - 12.0f * static_cast<float>(kComing - 1)) / static_cast<float>(kComing);
-        const SDL_FRect r{first.x + static_cast<float>(i) * (w + 12.0f), y + 12.0f, w, 58.0f};
-        frameRound(renderer, r, 10, 1, kRule);
-        write(renderer, Face::Medium, 14, r.x + 16.0f, r.y + 25.0f, kComingModes[i][0], kTextDim);
-        write(renderer, Face::Regular, 12.5f, r.x + 16.0f, r.y + 44.0f, kComingModes[i][1], kTextOff);
+}
+
+// A tile: its icon in a rounded square of its colour, the name and a line under it; lit by the mouse.
+void drawHomeTile(SDL_Renderer* renderer, const SDL_FRect& r, HomeIcon icon, Color tone, const char* title, const char* line, float mouseX, float mouseY) {
+    const bool hovered = inside(r, mouseX, mouseY);
+    fillRound(renderer, r, 14, hovered ? mixed(kPanelRaised, tone, 0.12f) : kPanelRaised, 0.96f);
+    frameRound(renderer, r, 14, hovered ? 1.8f : 1.0f, hovered ? tone : kBodyEdge);
+    const float iconSize = std::min(46.0f, r.h - 28.0f);
+    const SDL_FRect badge{r.x + 16.0f, r.y + (r.h - iconSize) / 2.0f, iconSize, iconSize};
+    fillRound(renderer, badge, 11, mixed(kBackground, tone, 0.2f));
+    frameRound(renderer, badge, 11, 1.0f, mixed(kBackground, tone, 0.55f));
+    drawHomeIcon(renderer, icon, {badge.x + badge.w / 2.0f, badge.y + badge.h / 2.0f}, tone);
+    const float tx = badge.x + badge.w + 14.0f;
+    const float room = r.x + r.w - tx - 30.0f;
+    write(renderer, Face::Medium, 16, tx, r.y + r.h / 2.0f - 2.0f, fitted(renderer, Face::Medium, 16, title, room), kText);
+    write(renderer, Face::Regular, 12.5f, tx, r.y + r.h / 2.0f + 17.0f, fitted(renderer, Face::Regular, 12.5f, line, room), kTextDim);
+    drawIcon(renderer, Icon::ChevronRight, {r.x + r.w - 20.0f, r.y + r.h / 2.0f}, 16, hovered ? tone : kTextOff);
+}
+
+void drawHomeCards(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const HomeInfo& info) {
+    const HomeLayout home = homeLayout(width, height);
+    const Color green = kKnobOn;
+
+    // The lessons: what the course is, how far the player got, and the act that comes next.
+    const SDL_FRect hero = home.hero;
+    const bool heroHover = inside(hero, mouseX, mouseY);
+    fillRound(renderer, hero, 18, mixed(kPanelRaised, green, heroHover ? 0.2f : 0.13f));
+    frameRound(renderer, hero, 18, heroHover ? 2.0f : 1.4f, mixed(kBodyEdge, green, heroHover ? 1.0f : 0.7f));
+    const float hx = hero.x + 24.0f;
+    const float hw = hero.w - 48.0f;
+    write(renderer, Face::Medium, 12.5f, hx, hero.y + 32.0f, "AULAS", green);
+    float y = hero.y + 64.0f;
+    for (const std::string& line : wrapped(renderer, Face::Medium, 24, "Da eletricidade ao sistema operacional", hw)) {
+        write(renderer, Face::Medium, 24, hx, y, line, kText);
+        y += 30.0f;
     }
+    for (const std::string& line : wrapped(renderer, Face::Regular, 13.5f, info.about, hw)) {
+        write(renderer, Face::Regular, 13.5f, hx, y + 2.0f, line, kTextDim);
+        y += 19.0f;
+    }
+    // The progress, as a bar.
+    const float barY = hero.y + hero.h - 104.0f;
+    write(renderer, Face::Regular, 13, hx, barY - 10.0f, info.lessonsLine, kText);
+    const float share = info.total > 0 ? static_cast<float>(info.done) / static_cast<float>(info.total) : 0.0f;
+    const std::string percent = std::to_string(static_cast<int>(std::lround(share * 100.0f))) + "%";
+    write(renderer, Face::Medium, 13, hx + hw - textWidth(renderer, Face::Medium, 13, percent), barY - 10.0f, percent, green);
+    fillRound(renderer, {hx, barY, hw, 8.0f}, 4, mixed(kBackground, green, 0.18f));
+    if (share > 0.0f) fillRound(renderer, {hx, barY, std::max(8.0f, hw * share), 8.0f}, 4, green);
+    if (!info.next.empty()) {
+        write(renderer, Face::Regular, 13, hx, barY + 30.0f, fitted(renderer, Face::Regular, 13, i18n::format("Próximo: {}", {info.next}), hw), kTextDim);
+    }
+    const SDL_FRect button{hx, hero.y + hero.h - 52.0f, std::min(hw, 220.0f), 36.0f};
+    fillRound(renderer, button, 9, heroHover ? green : mixed(kPanelRaised, green, 0.55f));
+    const char* go = info.done == 0 ? "Começar as aulas" : "Continuar as aulas";
+    drawIcon(renderer, Icon::Play, {button.x + 20.0f, button.y + button.h / 2.0f}, 14, heroHover ? kBackground : kText);
+    write(renderer, Face::Medium, 14, button.x + 36.0f, button.y + 23.0f, go, heroHover ? kBackground : kText);
+
+    drawHomeTile(renderer, home.tiles[0], HomeIcon::Continue, kWireOn, "Continuar", "Volta ao último circuito", mouseX, mouseY);
+    drawHomeTile(renderer, home.tiles[1], HomeIcon::New, kBusOn, "Novo circuito", "Uma bancada vazia", mouseX, mouseY);
+    drawHomeTile(renderer, home.tiles[2], HomeIcon::Examples, Color{176, 150, 255}, "Exemplos", "Circuitos e programas", mouseX, mouseY);
+    drawHomeTile(renderer, home.tiles[3], HomeIcon::Open, Color{150, 182, 206}, "Abrir arquivo", "Um projeto salvo", mouseX, mouseY);
+    drawHomeTile(renderer, home.tiles[4], HomeIcon::Computers, kToneProgram, "Computadores", "Programe, depure e veja no Raio-X", mouseX, mouseY);
+    // The two computers, as badges on the right of their tile.
+    const SDL_FRect wide = home.tiles[4];
+    float bx = wide.x + wide.w - 44.0f;
+    for (const char* badge : {"32 bits · MIPS", "16 bits"}) {
+        const float w = textWidth(renderer, Face::Medium, 12, badge) + 20.0f;
+        bx -= w;
+        if (bx < wide.x + wide.w * 0.55f) break;
+        const SDL_FRect pill{bx, wide.y + wide.h / 2.0f - 12.0f, w, 24.0f};
+        fillRound(renderer, pill, 12, mixed(kBackground, kToneProgram, 0.18f));
+        frameRound(renderer, pill, 12, 1.0f, mixed(kBackground, kToneProgram, 0.6f));
+        write(renderer, Face::Medium, 12, pill.x + 10.0f, pill.y + 16.5f, badge, kToneProgram);
+        bx -= 8.0f;
+    }
+
+    // What's still to come, in one quiet line at the foot of the glass.
+    const float fy = home.panel.y + home.panel.h - 22.0f;
+    write(renderer, Face::Medium, 12.5f, home.content.x, fy, "Em breve", kTextDim);
+    write(renderer, Face::Regular, 12.5f, home.content.x + textWidth(renderer, Face::Medium, 12.5f, "Em breve") + 12.0f, fy,
+          "Puzzles com estrelas  ·  Laboratório para medir e experimentar", kTextOff);
 }
 
 void drawHomeLanguages(SDL_Renderer* renderer, int width, float mouseX, float mouseY) {
@@ -4857,6 +4982,7 @@ SDL_Texture* figureTexture(SDL_Renderer* renderer, TheoryFigure (*make)(), int w
         entry.session = std::make_unique<Session>();
         entry.session->adoptProjectChips(std::move(figure.chips));
         entry.session->adopt(std::move(figure.board), figure.closed);
+        if (!figure.values.empty()) entry.session->setToggleValues(figure.values);
     }
     const bool fresh = entry.texture == nullptr || entry.w != w || entry.h != h;
     if (fresh) {
@@ -5259,12 +5385,11 @@ void drawWordStrip32(SDL_Renderer* renderer, std::uint32_t word, const SDL_FRect
     for (const Piece& piece : pieces) {
         const int bits = piece.high - piece.low + 1;
         const SDL_FRect box{x, area.y, cell * static_cast<float>(bits) - 2.0f, area.h};
-        fillRound(renderer, box, 3, mixed(kBackground, piece.color, 0.36f));
+        fillRound(renderer, box, 3, mixed(kBackground, piece.color, 0.2f));
         frameRound(renderer, box, 3, 1.0f, piece.color);
         for (int bit = piece.high; bit >= piece.low; --bit) {
-            const char digit[2] = {((word >> bit) & 1u) != 0 ? '1' : '0', '\0'};
             const float cx = x + cell * static_cast<float>(piece.high - bit) + cell / 2.0f - 1.0f;
-            write(renderer, Face::Mono, 10.0f, cx - textWidth(renderer, Face::Mono, 10.0f, digit) / 2.0f, box.y + area.h / 2.0f + 4.0f, digit, kText);
+            writeBit(renderer, ((word >> bit) & 1u) != 0, cx, box.y + area.h / 2.0f + 4.5f, std::min(11.5f, cell * 1.25f));
         }
         const float labelWidth = textWidth(renderer, Face::Regular, 10.0f, piece.name);
         if (labelWidth < box.w) write(renderer, Face::Regular, 10.0f, box.x + (box.w - labelWidth) / 2.0f, box.y + area.h + 12.0f, piece.name, piece.color);
@@ -5280,15 +5405,16 @@ void drawCodeBlocks32(SDL_Renderer* renderer, const CodeView& view, const SDL_FR
         }
         return;
     }
-    constexpr float kBlock = 60.0f;
-    const int fit = std::max(1, static_cast<int>((area.h - 40.0f) / (kBlock + 6.0f)));
+    constexpr float kBlock = kBlock32;
     const int count = static_cast<int>(view.program32.size());
-    int first = 0;
-    if (view.runningAddress >= 0) first = std::clamp(view.runningAddress - fit / 3, 0, std::max(0, count - fit));
+    const int fit = std::min(count, blocksThatFit(area, true));
+    const int first = std::clamp(view.blocksFirst, 0, std::max(0, count - fit));
+    drawBlocksBar(renderer, area, first, fit, count);
+    const float blockW = count > fit ? area.w - 10.0f : area.w;
     float y = area.y;
     for (int i = first; i < count && i < first + fit; ++i) {
         const bool running = i == view.runningAddress;
-        const SDL_FRect r{area.x, y, area.w, kBlock};
+        const SDL_FRect r{area.x, y, blockW, kBlock};
         fillRound(renderer, r, 8, running ? mixed(kPanelRaised, kToneProgram, 0.28f) : kPanelRaised);
         frameRound(renderer, r, 8, running ? 1.8f : 1.0f, running ? kToneProgram : kBodyEdge);
         const std::uint32_t word = view.program32[static_cast<std::size_t>(i)];
@@ -5405,17 +5531,467 @@ void drawComputer32Panel(SDL_Renderer* renderer, const Computer32State& state, c
     }
 }
 
-void drawXray32(SDL_Renderer* renderer, const SDL_FRect& area) {
-    fillRect(renderer, area, kBackground);
-    const std::vector<std::string> lines = wrapped(renderer, Face::Regular, 16.0f,
-                                                   "O Raio-X do computador de 32 bits ainda está sendo montado. Por enquanto, siga o programa pelo "
-                                                   "Painel e pelo depurador, ou abra a CPU na Placa: o circuito inteiro já está lá.",
-                                                   std::min(640.0f, area.w - 40.0f));
-    float y = area.y + area.h / 2.0f - 20.0f * static_cast<float>(lines.size()) / 2.0f;
-    for (const std::string& line : lines) {
-        write(renderer, Face::Regular, 16.0f, area.x + (area.w - textWidth(renderer, Face::Regular, 16.0f, line)) / 2.0f, y, line, kTextDim);
-        y += 22.0f;
+namespace {
+
+// --- The 32-bit X-ray: the textbook datapath, on a 1000 by 470 plan -------------------------------------
+
+enum class X32Shape : std::uint8_t { Box, Mux, MuxDown, Adder, Alu };
+
+enum X32Block : int {
+    kB32Next, kB32Pc, kB32Add4, kB32Rom, kB32Decoder, kB32Control, kB32Dst, kB32Registers, kB32Extender, kB32Jump, kB32MuxB, kB32Alu,
+    kB32Branch, kB32Ram, kB32System, kB32Switches, kB32Back, kB32Console,
+};
+
+struct X32BlockShape {
+    X32Block block;
+    int stage;
+    SDL_FRect rect;
+    X32Shape shape;
+    const char* name;
+    const char* detail;
+};
+
+constexpr X32BlockShape kX32Blocks[] = {
+    {kB32Next, 5, {20, 104, 108, 40}, X32Shape::MuxDown, "Próximo PC", ""},
+    {kB32Pc, 0, {44, 196, 60, 48}, X32Shape::Box, "PC", ""},
+    {kB32Add4, 0, {144, 92, 46, 42}, X32Shape::Adder, "PC + 4", "+4"},
+    {kB32Rom, 0, {144, 180, 98, 92}, X32Shape::Box, "ROM", "instruções"},
+    {kB32Decoder, 1, {272, 150, 100, 188}, X32Shape::Box, "Decodificador", ""},
+    {kB32Control, 1, {272, 384, 140, 52}, X32Shape::Box, "Controle", ""},
+    {kB32Dst, 1, {402, 236, 22, 56}, X32Shape::Mux, "", ""},
+    {kB32Registers, 1, {440, 150, 140, 150}, X32Shape::Box, "Registradores", "32 × 32 bits"},
+    {kB32Extender, 1, {440, 320, 140, 34}, X32Shape::Box, "Extensor 16 para 32", ""},
+    {kB32Jump, 2, {440, 28, 140, 30}, X32Shape::Box, "Alvo do salto", ""},
+    {kB32MuxB, 2, {612, 220, 24, 80}, X32Shape::Mux, "", ""},
+    {kB32Alu, 2, {664, 160, 80, 140}, X32Shape::Alu, "ULA", ""},
+    {kB32Branch, 2, {664, 80, 80, 44}, X32Shape::Adder, "Alvo do desvio", "PC+4+imm×4"},
+    {kB32Ram, 3, {786, 190, 96, 100}, X32Shape::Box, "RAM", "dados"},
+    {kB32System, 2, {786, 330, 96, 46}, X32Shape::Box, "Sistema", "syscall"},
+    {kB32Switches, 4, {786, 400, 96, 30}, X32Shape::Box, "Chaves", ""},
+    {kB32Back, 4, {916, 170, 24, 170}, X32Shape::Mux, "", ""},
+    {kB32Console, 2, {916, 360, 76, 40}, X32Shape::Box, "Console", ""},
+};
+
+enum X32Wire : int {
+    kW32PcRom, kW32PcAdd, kW32RomDecoder, kW32DecoderControl, kW32Rs, kW32Rt, kW32RtDst, kW32RdDst, kW32DstWrite, kW32Imm, kW32Target,
+    kW32NextJump, kW32A, kW32B, kW32ExtMux, kW32MuxAlu, kW32ExtBranch, kW32NextBranch, kW32Zero, kW32Address, kW32Store, kW32Loaded,
+    kW32AluBack, kW32Link, kW32SwitchesBack, kW32BackRegisters, kW32NextPlain, kW32BranchNext, kW32JumpNext, kW32RegisterNext, kW32NextPc,
+    kW32Select, kW32Print,
+    kW32SystemV0, kW32SystemA0, kW32SystemCall,  // what a syscall reads, and the control's line that says it is one
+};
+
+struct X32WireShape {
+    X32Wire wire;
+    int stage;
+    std::vector<Vec2> points;
+};
+
+const std::vector<X32WireShape>& x32Wires() {
+    static const std::vector<X32WireShape> wires{
+        {kW32PcRom, 0, {{104, 220}, {144, 220}}},
+        {kW32PcAdd, 0, {{114, 220}, {114, 104}, {144, 104}}},
+        {kW32RomDecoder, 0, {{242, 226}, {272, 226}}},
+        {kW32DecoderControl, 1, {{322, 338}, {322, 384}}},
+        {kW32Rs, 1, {{372, 176}, {440, 176}}},
+        {kW32Rt, 1, {{372, 204}, {440, 204}}},
+        {kW32RtDst, 1, {{372, 204}, {390, 204}, {390, 250}, {402, 250}}},
+        {kW32RdDst, 1, {{372, 278}, {402, 278}}},
+        {kW32DstWrite, 1, {{424, 264}, {440, 264}}},
+        {kW32Imm, 1, {{372, 316}, {386, 316}, {386, 337}, {440, 337}}},
+        {kW32Target, 1, {{340, 150}, {340, 50}, {440, 50}}},
+        {kW32NextJump, 2, {{190, 113}, {204, 113}, {204, 72}, {420, 72}, {420, 38}, {440, 38}}},
+        {kW32A, 2, {{580, 180}, {664, 180}}},
+        {kW32B, 2, {{580, 240}, {612, 240}}},
+        {kW32ExtMux, 2, {{580, 337}, {602, 337}, {602, 282}, {612, 282}}},
+        {kW32MuxAlu, 2, {{636, 260}, {664, 260}}},
+        {kW32ExtBranch, 2, {{580, 346}, {648, 346}, {648, 114}, {664, 114}}},
+        {kW32NextBranch, 2, {{190, 113}, {204, 113}, {204, 72}, {654, 72}, {654, 92}, {664, 92}}},
+        {kW32Zero, 2, {{704, 288}, {704, 452}, {342, 452}, {342, 436}}},
+        {kW32Address, 3, {{744, 230}, {786, 230}}},
+        {kW32Store, 3, {{580, 240}, {592, 240}, {592, 372}, {772, 372}, {772, 272}, {786, 272}}},
+        {kW32Loaded, 3, {{882, 240}, {916, 240}}},
+        {kW32AluBack, 4, {{744, 230}, {764, 230}, {764, 180}, {904, 180}, {904, 200}, {916, 200}}},
+        {kW32Link, 4, {{190, 113}, {204, 113}, {204, 72}, {898, 72}, {898, 280}, {916, 280}}},
+        {kW32SwitchesBack, 4, {{882, 415}, {908, 415}, {908, 320}, {916, 320}}},
+        {kW32BackRegisters, 4, {{940, 255}, {958, 255}, {958, 140}, {510, 140}, {510, 150}}},
+        {kW32NextPlain, 5, {{190, 113}, {204, 113}, {204, 90}, {40, 90}, {40, 104}}},
+        {kW32BranchNext, 5, {{744, 102}, {770, 102}, {770, 8}, {64, 8}, {64, 104}}},
+        {kW32JumpNext, 5, {{580, 43}, {598, 43}, {598, 22}, {86, 22}, {86, 104}}},
+        {kW32RegisterNext, 5, {{580, 180}, {590, 180}, {590, 15}, {108, 15}, {108, 104}}},
+        {kW32NextPc, 5, {{74, 144}, {74, 196}}},
+        {kW32Select, 5, {{272, 410}, {10, 410}, {10, 124}, {24, 124}}},
+        {kW32Print, 2, {{882, 353}, {900, 353}, {900, 380}, {916, 380}}},
+        // $v0 from read port A and $a0 from read port B, into the System unit; and the control's Sistema line.
+        {kW32SystemV0, 2, {{580, 180}, {586, 180}, {586, 388}, {776, 388}, {776, 342}, {786, 342}}},
+        {kW32SystemA0, 2, {{580, 240}, {592, 240}, {592, 380}, {768, 380}, {768, 364}, {786, 364}}},
+        {kW32SystemCall, 1, {{412, 422}, {760, 422}, {760, 394}, {834, 394}, {834, 376}}},
+    };
+    return wires;
+}
+
+std::string shortHex(std::uint32_t value) { return hex32(value); }
+std::string decimal32(std::uint32_t value) { return std::to_string(static_cast<std::int32_t>(value)); }
+
+bool x32BlockUsed(const Trace32& t, X32Block block) {
+    using Back = Trace32::Back;
+    switch (block) {
+        case kB32Registers: return t.readsA || t.readsB || t.back != Back::None;
+        case kB32Dst: return t.back != Back::None;
+        case kB32Extender: return t.usesImmediate;
+        case kB32Jump: return t.next == Trace32::Next::Jump;
+        case kB32MuxB:
+        case kB32Alu: return t.usesAlu;
+        case kB32Branch: return t.branches;
+        case kB32Ram: return t.readsMemory || t.writesMemory;
+        case kB32System: return t.syscall;
+        case kB32Switches: return t.back == Back::Switches;
+        case kB32Back: return t.back != Back::None;
+        case kB32Console: return t.printsNumber || t.printsChar;
+        default: return true;
     }
+}
+
+bool x32WireUsed(const Trace32& t, X32Wire wire) {
+    using Back = Trace32::Back;
+    using Next = Trace32::Next;
+    switch (wire) {
+        case kW32Rs: return t.readsA;
+        case kW32Rt: return t.readsB;
+        case kW32RtDst: return t.back != Back::None && t.destination == 0;
+        case kW32RdDst: return t.back != Back::None && t.destination == 1;
+        case kW32DstWrite:
+        case kW32BackRegisters: return t.back != Back::None;
+        case kW32Imm: return t.usesImmediate;
+        case kW32Target:
+        case kW32NextJump: return t.next == Next::Jump;
+        case kW32A: return t.usesAlu && t.readsA && !t.syscall;
+        case kW32B: return t.usesAlu && t.readsB && !t.aluTakesImmediate;
+        case kW32ExtMux: return t.aluTakesImmediate;
+        case kW32MuxAlu: return t.usesAlu;
+        case kW32ExtBranch:
+        case kW32NextBranch:
+        case kW32Zero: return t.branches;
+        case kW32Address: return t.readsMemory || t.writesMemory;
+        case kW32Store: return t.writesMemory;
+        case kW32Loaded: return t.readsMemory;
+        case kW32AluBack: return t.back == Back::Alu;
+        case kW32Link: return t.back == Back::Link;
+        case kW32SwitchesBack: return t.back == Back::Switches;
+        case kW32NextPlain: return t.next == Next::Plain;
+        case kW32BranchNext: return t.next == Next::Branch;
+        case kW32JumpNext: return t.next == Next::Jump;
+        case kW32RegisterNext: return t.next == Next::Register;
+        case kW32NextPc: return !t.halts;
+        case kW32Select: return t.branches || t.next == Next::Jump || t.next == Next::Register;
+        case kW32Print: return t.printsNumber || t.printsChar;
+        case kW32SystemV0:
+        case kW32SystemA0:
+        case kW32SystemCall: return t.syscall;
+        default: return true;
+    }
+}
+
+std::string x32WireValue(const Trace32& t, X32Wire wire) {
+    const auto name = [](unsigned index) { return std::string(mips::registerName(index)); };
+    switch (wire) {
+        case kW32PcRom: return shortHex(t.pc);
+        case kW32RomDecoder: return shortHex(t.word);
+        case kW32Rs: return name(t.registerA);
+        case kW32Rt: return name(t.registerB);
+        case kW32RtDst: return name(t.rt);
+        case kW32RdDst: return name(t.rd);
+        case kW32DstWrite: return name(t.written);
+        case kW32Imm: return hex32(t.imm).substr(4);
+        case kW32Target: return hex32(t.word & 0x03FFFFFFu).substr(1);
+        case kW32A: return decimal32(t.valueA);
+        case kW32B: return decimal32(t.valueB);
+        case kW32ExtMux: return decimal32(t.extended);
+        case kW32ExtBranch: return decimal32(t.extended << 2);
+        case kW32NextBranch:
+        case kW32NextPlain:
+        case kW32Link: return shortHex(t.pc4);
+        case kW32Zero: return t.zero ? "Z=1" : "Z=0";
+        case kW32Address: return shortHex(t.address);
+        case kW32Store: return decimal32(t.valueB);
+        case kW32Loaded: return decimal32(t.memoryValue);
+        case kW32AluBack: return decimal32(t.aluResult);
+        case kW32SwitchesBack:
+        case kW32BackRegisters: return decimal32(t.writtenValue);
+        case kW32BranchNext: return shortHex(t.branchTarget);
+        case kW32JumpNext: return shortHex(t.jumpTarget);
+        case kW32RegisterNext: return shortHex(t.valueA);
+        case kW32NextPc: return shortHex(t.nextPc);
+        case kW32Select:
+            if (t.branches) return i18n::tr(t.taken ? "desvia" : "não desvia");
+            return i18n::tr(t.next == Trace32::Next::Jump ? "salta" : "salta p/ reg");
+        case kW32Print: return t.printsNumber ? decimal32(t.printed) : std::string(1, static_cast<char>(t.printed & 0x7Fu));
+        case kW32SystemV0: return "$v0=" + decimal32(t.valueA);
+        case kW32SystemA0: return "$a0=" + decimal32(t.valueB);
+        default: return "";
+    }
+}
+
+const char* instructionKind32(const Trace32& t) {
+    if (t.syscall) return "syscall";
+    if (t.readsMemory || t.writesMemory) return "memória";
+    if (t.branches) return "desvio";
+    if (t.next == Trace32::Next::Jump || t.next == Trace32::Next::Register) return "salto";
+    if (t.format == 'R') return "tipo R";
+    return "tipo I";
+}
+
+void drawXray32Plan(SDL_Renderer* renderer, const Trace32& t, bool running, const SDL_FRect& plan, int stage, float progress) {
+    const Color tone = instructionTone32(t.word);
+    fillRound(renderer, plan, 10, kPanel);
+    const float scale = std::min((plan.w - 20.0f) / 1000.0f, (plan.h - 20.0f) / 470.0f);
+    const Vec2 origin{plan.x + (plan.w - 1000.0f * scale) / 2.0f, plan.y + (plan.h - 470.0f * scale) / 2.0f};
+    const auto at = [&](Vec2 p) { return Vec2{origin.x + p.x * scale, origin.y + p.y * scale}; };
+    const float text = std::clamp(12.5f * scale, 9.5f, 15.0f);
+    const float tagSize = std::clamp(11.0f * scale, 8.5f, 13.0f);
+    const float travel = std::clamp(progress / 1.1f, 0.0f, 1.0f);
+
+    Mesh unused;
+    Mesh waiting;
+    Mesh lit;
+    struct Packet {
+        Vec2 where;
+        std::string text;
+        bool moving;
+        bool now;
+    };
+    std::vector<Packet> packets;
+    for (const X32WireShape& wire : x32Wires()) {
+        const bool used = running && x32WireUsed(t, wire.wire);
+        const bool on = used && wire.stage <= stage;
+        Mesh& mesh = !used ? unused : on ? lit : waiting;
+        std::vector<Vec2> points;
+        float length = 0.0f;
+        for (const Vec2 p : wire.points) points.push_back(at(p));
+        for (std::size_t i = 0; i + 1 < points.size(); ++i) {
+            length += std::hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+            mesh.addLine(points[i], points[i + 1], on ? 2.6f : 1.3f, on ? tone : kBodyEdge, !used ? 0.5f : on ? 1.0f : 0.9f);
+        }
+        if (!on) continue;
+        const std::string value = x32WireValue(t, wire.wire);
+        if (value.empty()) continue;
+        const float half = (textWidth(renderer, Face::Mono, tagSize, value) + 10.0f) / 2.0f;
+        if (half * 2.0f > length) continue;
+        const float parked = std::max(0.0f, length - half - 5.0f);
+        const bool now = wire.stage == stage;
+        const bool moving = now && travel < 1.0f;
+        packets.push_back({alongPath(points, moving ? parked * travel : parked), value, moving, now});
+    }
+    unused.flush(renderer);
+    waiting.flush(renderer);
+    lit.flush(renderer);
+
+    for (const X32BlockShape& shape : kX32Blocks) {
+        const bool used = running && x32BlockUsed(t, shape.block);
+        const bool on = used && shape.stage <= stage;
+        const bool now = on && shape.stage == stage;
+        const Vec2 corner = at({shape.rect.x, shape.rect.y});
+        const SDL_FRect r{corner.x, corner.y, shape.rect.w * scale, shape.rect.h * scale};
+        const Color fill = on ? mixed(kPanelRaised, tone, now ? 0.34f : 0.2f) : used ? kPanelRaised : kBackground;
+        const Color edge = on ? tone : used ? kBodyEdge : kRule;
+        const float frame = now ? 2.4f : on ? 1.4f : 1.0f;
+        const Color ink = on ? kText : used ? kTextDim : kTextOff;
+        Mesh body;
+        std::vector<Vec2> outline;
+        switch (shape.shape) {
+            case X32Shape::Mux: {
+                const float dip = std::min(10.0f * scale, r.h * 0.2f);
+                outline = {{r.x, r.y}, {r.x + r.w, r.y + dip}, {r.x + r.w, r.y + r.h - dip}, {r.x, r.y + r.h}};
+                break;
+            }
+            case X32Shape::MuxDown: {
+                const float in = 14.0f * scale;
+                outline = {{r.x, r.y}, {r.x + r.w, r.y}, {r.x + r.w - in, r.y + r.h}, {r.x + in, r.y + r.h}};
+                break;
+            }
+            case X32Shape::Adder:
+            case X32Shape::Alu:
+                outline = {{r.x, r.y}, {r.x + r.w, r.y + r.h * 0.28f}, {r.x + r.w, r.y + r.h * 0.72f}, {r.x, r.y + r.h},
+                           {r.x, r.y + r.h * 0.6f}, {r.x + r.w * 0.22f, r.y + r.h * 0.5f}, {r.x, r.y + r.h * 0.4f}};
+                break;
+            case X32Shape::Box: break;
+        }
+        if (outline.empty()) {
+            fillRound(renderer, r, 7, fill);
+            frameRound(renderer, r, 7, frame, edge);
+        } else {
+            body.addFan(outline, {r.x + r.w * 0.55f, r.y + r.h * 0.5f}, fill);
+            addLoop(body, outline, frame, edge);
+            body.flush(renderer);
+        }
+        const float small = std::clamp(10.0f * scale, 8.5f, 11.5f);
+        const auto centred = [&](Face face, float size, float y, const std::string& line, Color color, float cx) {
+            write(renderer, face, size, cx - textWidth(renderer, face, size, line) / 2.0f, y, line, color);
+        };
+        switch (shape.shape) {
+            case X32Shape::Mux: {
+                const float tiny = std::clamp(8.5f * scale, 7.5f, 10.0f);
+                centred(Face::Medium, tiny, r.y + r.h / 2.0f + tiny * 0.4f, "MUX", ink, r.x + r.w / 2.0f);
+                const char* what = shape.block == kB32Dst ? "destino" : shape.block == kB32MuxB ? "B" : "volta";
+                centred(Face::Regular, small, r.y - 5.0f * scale, i18n::tr(what), kTextDim, r.x + r.w / 2.0f);
+                break;
+            }
+            case X32Shape::MuxDown:
+                centred(Face::Medium, small, r.y + r.h * 0.42f, "MUX", ink, r.x + r.w / 2.0f);
+                centred(Face::Medium, small, r.y + r.h * 0.42f + small * 1.3f, i18n::tr(shape.name), ink, r.x + r.w / 2.0f);
+                break;
+            case X32Shape::Adder: {
+                const float size = std::clamp(14.0f * scale, 10.0f, 18.0f);
+                centred(Face::Medium, size, r.y + r.h * 0.5f + size * 0.36f, shape.block == kB32Add4 ? "+4" : "+", on ? tone : ink, r.x + r.w * 0.6f);
+                centred(Face::Medium, small, r.y + r.h + small * 1.35f, i18n::tr(shape.name), ink, r.x + r.w * 0.5f);
+                if (shape.block == kB32Branch) centred(Face::Mono, small * 0.95f, r.y + r.h + small * 2.6f, shape.detail, kTextDim, r.x + r.w * 0.5f);
+                break;
+            }
+            case X32Shape::Alu: {
+                const float size = std::clamp(18.0f * scale, 12.0f, 22.0f);
+                centred(Face::Medium, text, r.y + r.h * 0.5f - size * 0.9f, i18n::tr(shape.name), ink, r.x + r.w * 0.6f);
+                if (used) centred(Face::Medium, size, r.y + r.h * 0.5f + size * 0.36f, i18n::tr(t.aluOperation.c_str()), on ? tone : ink, r.x + r.w * 0.6f);
+                if (used && on) centred(Face::Mono, small, r.y + r.h * 0.5f + size * 1.5f, decimal32(t.aluResult), kText, r.x + r.w * 0.6f);
+                break;
+            }
+            case X32Shape::Box: {
+                if (shape.block == kB32Decoder && used) {
+                    const float x = r.x + 8.0f * scale;
+                    write(renderer, Face::Medium, text, x, r.y + 18.0f * scale, i18n::tr(shape.name), ink);
+                    write(renderer, Face::Medium, std::clamp(18.0f * scale, 12.0f, 21.0f), x, r.y + 46.0f * scale, t.name, on ? tone : ink);
+                    std::vector<std::string> fields{"op " + std::to_string(t.op)};
+                    if (t.format == 'J') {
+                        fields.push_back(i18n::tr("alvo") + std::string(" ") + hex32(t.word & 0x03FFFFFFu).substr(1));
+                    } else {
+                        fields.push_back("rs " + std::to_string(t.rs));
+                        fields.push_back("rt " + std::to_string(t.rt));
+                        if (t.format == 'R') {
+                            fields.push_back("rd " + std::to_string(t.rd));
+                            fields.push_back("shamt " + std::to_string(t.shamt));
+                            fields.push_back("funct " + std::to_string(t.funct));
+                        } else {
+                            fields.push_back("imm " + hex32(t.imm).substr(4));
+                        }
+                    }
+                    float y = r.y + 72.0f * scale;
+                    for (const std::string& field : fields) {
+                        write(renderer, Face::Mono, std::clamp(11.0f * scale, 8.5f, 12.5f), x, y, field, ink);
+                        y += 17.0f * scale;
+                    }
+                    break;
+                }
+                const bool tall = r.h > 60.0f * scale;
+                const float nameY = tall ? r.y + r.h / 2.0f - 4.0f * scale : r.y + r.h / 2.0f + text * 0.36f;
+                centred(Face::Medium, text, nameY, i18n::tr(shape.name), ink, r.x + r.w / 2.0f);
+                if (shape.detail[0] != '\0' && tall) centred(Face::Regular, text * 0.9f, nameY + text * 1.3f, i18n::tr(shape.detail), kTextDim, r.x + r.w / 2.0f);
+                if (shape.block == kB32Registers) {
+                    write(renderer, Face::Regular, small, r.x + 5.0f * scale, at({0, 180}).y, i18n::tr("lê A"), kTextDim);
+                    write(renderer, Face::Regular, small, r.x + 5.0f * scale, at({0, 208}).y, i18n::tr("lê B"), kTextDim);
+                    write(renderer, Face::Regular, small, r.x + 5.0f * scale, at({0, 268}).y, i18n::tr("escreve"), kTextDim);
+                    const float a = textWidth(renderer, Face::Regular, small, "A");
+                    write(renderer, Face::Regular, small, r.x + r.w - a - 5.0f * scale, at({0, 184}).y, "A", kTextDim);
+                    write(renderer, Face::Regular, small, r.x + r.w - a - 5.0f * scale, at({0, 244}).y, "B", kTextDim);
+                }
+                if (shape.block == kB32Control && used) {
+                    std::string signals;
+                    const auto add = [&](const char* signal) { signals += (signals.empty() ? "" : " · ") + std::string(i18n::tr(signal)); };
+                    if (t.back != Trace32::Back::None) add("escreve reg");
+                    if (t.aluTakesImmediate) add("usa imm");
+                    if (t.usesImmediate && t.signExtends) add("com sinal");
+                    if (t.readsMemory) add("lê RAM");
+                    if (t.writesMemory) add("grava RAM");
+                    if (t.branches) add(t.op == mips::kOpBeq ? "se igual" : "se diferente");
+                    if (t.next == Trace32::Next::Jump) add("salta");
+                    if (t.next == Trace32::Next::Register) add("salta p/ reg");
+                    if (t.syscall) add("sistema");
+                    if (t.invalid) add("inválida");
+                    write(renderer, Face::Regular, small, r.x + 6.0f * scale, r.y + r.h - 8.0f * scale,
+                          fitted(renderer, Face::Regular, small, signals.empty() ? i18n::tr("nada") : signals, r.w - 12.0f * scale), on ? tone : kTextDim);
+                }
+                break;
+            }
+        }
+    }
+
+    for (const Packet& packet : packets) {
+        const float w = textWidth(renderer, Face::Mono, tagSize, packet.text) + 10.0f;
+        const SDL_FRect box{packet.where.x - w / 2.0f, packet.where.y - tagSize * 0.8f, w, tagSize * 1.6f};
+        fillRound(renderer, box, 5, packet.moving ? tone : packet.now ? mixed(kPanelRaised, tone, 0.35f) : kPanelRaised);
+        frameRound(renderer, box, 5, packet.now ? 1.6f : 1.0f, tone);
+        write(renderer, Face::Mono, tagSize, box.x + 5.0f, packet.where.y + tagSize * 0.36f, packet.text, packet.moving ? kBackground : kText);
+    }
+}
+
+}  // namespace
+
+void drawXray32(SDL_Renderer* renderer, const Computer32State& state, const SDL_FRect& area, int stage, float progress, float mouseX, float mouseY) {
+    fillRect(renderer, area, kBackground);
+    const Trace32 trace = traceInstruction32(state);
+    const bool running = !state.halted || trace.halts;  // the syscall 10 itself still shows its way
+    const Color tone = instructionTone32(trace.word);
+
+    const SDL_FRect next = panelNextButton(area);
+    fillRound(renderer, next, 8, inside(next, mouseX, mouseY) ? kPanelHover : kPanelButton);
+    drawIcon(renderer, Icon::Step, {next.x + 20.0f, next.y + next.h / 2.0f}, 16, kText);
+    write(renderer, Face::Medium, kUiText, next.x + 36.0f, next.y + 21.0f, "Próxima instrução", kText);
+    const float titleX = next.x + next.w + 18.0f;
+    std::string source = trace.text;
+    if (state.index < state.lineOfWord.size() && !state.source.empty()) {
+        int line = state.lineOfWord[state.index];
+        std::size_t start = 0;
+        while (--line > 0 && start != std::string::npos) {
+            start = state.source.find('\n', start);
+            if (start != std::string::npos) ++start;
+        }
+        if (start != std::string::npos) {
+            std::string text = state.source.substr(start, state.source.find('\n', start) - start);
+            const std::size_t colon = text.find(':');
+            const std::size_t comment = text.find('#');
+            if (colon != std::string::npos && (comment == std::string::npos || colon < comment)) text = text.substr(colon + 1);
+            const std::size_t first = text.find_first_not_of(" \t");
+            if (first != std::string::npos) source = text.substr(first, text.find_last_not_of(" \t") - first + 1);
+        }
+    }
+    const std::string title = running ? i18n::format("Endereço {}:  {}", {"0x" + hex32(state.pc), source}) : std::string(i18n::tr("O computador parou. Zerar começa de novo."));
+    const char* kind = i18n::tr(instructionKind32(trace));
+    const float kindWidth = running ? textWidth(renderer, Face::Medium, 12.5f, kind) + 22.0f : 0.0f;
+    const std::string shown = fitted(renderer, Face::Medium, 16, title, area.x + area.w - titleX - 30.0f - kindWidth);
+    write(renderer, Face::Medium, 16, titleX, next.y + 23.0f, shown, kText);
+    if (running) {
+        const float x = titleX + textWidth(renderer, Face::Medium, 16, shown) + 14.0f;
+        const SDL_FRect chip{x, next.y + 6.0f, kindWidth, 22.0f};
+        fillRound(renderer, chip, 11, mixed(kPanelRaised, tone, 0.3f));
+        frameRound(renderer, chip, 11, 1.2f, tone);
+        write(renderer, Face::Medium, 12.5f, chip.x + 11.0f, chip.y + 15.5f, kind, kText);
+    }
+    for (int s = 0; s < kTraceStages; ++s) {
+        const SDL_FRect r = xrayStageRect(area, s);
+        const bool now = running && s == stage;
+        const bool done = running && s < stage;
+        fillRound(renderer, r, 7, now ? mixed(kPanelRaised, tone, 0.45f) : inside(r, mouseX, mouseY) ? kPanelHover : done ? mixed(kPanelRaised, tone, 0.18f) : kPanelButton);
+        if (now) frameRound(renderer, r, 7, 1.4f, tone);
+        char label[32];
+        std::snprintf(label, sizeof label, "%d  %s", s + 1, i18n::tr(kTraceStageNames[s]));
+        const float w = textWidth(renderer, Face::Medium, 12.5f, label);
+        write(renderer, Face::Medium, 12.5f, r.x + (r.w - w) / 2.0f, r.y + 19.0f, label, now || done ? kText : kTextDim);
+    }
+    const SDL_FRect first = xrayStageRect(area, 0);
+    if (running) {
+        const float width = area.x + area.w - first.x - 16.0f;
+        const std::vector<std::string> lines = wrapped(renderer, Face::Regular, 14.5f, explainStage32(trace, stage), width);
+        for (std::size_t i = 0; i < lines.size() && i < 3; ++i) {
+            const std::string line = i == 2 && lines.size() > 3 ? fitted(renderer, Face::Regular, 14.5f, lines[i] + " …", width) : lines[i];
+            write(renderer, Face::Regular, 14.5f, first.x, first.y + first.h + 24.0f + 20.0f * static_cast<float>(i), line, tone);
+        }
+        drawWordStrip32(renderer, trace.word, {first.x, area.y + 180.0f, std::min(area.w - 40.0f, 760.0f), 18.0f});
+    }
+    const std::vector<std::string> legend =
+        wrapped(renderer, Face::Regular, 12.5f,
+                "Siglas: op = o código do tipo · rs, rt = os registradores lidos · rd = o que recebe o resultado (tipo R) · shamt = quantas "
+                "casas deslocar · funct = qual conta, no tipo R · imm = o imediato, 16 bits dentro da instrução · alvo = 26 bits do salto",
+                area.w - (first.x - area.x) - 16.0f);
+    float y = area.y + area.h - 6.0f - 17.0f * static_cast<float>(std::min<std::size_t>(legend.size(), 2) - 1);
+    for (std::size_t i = 0; i < legend.size() && i < 2; ++i, y += 17.0f) write(renderer, Face::Regular, 12.5f, first.x, y, legend[i], kTextDim);
+    drawXray32Plan(renderer, trace, running, {area.x + 10.0f, area.y + 220.0f, area.w - 20.0f, area.h - 230.0f - 40.0f}, stage, progress);
 }
 
 namespace {
@@ -5576,6 +6152,129 @@ void drawDebugger32(SDL_Renderer* renderer, const Computer32State& state, const 
     drawConsole(renderer, console, {bottom.x + 10.0f, bottom.y + 26.0f, bottom.w - 20.0f, bottom.h - 30.0f});
 }
 
+// --- A lesson of questions ---------------------------------------------------------------------------
+
+SDL_FRect quizArea(float rightEdge, int height) {
+    const float top = kToolbarHeight + kLessonStripHeight;
+    return {kPanelWidth, top, rightEdge - kPanelWidth, static_cast<float>(height) - top - kStatusHeight};
+}
+
+namespace {
+
+SDL_FRect quizCard(const SDL_FRect& area) {
+    const float w = std::min(760.0f, area.w - 40.0f);
+    const float h = std::min(400.0f, area.h - 30.0f);
+    return {area.x + (area.w - w) / 2.0f, area.y + std::max(14.0f, (area.h - h) / 2.0f), w, h};
+}
+
+}  // namespace
+
+SDL_FRect quizButtonRect(const SDL_FRect& area) {
+    const SDL_FRect card = quizCard(area);
+    return {card.x + card.w - 190.0f, card.y + 238.0f, 166.0f, 40.0f};
+}
+
+void drawQuiz(SDL_Renderer* renderer, const SDL_FRect& area, const QuizView& quiz, float mouseX, float mouseY) {
+    fillRect(renderer, area, kBackground);
+    const SDL_FRect card = quizCard(area);
+    fillRound(renderer, card, 14, kPanel);
+    frameRound(renderer, card, 14, 1.0f, kRule);
+    const float x = card.x + 24.0f;
+    if (quiz.question == nullptr) {
+        write(renderer, Face::Medium, 22, x, card.y + 60.0f, "Todas as perguntas certas!", kKnobOn);
+        write(renderer, Face::Regular, 15, x, card.y + 92.0f, "O exercício está feito. Próximo segue para o que vem depois.", kTextDim);
+        return;
+    }
+    const editor::Question& q = *quiz.question;
+
+    // How far along: one dot per question.
+    write(renderer, Face::Medium, 13, x, card.y + 30.0f, i18n::format("Pergunta {} de {}", {std::to_string(quiz.number), std::to_string(quiz.count)}), kTextDim);
+    Mesh dots;
+    for (int i = 0; i < quiz.count; ++i) {
+        const Color color = i + 1 < quiz.number || (i + 1 == quiz.number && quiz.right) ? kKnobOn : i + 1 == quiz.number ? kWirePreview : kRule;
+        dots.addDisc({card.x + card.w - 24.0f - static_cast<float>(quiz.count - 1 - i) * 16.0f, card.y + 25.0f}, 5.0f, color);
+    }
+    dots.flush(renderer);
+    float y = card.y + 64.0f;
+    for (const std::string& line : wrapped(renderer, Face::Medium, 19, i18n::tr(q.prompt), card.w - 48.0f)) {
+        write(renderer, Face::Medium, 19, x, y, line, kText);
+        y += 26.0f;
+    }
+
+    // The bits: a light each, its digit above and what it's worth below, in groups of four.
+    std::string bits;
+    for (const char c : std::string(q.bits)) {
+        if (c == '0' || c == '1' || c == ' ') bits += c;
+    }
+    int count = 0;
+    for (const char c : bits) count += c == ' ' ? 0 : 1;
+    if (count > 0) {
+        const float step = 54.0f;
+        const float gap = 22.0f;
+        int groups = 0;
+        for (const char c : bits) groups += c == ' ' ? 1 : 0;
+        float bx = x + 10.0f;
+        const float lightY = y + 44.0f;
+        int position = count - 1;
+        Mesh lights;
+        for (const char c : bits) {
+            if (c == ' ') {
+                bx += gap;
+                continue;
+            }
+            const bool on = c == '1';
+            const Vec2 centre{bx + step / 2.0f, lightY};
+            if (on) lights.addDisc(centre, 21.0f, mixed(kBackground, kWireConflict, 0.35f));
+            lights.addDisc(centre, 15.0f, on ? kWireConflict : mixed(kBackground, kBodyEdge, 0.6f));
+            lights.flush(renderer);
+            const char digit[2] = {c, '\0'};
+            write(renderer, Face::Mono, 15, centre.x - textWidth(renderer, Face::Mono, 15, digit) / 2.0f, lightY - 26.0f, digit, on ? kText : kTextDim);
+            const std::string weight = std::to_string(std::uint64_t{1} << position);
+            write(renderer, Face::Regular, 13, centre.x - textWidth(renderer, Face::Regular, 13, weight) / 2.0f, lightY + 38.0f, weight, on ? kWarning : kTextOff);
+            bx += step;
+            --position;
+        }
+        (void)groups;
+        y = lightY + 52.0f;
+    } else {
+        y += 20.0f;
+    }
+
+    // The answer: what's been typed, in a box, and the button.
+    const char* how = q.base == 2 ? "em binário" : q.base == 16 ? "em hexadecimal" : "em decimal";
+    write(renderer, Face::Regular, 13, x, card.y + 228.0f, i18n::format("Resposta, {}:", {i18n::tr(how)}), kTextDim);
+    const SDL_FRect box{x, card.y + 238.0f, card.w - 48.0f - 190.0f, 40.0f};
+    fillRound(renderer, box, 8, kBackground);
+    frameRound(renderer, box, 8, 1.4f, quiz.right ? kKnobOn : quiz.wrong ? kWireConflict : kWirePreview);
+    const bool blink = (SDL_GetTicks() / 500) % 2 == 0;
+    const std::string shown = quiz.typed + (quiz.right || !blink ? "" : "_");
+    write(renderer, Face::Mono, 20, box.x + 14.0f, box.y + 28.0f, shown, kText);
+    const SDL_FRect button = quizButtonRect(area);
+    const bool hovered = inside(button, mouseX, mouseY);
+    fillRound(renderer, button, 8, hovered ? kWirePreview : kPanelActive);
+    const char* label = quiz.right ? "Próxima" : "Responder";
+    const float w = textWidth(renderer, Face::Medium, kUiText, label);
+    write(renderer, Face::Medium, kUiText, button.x + (button.w - w) / 2.0f, button.y + 25.0f, label, hovered ? kBackground : kText);
+
+    // Right, with why; or not yet.
+    float fy = card.y + 312.0f;
+    if (quiz.right) {
+        const std::string line = std::string(i18n::tr("Certo!")) + " " + i18n::tr(q.explain);
+        for (const std::string& piece : wrapped(renderer, Face::Regular, 15, line, card.w - 48.0f)) {
+            write(renderer, Face::Regular, 15, x, fy, piece, kKnobOn);
+            fy += 21.0f;
+        }
+        write(renderer, Face::Regular, 12.5f, x, card.y + card.h - 16.0f, "Enter: próxima pergunta", kTextOff);
+    } else if (quiz.badDigit) {
+        const char* only = q.base == 2 ? "Em binário só existem os dígitos 0 e 1." : q.base == 10 ? "Em decimal, os dígitos vão de 0 a 9." : "Em hexadecimal, os dígitos vão de 0 a 9 e de A a F.";
+        write(renderer, Face::Regular, 15, x, fy, only, kWarning);
+    } else if (quiz.wrong) {
+        write(renderer, Face::Regular, 15, x, fy, "Ainda não. Tente de novo: a Dica, lá em cima, mostra o caminho.", kWireConflict);
+    } else {
+        write(renderer, Face::Regular, 12.5f, x, card.y + card.h - 16.0f, "Digite a resposta e aperte Enter. Backspace apaga.", kTextOff);
+    }
+}
+
 void drawInterface(SDL_Renderer* renderer, const Session& session, const PaletteView& palette, int width, int height,
                    const InterfaceText& text) {
     const auto w = static_cast<float>(width);
@@ -5601,7 +6300,9 @@ void drawInterface(SDL_Renderer* renderer, const Session& session, const Palette
     if (text.computer32 != nullptr && text.view == kViewPanel) {
         drawComputer32Panel(renderer, *text.computer32, text.console != nullptr ? *text.console : std::string(), text.debug, computerArea, text.mouseX, text.mouseY);
     }
-    if (text.computer32 != nullptr && text.view == kViewXray) drawXray32(renderer, computerArea);
+    if (text.computer32 != nullptr && text.view == kViewXray) {
+        drawXray32(renderer, *text.computer32, computerArea, text.xrayStage, text.xrayProgress, text.mouseX, text.mouseY);
+    }
     if (text.view == kViewXray && text.computer != nullptr) {
         drawXray(renderer, *text.computer, computerArea, text.xrayStage, text.xrayProgress, text.mouseX, text.mouseY);
     }
@@ -5630,6 +6331,7 @@ void drawInterface(SDL_Renderer* renderer, const Session& session, const Palette
     drawToolbar(renderer, session, width, rightEdge, text.mouseX, text.mouseY);
     if (text.lesson != nullptr && text.view == kViewBoard) {
         drawLessonStrip(renderer, {kPanelWidth, kToolbarHeight, rightEdge - kPanelWidth, kLessonStripHeight}, *text.lesson, text.mouseX, text.mouseY);
+        if (text.quiz != nullptr) drawQuiz(renderer, quizArea(rightEdge, height), *text.quiz, text.mouseX, text.mouseY);
     }
     if (text.example != nullptr && text.view == kViewBoard) {
         drawExampleStrip(renderer, {kPanelWidth, kToolbarHeight, rightEdge - kPanelWidth, kLessonStripHeight}, *text.example, text.mouseX, text.mouseY);

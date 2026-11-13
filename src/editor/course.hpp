@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "editor/board.hpp"
@@ -17,6 +18,7 @@ namespace bancada::editor {
 struct TheoryFigure {
     Board board;
     std::vector<PartId> closed;  // switches closed and inputs on
+    std::vector<std::pair<PartId, std::uint64_t>> values;  // inputs of several bits, and the number each is set to
     std::vector<ChipData> chips;
 };
 

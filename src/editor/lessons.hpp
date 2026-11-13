@@ -48,7 +48,23 @@ enum class LessonCheck : std::uint8_t {
     Table,           // named inputs and outputs follow a truth table
     Sequence,        // a circuit that remembers goes through the steps
     Program,         // the computer's program shows the outputs, stores the memory and uses the instructions
+    Answer,          // no circuit: questions answered with a number, one after the other
 };
+
+// A question of an Answer lesson: maybe a row of bits shown as lights, and the number that answers it,
+// typed in this base. Spaces in the bits only group them, four by four, the way they are read.
+struct Question {
+    const char* prompt;
+    const char* bits;  // '0' and '1', or "" for none
+    int base;          // 2, 10 or 16: how the answer is typed
+    const char* answer;
+    const char* explain;  // why, shown once it's answered right
+    const char* hint;     // what Dica shows for this question: the way to it, without the answer
+};
+
+// Whether what the player typed answers the question: the same number, however many zeros it starts with,
+// with or without 0x or 0b in front, in capitals or not.
+bool answers(const Question& question, std::string_view typed);
 
 // What an instruction a program lesson asks for is: an opcode, and for the ALU ones the function too.
 struct NeededInstruction {
@@ -106,6 +122,9 @@ struct Lesson {
     // Program, in machine code: the ROM's program may only be .word lines, the instructions written as
     // numbers by hand, with no names like LI or OUT.
     bool machineCode = false;
+
+    // Answer: the questions, in order.
+    std::vector<Question> questions;
 };
 
 const std::vector<LessonAct>& lessonActs();

@@ -85,6 +85,8 @@ struct CodeEditing {
     float helpScroll = 0.0f;
     std::vector<int> lines;  // for each assembled word, its line
     int tab = 1;             // the right column's tab: task, commands or blocks
+    int blocksFirst = 0;     // the Blocks tab: the first block shown
+    int blocksFollowed = -1;  // the running block it last moved to, so it follows the program but not over a scroll
 };
 
 std::optional<std::uint64_t> parseHex(const std::string& text) {
@@ -305,6 +307,45 @@ public:
         startLesson(index);
     }
 
+    // Where Next goes from an exercise, in the course's order: the next exercise of the same reading, or else
+    // the next reading, always, even one read before, since it's where what comes next is explained. -1
+    // and a topic: that reading; an index: that exercise; both -1: the course is over.
+    struct NextStep {
+        int lesson = -1;
+        int topic = -1;
+    };
+
+    NextStep nextStep() const {
+        const int topic = editor::topicOfLesson(lesson_);
+        if (topic < 0) return {lesson_ + 1 < static_cast<int>(editor::lessons().size()) ? lesson_ + 1 : -1, -1};
+        const editor::Topic& here = editor::topics()[static_cast<std::size_t>(topic)];
+        const std::string_view id = editor::lessons()[static_cast<std::size_t>(lesson_)].id;
+        for (std::size_t i = 0; i + 1 < here.exercises.size(); ++i) {
+            if (id == here.exercises[i]) return {editor::lessonIndex(here.exercises[i + 1]), -1};
+        }
+        if (topic + 1 < static_cast<int>(editor::topics().size())) return {-1, topic + 1};
+        return {};
+    }
+
+    void goToNext() {
+        const NextStep next = nextStep();
+        if (next.lesson >= 0) {
+            startLesson(next.lesson);
+            return;
+        }
+        if (next.topic < 0) {
+            showLessons();
+            return;
+        }
+        finished_ = profiles_.finishedLessons();
+        if (!devUnlocked_ && !editor::actOpen(editor::topics()[static_cast<std::size_t>(next.topic)].act, finished_)) {
+            autosave();
+            showLessons();
+            return;
+        }
+        openReading(next.topic);
+    }
+
     // Opens a lesson where the player left it, or from its first board. Whatever was open is saved first.
     void startLesson(int index) {
         if (index < 0 || index >= static_cast<int>(editor::lessons().size())) return;
@@ -336,6 +377,7 @@ public:
         }
         projectName_ = lesson.title;
         session_.markSaved();
+        resetQuiz();
         lessonRevision_ = UINT64_MAX;
         lessonProblemShown_ = false;
         lessonHint_ = -1;
@@ -396,6 +438,7 @@ public:
         applyProject(std::move(project), std::nullopt);
         fit();
         autosavedRevision_ = UINT64_MAX;  // the fresh board replaces the saved one
+        resetQuiz();
         lessonProblemShown_ = false;
         lessonHint_ = -1;
         lessonRevision_ = UINT64_MAX;
@@ -405,6 +448,7 @@ public:
     // the player asks, with Verificar, so that it doesn't nag while they're still building.
     void checkLessonNow() {
         if (lesson_ < 0 || session_.currentCircuit() != 0 || session_.revision() == lessonRevision_) return;
+        if (editor::lessons()[static_cast<std::size_t>(lesson_)].check == editor::LessonCheck::Answer) return;  // the questions decide
         lessonRevision_ = session_.revision();
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
         const bool before = lessonResult_.passed;
@@ -421,12 +465,22 @@ public:
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
         switch (button) {
             case app::LessonButton::Check:
+                if (lesson.check == editor::LessonCheck::Answer) {
+                    submitQuiz();
+                    break;
+                }
                 lessonRevision_ = UINT64_MAX;
                 checkLessonNow();
                 lessonProblemShown_ = true;
                 lessonHint_ = -1;
                 break;
             case app::LessonButton::Hint:
+                // A lesson of questions has a hint for each question: the one being asked.
+                if (lesson.check == editor::LessonCheck::Answer && quizIndex_ < lesson.questions.size()) {
+                    lessonHint_ = 0;
+                    lessonProblemShown_ = false;
+                    break;
+                }
                 lessonHint_ = (lessonHint_ + 1) % static_cast<int>(lesson.hints.size());
                 lessonProblemShown_ = false;
                 break;
@@ -436,20 +490,123 @@ public:
                 showLessons();
                 break;
             case app::LessonButton::Program: openLessonProgram(); break;
-            case app::LessonButton::Next: goToLesson(lesson_ + 1); break;
+            case app::LessonButton::Next: goToNext(); break;
             case app::LessonButton::None: break;
         }
+    }
+
+    // --- A lesson of questions ----------------------------------------------------------------------------
+
+    bool quizActive() const {
+        return lesson_ >= 0 && editor::lessons()[static_cast<std::size_t>(lesson_)].check == editor::LessonCheck::Answer && view_ == app::kViewBoard &&
+               !modal();
+    }
+
+    // A lesson just opened or started over: its questions from the first, and no result left from the lesson
+    // before. A board's result comes back with the next check; a lesson of questions has no board to check,
+    // so it shows as done only when the player finished it before.
+    void resetQuiz() {
+        quizIndex_ = 0;
+        quizTyped_.clear();
+        quizWrong_ = false;
+        quizRight_ = false;
+        quizBadDigit_ = false;
+        lessonResult_ = {};
+        if (lesson_ < 0) return;
+        const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
+        if (lesson.check == editor::LessonCheck::Answer && finishedHere(lesson.id)) lessonResult_ = {true, lesson.success};
+    }
+
+    // Enter, or the button: checks the answer, or after a right one goes to the next question. The last one
+    // right finishes the lesson.
+    void submitQuiz() {
+        const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
+        if (quizIndex_ >= lesson.questions.size()) return;
+        if (quizRight_) {
+            ++quizIndex_;
+            lessonHint_ = -1;
+            quizTyped_.clear();
+            quizRight_ = false;
+            quizWrong_ = false;
+            return;
+        }
+        if (quizTyped_.empty()) return;
+        if (editor::answers(lesson.questions[quizIndex_], quizTyped_)) {
+            quizRight_ = true;
+            quizWrong_ = false;
+            if (quizIndex_ + 1 == lesson.questions.size() && !lessonResult_.passed) {
+                lessonResult_ = {true, lesson.success};
+                profiles_.finishLesson(lesson.id);
+                finished_ = profiles_.finishedLessons();
+                lessonHint_ = -1;
+            }
+        } else {
+            quizWrong_ = true;
+        }
+    }
+
+    bool quizKey(SDL_Keycode key, SDL_Keymod mod) {
+        if ((mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT)) != 0) return false;
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+            submitQuiz();
+            return true;
+        }
+        if (key == SDLK_BACKSPACE) {
+            if (!quizTyped_.empty() && !quizRight_) quizTyped_.pop_back();
+            quizWrong_ = false;
+            return true;
+        }
+        char c = 0;
+        if (key >= SDLK_0 && key <= SDLK_9) c = static_cast<char>('0' + (key - SDLK_0));
+        if (key >= SDLK_KP_1 && key <= SDLK_KP_9) c = static_cast<char>('1' + (key - SDLK_KP_1));
+        if (key == SDLK_KP_0) c = '0';
+        if (key >= SDLK_A && key <= SDLK_F) c = static_cast<char>('A' + (key - SDLK_A));
+        if (key == SDLK_X) c = 'x';
+        if (c == 0) return false;
+        const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
+        if (quizIndex_ < lesson.questions.size() && c != 'x') {
+            const int base = lesson.questions[quizIndex_].base;
+            const int digit = c >= 'A' ? c - 'A' + 10 : c - '0';
+            if (digit >= base && !quizRight_) {
+                quizBadDigit_ = true;
+                return true;
+            }
+        }
+        quizBadDigit_ = false;
+        if (quizWrong_) quizTyped_.clear();  // after a wrong answer, a new one starts
+        if (!quizRight_ && quizTyped_.size() < 20) quizTyped_ += c;
+        quizWrong_ = false;
+        return true;
+    }
+
+    app::QuizView quizView() const {
+        const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
+        app::QuizView view;
+        view.count = static_cast<int>(lesson.questions.size());
+        if (quizIndex_ < lesson.questions.size()) {
+            view.question = &lesson.questions[quizIndex_];
+            view.number = static_cast<int>(quizIndex_) + 1;
+        }
+        view.typed = quizTyped_;
+        view.wrong = quizWrong_;
+        view.right = quizRight_;
+        view.badDigit = quizBadDigit_;
+        return view;
     }
 
     app::LessonStrip lessonStrip() const {
         app::LessonStrip strip;
         strip.index = lesson_;
         strip.passed = lessonResult_.passed;
-        strip.hasNext = lesson_ + 1 < static_cast<int>(editor::lessons().size());
+        const NextStep next = nextStep();
+        strip.hasNext = next.lesson >= 0 || next.topic >= 0;
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
         strip.program = lesson.check == editor::LessonCheck::Program;
         if (strip.passed) {
             strip.message = lessonResult_.message;
+        } else if (lessonHint_ >= 0 && lesson.check == editor::LessonCheck::Answer && quizIndex_ < lesson.questions.size()) {
+            strip.message = i18n::format("Dica: {}", {i18n::tr(lesson.questions[quizIndex_].hint)});
+            strip.hint = true;
         } else if (lessonHint_ >= 0) {
             strip.message = i18n::format("Dica: {}", {i18n::tr(lesson.hints[static_cast<std::size_t>(lessonHint_)])});
             strip.hint = true;
@@ -461,6 +618,24 @@ public:
     }
 
     SDL_FRect lessonStripArea() const { return {app::kPanelWidth, app::kToolbarHeight, boardRightEdge() - app::kPanelWidth, app::kLessonStripHeight}; }
+
+    app::HomeInfo homeInfo() const {
+        app::HomeInfo info;
+        info.lessonsLine = lessonsLine();
+        info.total = static_cast<int>(editor::lessons().size());
+        const std::vector<std::string> finished = profiles_.finishedLessons();
+        for (const std::string& id : finished) info.done += editor::lessonIndex(id) >= 0 ? 1 : 0;
+        info.about = i18n::format("{} atos, {} aulas teóricas e {} exercícios, cada um verificado pelo próprio circuito.",
+                                  {std::to_string(editor::lessonActs().size()), std::to_string(editor::topics().size()), std::to_string(info.total)});
+        for (std::size_t act = 0; act < editor::lessonActs().size(); ++act) {
+            const int count = static_cast<int>(editor::actLessons(static_cast<int>(act)).size());
+            if (count > 0 && editor::actDone(static_cast<int>(act), finished) < count) {
+                info.next = i18n::tr(editor::lessonActs()[act].title);
+                break;
+            }
+        }
+        return info;
+    }
 
     std::string lessonsLine() const {
         std::size_t done = 0;
@@ -500,6 +675,7 @@ public:
         text.view = view_;
         text.programShown = codeVisible();
         if (view_ == app::kViewXray && computer) advanceXray(*computer, text);
+        if (view_ == app::kViewXray && computer32) advanceXray(computer32->pc, computer32->halted, text);
         app::DebugView debug;
         if (computer) {
             followComputer(*computer);
@@ -527,10 +703,15 @@ public:
         }
         text.reading = reading_.c_str();
         app::LessonStrip strip;
+        app::QuizView quiz;
         if (lesson_ >= 0) {
             strip = lessonStrip();
             text.lesson = &strip;
             text.limit = &lessonLimit_;
+            if (quizActive()) {
+                quiz = quizView();
+                text.quiz = &quiz;
+            }
         }
         const app::ExampleStrip example{example_, exampleVersion_};
         if (example_ >= 0) text.example = &example;
@@ -542,12 +723,13 @@ public:
             app::drawPrompt(renderer_, promptTitle(), typing_, width_, height_, unit);
         }
         if (codeVisible()) {
+            followBlocks();
             const SDL_Rect below{0, static_cast<int>(app::kToolbarHeight), width_, codeHeight()};
             SDL_SetRenderViewport(renderer_, &below);
             app::drawCode(renderer_, codeView(), width_, codeHeight());
             SDL_SetRenderViewport(renderer_, nullptr);
         }
-        if (homeOpen_) app::drawHome(renderer_, width_, height_, mouseX_, mouseY_, lessonsLine(), homeComputers_);
+        if (homeOpen_) app::drawHome(renderer_, width_, height_, mouseX_, mouseY_, homeInfo(), homeComputers_);
         if (lessonsOpen_) app::drawLessonList(renderer_, width_, height_, mouseX_, mouseY_, lessonListView());
         if (lessonsOpen_ && prompt_ == Prompt::DevPassword) app::drawPrompt(renderer_, promptTitle(), std::string(typing_.size(), '*'), width_, height_);
         if (topic_ >= 0) app::drawReading(renderer_, width_, height_, mouseX_, mouseY_, readingView());
@@ -605,12 +787,14 @@ public:
 
     // The X-ray walks through the six steps of each instruction on its own, unless a step was chosen.
     // While the clock runs, instructions go by too fast for that: then every step shows at once.
-    void advanceXray(const editor::ComputerState& computer, app::InterfaceText& text) {
+    void advanceXray(const editor::ComputerState& computer, app::InterfaceText& text) { advanceXray(computer.pc, computer.halted, text); }
+
+    void advanceXray(std::uint32_t pc, bool halted, app::InterfaceText& text) {
         constexpr Uint64 kStepMs = 1700;
         const Uint64 now = SDL_GetTicks();
-        if (computer.pc != xrayPc_ || computer.halted != xrayHalted_) {
-            xrayPc_ = computer.pc;
-            xrayHalted_ = computer.halted;
+        if (pc != xrayPc_ || halted != xrayHalted_) {
+            xrayPc_ = pc;
+            xrayHalted_ = halted;
             xrayStage_ = 0;
             xrayStart_ = now;
             xrayPinned_ = false;
@@ -727,10 +911,7 @@ public:
                 break;
             case app::DebugAction::Stage:
                 session_.setRunning(false);
-                if (is32_) {  // no X-ray steps yet on the 32-bit computer: a whole instruction
-                    session_.stepClock();
-                    session_.stepClock();
-                } else if (xrayStage_ + 1 < editor::kTraceStages) {
+                if (xrayStage_ + 1 < editor::kTraceStages) {
                     chooseXrayStage(xrayStage_ + 1);
                 } else {
                     session_.stepClock();
@@ -910,6 +1091,13 @@ public:
                 break;
             }
         }
+    }
+
+    // For the screenshot scripts: the editor on its Blocks tab, scrolled this many blocks down.
+    void showBlocks(int scroll) {
+        if (!code_) return;
+        code_->tab = app::kCodeTabBlocks;
+        code_->blocksFirst = scroll;
     }
 
     // The 32-bit computer, the same way: in a file of its own, opened on its program.
@@ -1307,6 +1495,7 @@ private:
         view.help = code_->help;
         view.helpScroll = code_->helpScroll;
         view.tab = code_->tab;
+        view.blocksFirst = code_->blocksFirst;
         view.program = code_->words;
         view.lines = code_->lines;
         if (const std::optional<editor::ComputerState> computer = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards())) {
@@ -1329,6 +1518,19 @@ private:
             view.lessonProblem = strip.problem;
         }
         return view;
+    }
+
+    // The Blocks tab follows the program: when another instruction starts running, the list moves to show it,
+    // a third of the way down. In between, the wheel moves it freely.
+    void followBlocks() {
+        const int running = codeView().runningAddress;
+        if (running == code_->blocksFollowed) return;
+        code_->blocksFollowed = running;
+        if (running < 0) return;
+        const int fit = app::codeBlocksVisible(width_, codeHeight(), code_->mips);
+        if (running >= code_->blocksFirst && running < code_->blocksFirst + fit - 1) return;
+        const int count = static_cast<int>(code_->mips ? code_->words32.size() : code_->words.size());
+        code_->blocksFirst = std::clamp(running - fit / 3, 0, std::max(0, count - fit));
     }
 
     // The program view: the draft kept from before, or the ROM's program opened.
@@ -1490,6 +1692,12 @@ private:
 
     void scrollCode(float amount) {
         CodeEditing& code = *code_;
+        if (code.tab == app::kCodeTabBlocks && !code.help && app::overCodeBlocks(width_, codeHeight(), mouseX_, mouseY_ - app::kToolbarHeight)) {
+            const int count = static_cast<int>(code.mips ? code.words32.size() : code.words.size());
+            const int fit = app::codeBlocksVisible(width_, codeHeight(), code.mips);
+            code.blocksFirst = std::clamp(code.blocksFirst - static_cast<int>(amount), 0, std::max(0, count - fit));
+            return;
+        }
         if (code.help) {
             code.helpScroll = std::clamp(code.helpScroll - amount * 60.0f, 0.0f, app::codeHelpMaxScroll(renderer_, width_, codeHeight(), code.mips));
             return;
@@ -1821,6 +2029,13 @@ private:
             }
             return;
         }
+        if (quizActive() && !overLessonStrip(x, y) && overBoard(x, y)) {
+            if (button == SDL_BUTTON_LEFT) {
+                const SDL_FRect r = app::quizButtonRect(app::quizArea(boardRightEdge(), height_));
+                if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) submitQuiz();
+            }
+            return;
+        }
         if (overLessonStrip(x, y)) {
             if (button == SDL_BUTTON_LEFT && example_ >= 0) {
                 const int chosen = app::exampleStripAt(lessonStripArea(), app::ExampleStrip{example_, exampleVersion_}, x, y);
@@ -2144,6 +2359,7 @@ private:
             helpOpen_ = !helpOpen_;
             return;
         }
+        if (quizActive() && quizKey(key, mod)) return;
         const bool ctrl = (mod & SDL_KMOD_CTRL) != 0;
         const bool shift = (mod & SDL_KMOD_SHIFT) != 0;
         using editor::Key;
@@ -2257,6 +2473,11 @@ private:
     app::LibraryLimit lessonLimit_;
     editor::LessonResult lessonResult_;
     std::uint64_t lessonRevision_ = UINT64_MAX;  // the board the result is about
+    std::size_t quizIndex_ = 0;  // a lesson of questions: the one being asked
+    std::string quizTyped_;
+    bool quizWrong_ = false;
+    bool quizRight_ = false;
+    bool quizBadDigit_ = false;  // a key the base has no digit for was pressed
     bool lessonProblemShown_ = false;            // Verificar was pressed: say what's wrong
     int lessonHint_ = -1;                        // the hint shown, or -1
     std::vector<std::string> finished_;          // the lessons this profile finished
@@ -2922,7 +3143,15 @@ int main(int argc, char** argv) {
     if (script != nullptr && std::strcmp(script, "inicio") == 0) app.showHome();
     if (script != nullptr && std::strcmp(script, "computadores") == 0) app.showComputers();
     if (script != nullptr && std::strcmp(script, "programar32") == 0) app.openProgram32();
-    // rodar32:N:V: the 32-bit program computer, N instructions in, on view V (1 Panel, 2 X-ray).
+    // blocos32:N:R, the 32-bit program N instructions in, on the Blocks tab scrolled R blocks down.
+    if (script != nullptr && std::strncmp(script, "blocos32:", 9) == 0) {
+        app.openProgram32();
+        for (int i = 0; i < 2 * std::atoi(script + 9); ++i) app.session().stepClock();
+        const char* scroll = std::strchr(script + 9, ':');
+        app.draw("");
+        app.showBlocks(scroll != nullptr ? std::atoi(scroll + 1) : 0);
+    }
+    // rodar32:N:V[:S]: the 32-bit program computer, N instructions in, on view V (1 Panel, 2 X-ray), at X-ray step S.
     if (script != nullptr && std::strncmp(script, "rodar32:", 8) == 0) {
         Script s(app, window);
         app.openProgram32();
@@ -2932,6 +3161,10 @@ int main(int argc, char** argv) {
         if (view != nullptr) {
             const SDL_FRect r = app::viewSwitchRect(app.boardRightEdge(), std::atoi(view + 1));
             s.clickScreen(r.x + 20.0f, r.y + 10.0f);
+            if (const char* stage = std::strchr(view + 1, ':'); stage != nullptr) {
+                app.draw("");
+                app.chooseXrayStage(std::atoi(stage + 1));
+            }
         }
         s.moveScreen(700, 400);
     }
@@ -3002,6 +3235,27 @@ int main(int argc, char** argv) {
         }
         app.draw("");
         s.moveScreen(700, 120);
+    }
+    // proximo:N, lesson N and then its Next: the next exercise, or the next reading.
+    if (script != nullptr && std::strncmp(script, "proximo:", 8) == 0) {
+        app.startLesson(std::atoi(script + 8));
+        app.goToNext();
+    }
+    // perguntas:N:KEYS, lesson N of questions with KEYS typed: digits and letters, '.' for Enter, 'n' for Next, 'h' for Dica.
+    if (script != nullptr && std::strncmp(script, "perguntas:", 10) == 0) {
+        Script s(app, window);
+        app.startLesson(std::atoi(script + 10));
+        app.draw("");
+        if (const char* keys = std::strchr(script + 10, ':'); keys != nullptr) {
+            for (const char* c = keys + 1; *c != '\0'; ++c) {
+                if (*c == '.') s.key(SDLK_RETURN);
+                else if (*c >= '0' && *c <= '9') s.key(static_cast<SDL_Keycode>(SDLK_0 + (*c - '0')));
+                else if (*c >= 'a' && *c <= 'f') s.key(static_cast<SDL_Keycode>(SDLK_A + (*c - 'a')));
+                else if (*c == 'n') app.goToNext();
+                else if (*c == 'h') app.pressLessonButton(app::LessonButton::Hint);
+            }
+        }
+        s.moveScreen(700, 560);
     }
     if (script != nullptr && std::strncmp(script, "aula:", 5) == 0) {
         Script s(app, window);

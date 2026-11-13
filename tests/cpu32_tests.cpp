@@ -13,6 +13,7 @@
 #include "check.hpp"
 #include "editor/circuit.hpp"
 #include "editor/computer32.hpp"
+#include "editor/computer32_view.hpp"
 #include "editor/session.hpp"
 
 using namespace bancada;
@@ -186,6 +187,49 @@ TEST(random_programs_agree) {
         source += "  li $v0, 10\n  syscall\n";
         CHECK(runBoth(assembled(source), 200));
     }
+}
+
+// What the X-ray writes on its wires, against what the model does: the next PC, the register written and
+// its value, the word stored, and the stop.
+bool traceAgrees(const mips::Program& program, std::size_t steps) {
+    mips::Machine model = mips::boot(program);
+    model.switches = 0x2A;
+    for (std::size_t i = 0; i < steps && !model.halted; ++i) {
+        const std::uint32_t word = model.fetch();
+        const auto offset = static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(word & 0xFFFFu)));
+        const std::uint32_t memory = model.memory(model.registers[(word >> 21) & 31u] + offset);
+        const Trace32 trace = traceInstruction32(word, model.pc, model.registers, model.switches, memory);
+        const std::array<std::uint32_t, 32> before = model.registers;
+        model.step();
+        bool ok = model.pc == trace.nextPc && model.halted == trace.halts && (!model.fault.empty()) == trace.invalid;
+        for (unsigned r = 1; r < 32; ++r) {
+            const bool written = trace.back != Trace32::Back::None && trace.written == r;
+            ok = ok && (written ? model.registers[r] == trace.writtenValue : model.registers[r] == before[r]);
+        }
+        if (trace.writesMemory) ok = ok && model.memory(trace.address) == trace.memoryValue;
+        if (!ok) {
+            std::printf("  step %zu: %s, model pc 0x%08X, trace says 0x%08X\n", i, trace.text.c_str(), model.pc, trace.nextPc);
+            return false;
+        }
+        for (int stage = 0; stage < 6; ++stage) {
+            if (explainStage32(trace, stage).empty()) return false;
+        }
+    }
+    return true;
+}
+
+TEST(the_xray_trace_agrees_with_the_model) {
+    CHECK(traceAgrees(assembled(".data\nv: .word 5, -3\n.text\n"
+                                "  la $t0, v\n  lw $t1, 0($t0)\n  lw $t2, 4($t0)\n  sw $t1, 4($t0)\n  add $t3, $t1, $t2\n  sub $t4, $t1, $t2\n"
+                                "  and $t5, $t1, $t2\n  or $t6, $t1, $t2\n  xor $t7, $t1, $t2\n  nor $s0, $t1, $t2\n  slt $s1, $t2, $t1\n  sltu $s2, $t2, $t1\n"
+                                "  sll $s3, $t2, 3\n  srl $s4, $t2, 3\n  sra $s5, $t2, 3\n  addi $s6, $t2, -9\n  slti $s7, $t2, 0\n  sltiu $t8, $t2, 5\n"
+                                "  andi $t9, $t2, 0xF0\n  ori $v1, $t2, 1\n  xori $a1, $t2, 0xFFFF\n  lui $a2, 0x1234\n"
+                                "  beq $t1, $t1, a\n  nop\na: bne $t1, $t1, a\n  jal f\n  li $v0, 5\n  syscall\n  li $a0, 7\n  li $v0, 1\n  syscall\n"
+                                "  li $v0, 11\n  syscall\n  j end\nf: jr $ra\nend: li $v0, 10\n  syscall\n"),
+                      200));
+    CHECK(traceAgrees(assembled("  li $v0, 4\n  syscall\n"), 10));
+    CHECK(traceAgrees(assembled("  .word 0xFC000000\n"), 10));
+    CHECK(traceAgrees(assembled("  .word 0x0000003F\n"), 10));
 }
 
 TEST(the_control_rows_cover_every_instruction) {

@@ -13,6 +13,7 @@
 #include "asm/assembler.hpp"
 #include "editor/computer32_view.hpp"
 #include "editor/computer_view.hpp"
+#include "editor/lessons.hpp"
 #include "editor/session.hpp"
 #include "editor/text_edit.hpp"
 
@@ -167,6 +168,7 @@ int truthRowsVisible(const editor::Session& session, int height);
 struct LessonStrip;
 struct ExampleStrip;
 struct DebugView;
+struct QuizView;
 
 struct InterfaceText {
     bool programShown = false;  // the program editor is the view now
@@ -192,6 +194,7 @@ struct InterfaceText {
     int xrayStage = 0;                                // the step the X-ray shows, 0 to 5
     float xrayProgress = 0.0f;                        // seconds into it, for the values moving along the wires
     const DebugView* debug = nullptr;                 // the debugger beside the X-ray
+    const QuizView* quiz = nullptr;                   // a lesson of questions, over the board
     const char* reading = "";  // what the electric part under the mouse is doing
 };
 
@@ -231,14 +234,14 @@ struct DebugHit {
 DebugHit debuggerAt(const editor::ComputerState& state, const SDL_FRect& area, float x, float y);
 void drawDebugger(SDL_Renderer* renderer, const editor::ComputerState& state, const DebugView& view, const SDL_FRect& area, float mouseX, float mouseY);
 
-// The same for the 32-bit computer, and its panel: all 32 registers, the console, the data and the stack. Its
-// X-ray is still to come; for now that view says so.
+// The same for the 32-bit computer, and its panel: all 32 registers, the console, the data and the stack; and
+// its X-ray, the textbook MIPS datapath.
 DebugHit debugger32At(const editor::Computer32State& state, const SDL_FRect& area, float x, float y);
 void drawDebugger32(SDL_Renderer* renderer, const editor::Computer32State& state, const DebugView& view, const std::string& console,
                     const SDL_FRect& area, float mouseX, float mouseY);
 void drawComputer32Panel(SDL_Renderer* renderer, const editor::Computer32State& state, const std::string& console, const DebugView* debug,
                          const SDL_FRect& area, float mouseX, float mouseY);
-void drawXray32(SDL_Renderer* renderer, const SDL_FRect& area);
+void drawXray32(SDL_Renderer* renderer, const editor::Computer32State& state, const SDL_FRect& area, int stage, float progress, float mouseX, float mouseY);
 
 // The first screen. lessonsLine says how far the player got in the lessons.
 // Portuguese and English are the language switch, top right: they don't leave the home screen.
@@ -247,7 +250,16 @@ enum class HomeChoice : std::uint8_t {
 };
 // The home's first page, or, with computers set, the page that picks a computer to program.
 HomeChoice homeAt(float x, float y, int width, int height, bool computers);
-void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const std::string& lessonsLine, bool computers);
+
+// What the lessons' card says: how far the player got, and the act that comes next.
+struct HomeInfo {
+    std::string lessonsLine;  // "8 de 55 exercícios feitos"
+    std::string about;        // what the course has
+    std::string next;         // the first act not finished, or ""
+    int done = 0;
+    int total = 0;
+};
+void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const HomeInfo& info, bool computers);
 
 // The gallery: every example, group by group in columns.
 constexpr int kGalleryBack = -2;
@@ -299,6 +311,22 @@ struct LessonStrip {
 };
 
 LessonButton lessonStripAt(const SDL_FRect& area, const LessonStrip& strip, float x, float y);
+
+// A lesson of questions, in the board's place: the question, its bits as lights with what each one is worth
+// under it, the answer being typed, and whether it was right.
+struct QuizView {
+    const editor::Question* question = nullptr;  // none once every one is answered
+    int number = 0;  // counted from 1
+    int count = 0;
+    std::string typed;
+    bool wrong = false;
+    bool right = false;
+    bool badDigit = false;  // a key the base has no digit for was pressed
+};
+
+SDL_FRect quizArea(float rightEdge, int height);
+SDL_FRect quizButtonRect(const SDL_FRect& area);
+void drawQuiz(SDL_Renderer* renderer, const SDL_FRect& area, const QuizView& quiz, float mouseX, float mouseY);
 void drawLessonStrip(SDL_Renderer* renderer, const SDL_FRect& area, const LessonStrip& strip, float mouseX, float mouseY);
 
 // The strip over the board while an example is open, as high as the lesson's: what the example is, how
@@ -367,6 +395,7 @@ struct CodeView {
     std::vector<int> lines;            // for each word, its line, counted from 1
     int runningLine = -1;              // the line the computer is on, when the ROM holds this very text
     int runningAddress = -1;
+    int blocksFirst = 0;               // the first block shown: the list scrolls with the wheel
     // During a programming lesson, its task is the first tab.
     int lesson = -1;
     std::string lessonMessage;
@@ -382,6 +411,10 @@ constexpr int kCodeTabTask = 0;
 constexpr int kCodeTabCommands = 1;
 constexpr int kCodeTabBlocks = 2;
 int codeTabAt(const CodeView& view, float x, float y, int width, int height);
+
+// The Blocks tab: how many fit at once, and whether a point is over them (for the wheel).
+int codeBlocksVisible(int width, int height, bool mips);
+bool overCodeBlocks(int width, int height, float x, float y);
 
 // The toolbar's button that shows the program, beside Placa, Painel and Raio-X.
 SDL_FRect programSwitchRect(float rightEdge);

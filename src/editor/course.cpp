@@ -175,6 +175,61 @@ TheoryFigure transistorOffAndOn() {
 }
 
 TheoryFigure notOfTransistor() { return fromGallery("nao", 1); }
+
+// --- Bits ---
+
+// Two inputs and two lights: A on, its wire bright and its light lit; B off, dark.
+TheoryFigure oneBitTwoWays() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const PartId a = l.input("A", {0, 1});
+    const PartId b = l.input("B", {0, 9});
+    l.wire(a, 0u, l.output("S", {16, 1}), 0u);
+    l.wire(b, 0u, l.output("T", {16, 9}), 0u);
+    figure.closed.push_back(a);
+    return figure;
+}
+
+// The inputs worth 1, 2, 4 and 8 into a joiner, and the number on a display: 4 and 1 on make 5.
+TheoryFigure fourSwitchesFive() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const char* names[] = {"1", "2", "4", "8"};
+    const PartId join = l.bundle(PartKind::Joiner, {16, 2}, 4, 4);
+    for (unsigned i = 0; i < 4; ++i) {
+        const PartId bit = l.input(names[i], {0, static_cast<int>(1 + 5 * i)});
+        l.wire(bit, 0u, join, i);
+        if (i == 0 || i == 2) figure.closed.push_back(bit);
+    }
+    l.wire(join, 4u, l.output("N", {28, l.pinY(join, 4) - 1}, 4), 0u);
+    return figure;
+}
+
+// A number of four bits, 13, opened by a splitter into a light for each bit.
+TheoryFigure busToLeds() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const PartId number = l.input("N", {0, 7}, 4);
+    const PartId split = l.bundle(PartKind::Splitter, {16, 3}, 4, 4);
+    l.wire(number, 0u, split, 0u);
+    const char* names[] = {"1", "2", "4", "8"};
+    for (unsigned i = 0; i < 4; ++i) l.wire(split, 1 + i, l.output(names[i], {28, static_cast<int>(1 + 5 * i)}), 0u);
+    figure.values.emplace_back(number, 13);
+    return figure;
+}
+
+// Displays show their numbers in hexadecimal: 42 on eight bits is 2A, 11 on four bits is B.
+TheoryFigure hexProbes() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const PartId byte = l.input("A", {0, 1}, 8);
+    const PartId nibble = l.input("B", {0, 9}, 4);
+    l.wire(byte, 0u, l.output("A", {28, 1}, 8), 0u);
+    l.wire(nibble, 0u, l.output("B", {28, 9}, 4), 0u);
+    figure.values.emplace_back(byte, 42);
+    figure.values.emplace_back(nibble, 11);
+    return figure;
+}
 TheoryFigure nandOfTransistors() { return fromGallery("nand", 1, {"A"}); }
 
 // The six basic gates, each with its own A and B, all with A on and B off.
@@ -478,10 +533,150 @@ std::vector<Topic> makeTopics() {
         {"inversor", "nand-transistores", "nor-transistores"},
     });
 
-    // Act 3: logic gates.
+    // Act 4: logic gates.
+    // Act 3: bits.
+    all.push_back(Topic{
+        "o-bit",
+        2,
+        "O bit: zero ou um",
+        "Por que o computador usa só dois valores, e como o simulador mostra cada um",
+        {
+            {K::Heading, "Um fio, dois valores"},
+            {K::Text,
+             "No Ato 2, a saída do transistor ficava perto de 5 V, com o LED aceso, ou perto de 0 V, com o LED apagado. Ninguém precisa saber a "
+             "tensão exata: basta saber se ela está alta ou baixa. Alta vale 1, baixa vale 0. Esse valor, que só pode ser 0 ou 1, se chama bit "
+             "(de binary digit, dígito binário). É a menor informação que existe: sim ou não, ligado ou desligado."},
+            {K::Figure, "O NÃO feito com um transistor, do Ato 2: cada fio leva um bit, e a saída é sempre o contrário da entrada.", notOfTransistor, 220},
+            {K::Text,
+             "Por que só dois valores? Porque alto e baixo são fáceis de distinguir mesmo com ruído, fios compridos e peças imperfeitas: 4,6 V e "
+             "5,2 V são os dois 1, e 0,1 V e 0,4 V são os dois 0. Se o fio pudesse ter dez níveis, um desvio pequeno já trocaria um número por "
+             "outro."},
+            {K::Table,
+             "Tensão|Bit|Também chamado\n"
+             "perto de 5 V|1|alto, ligado, verdadeiro\n"
+             "perto de 0 V|0|baixo, desligado, falso"},
+            {K::Heading, "Como o simulador mostra um bit"},
+            {K::Text,
+             "Daqui em diante os circuitos usam peças lógicas, que já trabalham com bits em vez de tensões. A Entrada é uma chave que vale 0 ou 1: "
+             "um clique nela troca o valor. A Luz acende com 1 e apaga com 0. E os próprios fios mostram o bit que levam: um fio com 1 fica "
+             "âmbar claro, um fio com 0 fica âmbar escuro. Assim dá para seguir um sinal com os olhos, sem medir nada."},
+            {K::Figure, "A Entrada A está em 1: o fio dela fica claro e a Luz S acende. A Entrada B está em 0: fio escuro, Luz T apagada.", oneBitTwoWays, 140},
+            {K::Tip, "Um bit sozinho só diz sim ou não. Para guardar mais do que isso, o computador põe vários bits lado a lado."},
+            {K::Heading, "Dois bits, quatro combinações"},
+            {K::Text,
+             "Com dois bits, cada um pode ser 0 ou 1, e isso dá quatro combinações: 00, 01, 10 e 11. Com três bits são oito, e cada bit a mais "
+             "dobra a conta. No exercício, duas chaves acendem duas luzes, e a tabela-verdade ao lado da placa mostra as quatro combinações."},
+            {K::Table, "B1|B0|Combinação\n0|0|00\n0|1|01\n1|0|10\n1|1|11"},
+        },
+        {"dois-bits"},
+    });
+
+    all.push_back(Topic{
+        "bits-viram-numeros",
+        2,
+        "Bits viram números",
+        "Os pesos 1, 2, 4 e 8, o barramento, o Juntador e o Separador",
+        {
+            {K::Heading, "Cada casa tem um peso"},
+            {K::Text,
+             "No número 352, o 3 vale 300 porque está na casa das centenas: cada casa vale dez vezes a da direita. Em binário é igual, só que "
+             "cada casa vale duas vezes a da direita: 1, 2, 4, 8, 16, 32, 64, 128. Para saber quanto um número binário vale, some os pesos das "
+             "casas que têm 1."},
+            {K::Table,
+             "Binário|8|4|2|1|Valor\n"
+             "0101|0|1|0|1|4 + 1 = 5\n"
+             "1001|1|0|0|1|8 + 1 = 9\n"
+             "1100|1|1|0|0|8 + 4 = 12\n"
+             "1111|1|1|1|1|8 + 4 + 2 + 1 = 15"},
+            {K::Text,
+             "O bit da direita, que vale 1, é o bit 0, o menos significativo. O da esquerda é o mais significativo: num número de 4 bits é o "
+             "bit 3, que vale 8. Escrito no papel, o número começa sempre pelo mais significativo, como no decimal."},
+            {K::Heading, "Do decimal para o binário"},
+            {K::Text,
+             "Para escrever um número em binário, tire dele o maior peso que cabe, depois o maior que cabe no que sobrou, até sobrar zero. As "
+             "casas usadas ficam com 1, as outras com 0. Por exemplo, 13: cabe o 8 e sobram 5; cabe o 4 e sobra 1; o 2 não cabe; cabe o 1. "
+             "Então 13 = 8 + 4 + 1, que é 1101."},
+            {K::Heading, "O barramento: vários bits num fio só"},
+            {K::Text,
+             "Um número de 4 bits precisa de 4 fios. Para não desenhar quatro fios lado a lado pela placa toda, o simulador junta os bits num "
+             "barramento: um fio mais grosso, azul, que leva todos de uma vez. Ele fica azul-claro quando algum dos bits é 1, e azul-escuro "
+             "quando todos são 0. A Saída, ligada a um barramento, mostra o número que ele leva."},
+            {K::Text,
+             "O Juntador junta fios de um bit num barramento, e o Separador faz o contrário. Nos dois, a ponta de cima é o bit 0, o que vale 1, "
+             "e a de baixo é o mais significativo. No painel da direita dá para escolher quantos bits e quantas pontas cada um tem."},
+            {K::Figure, "As Entradas que valem 4 e 1 estão ligadas: o Juntador forma o barramento 0101, e a Saída N mostra 5.", fourSwitchesFive, 190},
+            {K::Figure,
+             "O caminho de volta: a Entrada N, de 4 bits, vale 13. O Separador abre o barramento e cada Luz mostra um bit: acendem a 1, a 4 e a "
+             "8, porque 13 = 8 + 4 + 1.",
+             busToLeds, 190},
+            {K::Text,
+             "Uma Entrada de vários bits mostra um quadradinho por bit, o da esquerda o mais significativo, na mesma ordem em que o número se "
+             "escreve. Clique num quadradinho para trocar aquele bit."},
+            {K::Table,
+             "No simulador|O que mostra\n"
+             "Fio âmbar claro|um bit 1\n"
+             "Fio âmbar escuro|um bit 0\n"
+             "Fio grosso azul|um barramento, com vários bits\n"
+             "Azul-claro|algum bit do barramento é 1\n"
+             "Azul-escuro|todos os bits são 0\n"
+             "Entrada de vários bits|um quadradinho por bit\n"
+             "Saída|o número que chega pelo barramento\n"
+             "Luz|1 acesa, 0 apagada"},
+            {K::Tip, "Um número binário é só uma fila de bits com pesos. A CPU de 16 bits do jogo trabalha com barramentos de 16 fios; a MIPS, com 32."},
+        },
+        {"quatro-bits-numero", "numero-em-bits", "quanto-vale"},
+    });
+
+    all.push_back(Topic{
+        "contar-e-hexadecimal",
+        2,
+        "Contar, tamanho e hexadecimal",
+        "O vai-um, quantos números cabem em n bits, e os dígitos de 0 a F",
+        {
+            {K::Heading, "Contar em binário"},
+            {K::Text,
+             "Contar é somar 1, de novo e de novo. No decimal, 9 + 1 não cabe numa casa: dá 0 e vai 1, e o número fica 10. No binário isso "
+             "acontece já no 1: 1 + 1 = 10. Para somar 1, troque os 1 da direita por 0 até encontrar um 0, e troque esse 0 por 1: "
+             "0111 + 1 = 1000."},
+            {K::Table,
+             "Decimal|Binário|Hexadecimal\n"
+             "0|0000|0\n1|0001|1\n2|0010|2\n3|0011|3\n4|0100|4\n5|0101|5\n6|0110|6\n7|0111|7\n"
+             "8|1000|8\n9|1001|9\n10|1010|A\n11|1011|B\n12|1100|C\n13|1101|D\n14|1110|E\n15|1111|F"},
+            {K::Figure,
+             "Um contador de 4 bits, feito de flip-flops, que você vai montar mais adiante: a cada pulso do clock ele soma 1, e os bits mudam "
+             "como na tabela acima.",
+             counter, 230},
+            {K::Heading, "Quantos números cabem"},
+            {K::Text,
+             "Com n bits há 2 × 2 × ... × 2, n vezes, combinações: 2 elevado a n. O menor número é 0 e o maior é 2 elevado a n, menos 1, com "
+             "todos os bits em 1. Quando a conta passa do maior, o vai-um sai pela esquerda, não tem onde ficar, e o número volta a 0: é o "
+             "estouro."},
+            {K::Table,
+             "Bits|Combinações|Maior número|Nome\n"
+             "1|2|1|bit\n"
+             "4|16|15|um dígito hexadecimal\n"
+             "8|256|255|byte\n"
+             "16|65.536|65.535|a palavra da CPU de 16 bits\n"
+             "32|4.294.967.296|4.294.967.295|a palavra da CPU MIPS"},
+            {K::Heading, "Hexadecimal: 4 bits por dígito"},
+            {K::Text,
+             "Números binários ficam compridos: 42 é 00101010. Por isso eles costumam ser escritos em hexadecimal, a base 16, com os dígitos 0 a "
+             "9 e depois A (10), B (11), C (12), D (13), E (14) e F (15). A vantagem é que cada grupo de 4 bits vira exatamente um dígito: "
+             "0010 1010 é 2 e A, ou 0x2A. O 0x na frente avisa que o número está em hexadecimal."},
+            {K::Text,
+             "A Saída do simulador mostra os números assim, em hexadecimal, com um dígito para cada 4 bits do barramento. Uma Saída de 8 bits "
+             "mostra 2A quando o barramento vale 42; uma de 4 bits mostra B quando vale 11."},
+            {K::Figure, "Uma Entrada de 8 bits valendo 42 e outra de 4 bits valendo 11: as Saídas mostram 2A e B.", hexProbes, 150},
+            {K::Tip,
+             "Para converter, troque cada dígito hexadecimal pelos seus 4 bits, ou cada grupo de 4 bits pelo seu dígito. Para chegar ao decimal, "
+             "multiplique pelas potências de 16: 0x2A = 2 × 16 + 10 = 42."},
+        },
+        {"contar-binario"},
+    });
+
     all.push_back(Topic{
         "portas-logicas",
-        2,
+        3,
         "As portas lógicas",
         "Símbolos, tabelas-verdade, expressões e as seis portas básicas",
         {
@@ -514,7 +709,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "nand-universal",
-        2,
+        3,
         "NAND, a porta universal, e o OU exclusivo",
         "Qualquer porta feita só de NAND, e como combinar portas",
         {
@@ -545,7 +740,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "decodificador-e-mux",
-        2,
+        3,
         "Decodificador e multiplexador",
         "Números de vários bits: escolher uma saída e escolher uma entrada",
         {
@@ -553,7 +748,7 @@ std::vector<Topic> makeTopics() {
             {K::Text,
              "Um bit sozinho só diz sim ou não. Com dois bits juntos, A1 e A0, há quatro combinações: 00, 01, 10 e 11, que valem 0, 1, 2 e 3. "
              "Cada bit a mais dobra a quantidade: três bits contam até 7, oito bits até 255. É assim que os computadores escrevem números, e o "
-             "Ato 4 mostra como fazer contas com eles."},
+             "Ato 5 mostra como fazer contas com eles."},
             {K::Heading, "O decodificador"},
             {K::Text,
              "O decodificador recebe um número e acende só a saída daquele número. Com 2 bits de entrada ele tem 4 saídas, Y0 a Y3. Cada saída "
@@ -566,16 +761,16 @@ std::vector<Topic> makeTopics() {
              "entrada passa. Um MUX 4:1 tem as entradas D0 a D3 e a seleção S1 S0. Por dentro, é um decodificador da seleção, uma porta E por "
              "entrada e uma porta OU juntando tudo."},
             {K::Table, "S1|S0|A saída Y é\n0|0|D0\n0|1|D1\n1|0|D2\n1|1|D3"},
-            {K::Tip, "Decodificador: um número escolhe uma saída. Multiplexador: um número escolhe uma entrada. A CPU do Ato 6 está cheia dos dois: "
+            {K::Tip, "Decodificador: um número escolhe uma saída. Multiplexador: um número escolhe uma entrada. A CPU do Ato 7 está cheia dos dois: "
                      "no Raio-X, cada MUX é um deles."},
         },
         {"decodificador", "mux4"},
     });
 
-    // Act 4: arithmetic.
+    // Act 5: arithmetic.
     all.push_back(Topic{
         "numeros-binarios",
-        3,
+        4,
         "Números binários e a soma",
         "Contar em base 2, o meio somador, o somador completo e a soma de vários bits",
         {
@@ -616,7 +811,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "subtrair-comparar-ula",
-        3,
+        4,
         "Subtrair, comparar e a ULA",
         "Números negativos, o subtrator, o comparador e a unidade lógica e aritmética",
         {
@@ -654,10 +849,10 @@ std::vector<Topic> makeTopics() {
         {"subtrator", "comparador", "ula-1-bit"},
     });
 
-    // Act 5: memory.
+    // Act 6: memory.
     all.push_back(Topic{
         "latches",
-        4,
+        5,
         "Circuitos que lembram",
         "Realimentação, o latch SR e o latch D",
         {
@@ -685,7 +880,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "clock-e-registradores",
-        4,
+        5,
         "Clock, flip-flop, registrador e contador",
         "O ritmo do computador e os circuitos que guardam números",
         {
@@ -718,10 +913,10 @@ std::vector<Topic> makeTopics() {
         {"flip-flop", "registrador", "contador"},
     });
 
-    // Act 6: machine code.
+    // Act 7: machine code.
     all.push_back(Topic{
         "a-cpu-por-dentro",
-        5,
+        6,
         "A CPU por dentro",
         "As peças do computador de 16 bits e o ciclo de cada instrução",
         {
@@ -737,14 +932,14 @@ std::vector<Topic> makeTopics() {
             {K::Heading, "As peças da CPU"},
             {K::Table,
              "Peça|O que faz|Onde você viu\n"
-             "PC (contador de programa)|guarda o endereço da instrução atual|Ato 5: o contador\n"
-             "ROM|guarda o programa, uma palavra por endereço|Ato 5: memória\n"
-             "Decodificador|corta a palavra em campos|Ato 3: o decodificador\n"
-             "Controle|liga os sinais de que cada instrução precisa|Ato 3: as portas\n"
-             "Registradores R0 a R7|guardam os números com que a CPU trabalha|Ato 5: o registrador\n"
-             "ULA|faz as contas e as comparações|Ato 4: a ULA\n"
-             "MUX|escolhem o valor que segue por cada caminho|Ato 3: o multiplexador\n"
-             "RAM|guarda os dados do programa|Ato 5: memória"},
+             "PC (contador de programa)|guarda o endereço da instrução atual|Ato 6: o contador\n"
+             "ROM|guarda o programa, uma palavra por endereço|Ato 6: memória\n"
+             "Decodificador|corta a palavra em campos|Ato 4: o decodificador\n"
+             "Controle|liga os sinais de que cada instrução precisa|Ato 4: as portas\n"
+             "Registradores R0 a R7|guardam os números com que a CPU trabalha|Ato 6: o registrador\n"
+             "ULA|faz as contas e as comparações|Ato 5: a ULA\n"
+             "MUX|escolhem o valor que segue por cada caminho|Ato 4: o multiplexador\n"
+             "RAM|guarda os dados do programa|Ato 6: memória"},
             {K::Heading, "O ciclo de uma instrução"},
             {K::Text, "A CPU repete sempre os mesmos passos, uma instrução depois da outra. São as seis etapas que o Raio-X mostra:"},
             {K::Table,
@@ -778,7 +973,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "formatos-das-instrucoes",
-        5,
+        6,
         "Os formatos das instruções",
         "Campos, registradores, func, imediatos e números em hexadecimal",
         {
@@ -822,7 +1017,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "desvios-e-montador",
-        5,
+        6,
         "Desvios, saltos e o montador",
         "Distâncias, endereços, sub-rotinas e o programa que traduz o assembly",
         {
@@ -864,10 +1059,10 @@ std::vector<Topic> makeTopics() {
         {"binario-laco"},
     });
 
-    // Act 7: programming.
+    // Act 8: programming.
     all.push_back(Topic{
         "assembly",
-        6,
+        7,
         "Assembly: programar com nomes",
         "Registradores, instruções, o editor e o depurador",
         {
@@ -912,7 +1107,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "lacos-e-memoria",
-        6,
+        7,
         "Laços, decisões e memória",
         "Rótulos, desvios, contadores e a RAM",
         {
@@ -954,7 +1149,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "sub-rotinas",
-        6,
+        7,
         "Sub-rotinas",
         "CALL, JR, o endereço de volta e sub-rotinas que chamam outras",
         {
@@ -987,10 +1182,10 @@ std::vector<Topic> makeTopics() {
         {"sub-rotina"},
     });
 
-    // Act 8: the operating system.
+    // Act 9: the operating system.
     all.push_back(Topic{
         "entrada-saida-espera",
-        7,
+        8,
         "Entrada, saída e espera",
         "As portas de entrada e saída, e como esperar pelo mundo",
         {
@@ -1019,7 +1214,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "sistema-operacional",
-        7,
+        8,
         "O sistema operacional",
         "Chamadas de sistema, tarefas e a troca entre elas",
         {
@@ -1052,10 +1247,10 @@ std::vector<Topic> makeTopics() {
         {"chamadas-de-sistema", "varias-tarefas", "sistema-minimo"},
     });
 
-    // Act 9: more parts.
+    // Act 10: more parts.
     all.push_back(Topic{
         "paridade-mux-prioridade",
-        8,
+        9,
         "Paridade, multiplexador e prioridade",
         "Detectar erros, escolher um sinal e atender quem pede primeiro",
         {
@@ -1082,7 +1277,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "negativos-multiplicacao",
-        8,
+        9,
         "Negativos e multiplicação",
         "O complemento de dois na prática, e multiplicar somando",
         {
@@ -1111,10 +1306,10 @@ std::vector<Topic> makeTopics() {
         {"negativo", "multiplicar"},
     });
 
-    // Act 10: input and output.
+    // Act 11: input and output.
     all.push_back(Topic{
         "display-7-segmentos",
-        9,
+        10,
         "O display de 7 segmentos",
         "Desenhar números com sete luzes",
         {
@@ -1137,7 +1332,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "botoes-aleatorio",
-        9,
+        10,
         "Botões e números ao acaso",
         "Contar apertos e gerar números que parecem sorteados",
         {
@@ -1160,7 +1355,7 @@ std::vector<Topic> makeTopics() {
 
     all.push_back(Topic{
         "teclado-terminal",
-        9,
+        10,
         "Teclado e terminal",
         "Letras como números, e uma tela que guarda texto",
         {

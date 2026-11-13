@@ -390,7 +390,70 @@ TEST(two_transistors_in_series_make_a_nand_and_side_by_side_a_nor) {
     }));
 }
 
-// --- act 3 --------------------------------------------------------------------------------------------
+// --- act 3: bits -----------------------------------------------------------------------------------------
+
+TEST(two_switches_show_two_bits) {
+    CHECK(passes("dois-bits", [](Board& board, Layout& l) {
+        l.wire(input(board, "B1"), 0u, ledResistor(board, "L1"), 0u);
+        l.wire(input(board, "B0"), 0u, ledResistor(board, "L0"), 0u);
+    }));
+    CHECK(failsSaying("dois-bits", "L1", [](Board& board, Layout& l) {
+        l.wire(input(board, "B0"), 0u, ledResistor(board, "L1"), 0u);
+        l.wire(input(board, "B1"), 0u, ledResistor(board, "L0"), 0u);
+    }));
+}
+
+// The joiner's top input is bit 0, worth 1: wired the other way round, 0001 would show 8.
+TEST(a_joiner_makes_a_number_and_a_splitter_takes_it_apart) {
+    const char* names[] = {"1", "2", "4", "8"};
+    CHECK(passes("quatro-bits-numero", [&](Board& board, Layout& l) {
+        const PartId join = l.bundle(PartKind::Joiner, {20, 6}, 4, 4);
+        for (unsigned i = 0; i < 4; ++i) l.wire(input(board, names[i]), 0u, join, i);
+        l.wire(join, 4u, display(board, "N"), 0u);
+    }));
+    CHECK(failsSaying("quatro-bits-numero", "N", [&](Board& board, Layout& l) {
+        const PartId join = l.bundle(PartKind::Joiner, {20, 6}, 4, 4);
+        for (unsigned i = 0; i < 4; ++i) l.wire(input(board, names[i]), 0u, join, 3 - i);
+        l.wire(join, 4u, display(board, "N"), 0u);
+    }));
+    CHECK(passes("numero-em-bits", [&](Board& board, Layout& l) {
+        const PartId split = l.bundle(PartKind::Splitter, {18, 10}, 4, 4);
+        l.wire(input(board, "N"), 0u, split, 0u);
+        for (unsigned i = 0; i < 4; ++i) l.wire(split, 1 + i, ledResistor(board, names[i]), 0u);
+    }));
+}
+
+// Every question can be answered with its own answer, written the ways people write numbers, and a wrong
+// number doesn't pass.
+TEST(the_questions_take_their_answers_however_they_are_written) {
+    for (const char* id : {"quanto-vale", "contar-binario"}) {
+        const Lesson& each = lesson(id);
+        CHECK(each.check == LessonCheck::Answer);
+        CHECK(each.questions.size() >= 6);
+        for (const Question& question : each.questions) {
+            CHECK(answers(question, question.answer));
+            CHECK(!answers(question, ""));
+            CHECK(std::string(question.explain).size() > 3);
+            CHECK(question.hint != nullptr && std::string(question.hint).size() > 10);
+            for (const char c : std::string(question.bits)) CHECK(c == '0' || c == '1' || c == ' ');
+        }
+    }
+    const Question binary{"", "", 2, "1001", "", ""};
+    CHECK(answers(binary, "1001"));
+    CHECK(answers(binary, "0b1001"));
+    CHECK(answers(binary, " 01001 "));
+    CHECK(!answers(binary, "1011"));
+    CHECK(!answers(binary, "9"));
+    const Question hex{"", "", 16, "2A", "", ""};
+    CHECK(answers(hex, "2a"));
+    CHECK(answers(hex, "0x2A"));
+    CHECK(!answers(hex, "42"));
+    const Question decimal{"", "", 10, "42", "", ""};
+    CHECK(answers(decimal, "042"));
+    CHECK(!answers(decimal, "2A"));
+}
+
+// --- act 4 --------------------------------------------------------------------------------------------
 
 TEST(gates_light_the_led_the_way_their_tables_say) {
     CHECK(passes("porta-e", [](Board& board, Layout& l) {
