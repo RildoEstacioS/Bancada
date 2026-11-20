@@ -34,11 +34,24 @@ struct ProgramRun {
     std::vector<std::uint16_t> shows;
 };
 
+// One run of a lesson on the 32-bit computer: the number syscall 5 reads from the switches, and everything the
+// program must print, numbers and characters, before syscall 10 ends it.
+struct MipsRun {
+    std::uint32_t switches = 0;
+    const char* prints = "";
+};
+
+// A reading the act will have, not written yet: the list shows it, marked as still to be done.
+struct PlannedTopic {
+    const char* title;
+    const char* line;  // what it will cover, in a few words
+};
+
 struct LessonAct {
     const char* title;
     const char* line;
     bool ready;  // false: announced, with its lessons still to come
-    std::vector<const char*> planned;  // the titles still to come
+    std::vector<PlannedTopic> planned;  // the readings still to come, after the ones it has
 };
 
 enum class LessonCheck : std::uint8_t {
@@ -122,6 +135,11 @@ struct Lesson {
     // Program, in machine code: the ROM's program may only be .word lines, the instructions written as
     // numbers by hand, with no names like LI or OUT.
     bool machineCode = false;
+
+    // Program, on the 32-bit computer: the ROM's program runs as asm/mips.hpp describes it, once for each of
+    // these runs, and `needs` names MIPS instructions, by op and, for op 0, funct.
+    bool mips = false;
+    std::vector<MipsRun> mipsRuns;
 
     // Answer: the questions, in order.
     std::vector<Question> questions;

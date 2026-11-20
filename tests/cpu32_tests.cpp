@@ -242,4 +242,21 @@ TEST(the_control_rows_cover_every_instruction) {
     CHECK((byFunct[mips::kFnJr] >> kC32RegWrite & 1u) == 0u);
 }
 
+// The X-ray's step text shows its numbers in the base the switch picks; the ROM's word is always in hexadecimal.
+TEST(the_xray_text_follows_the_number_base) {
+    std::array<std::uint32_t, 32> registers{};
+    registers[9] = 0xFFFFFFFFu;  // $t1 = -1
+    // addi $t0, $t1, 5 at the start of the text segment
+    const std::uint32_t word = (8u << 26) | (9u << 21) | (8u << 16) | 5u;
+    const Trace32 t = traceInstruction32(word, 0x00400000u, registers, 0, 0);
+    const auto has = [](const std::string& text, const char* piece) { return text.find(piece) != std::string::npos; };
+    const std::string fetchDec = explainStage32(t, 0, false);
+    const std::string fetchHex = explainStage32(t, 0, true);
+    CHECK(has(fetchDec, "4194304"));
+    CHECK(has(fetchHex, "0x400000"));
+    CHECK(has(fetchDec, "0x21280005") && has(fetchHex, "0x21280005"));
+    CHECK(has(explainStage32(t, 2, false), "-1"));
+    CHECK(has(explainStage32(t, 2, true), "0xFFFFFFFF"));
+}
+
 int main() { return check::runAll(); }

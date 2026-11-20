@@ -7,9 +7,9 @@
 //   --frames N         quit after N frames
 //   --screenshot FILE  save the last frame as a BMP
 //   --script NAME      send real window events through the normal path: "xor", "perfis", "portas", "refino",
-//                      "computador", "programa", "codigo", "velocidade", "computador16", "painel", "inicio", "led", "nand",
+//                      "computador", "programa", "codigo", "velocidade", "atalhos", "computador16", "painel", "inicio", "led", "nand",
 //                      "pisca", "dentro:N" (the Nth circuit of the example), "pasta:N" (the Nth library folder) or
-//                      "raiox[:S[:I]]" (the X-ray, I instructions into the example, on step S), "aulas" (the list)
+//                      "raiox[:S[:I]]" (the X-ray, I instructions into the example, on step S), "aulas[:N[:end]]" (the list, on act N, maybe scrolled to the end), "aovivo:N" (inside, live)
 //                      or "aula:N[:v][:r]" (lesson N, with Verificar pressed, or its first resistor's value open
 //                      with one Backspace typed)
 //   --dev              every act of the lessons open, for this run
@@ -62,7 +62,7 @@ constexpr Uint64 kAutosaveEveryMs = 30'000;
 constexpr Uint64 kNoteMs = 4'000;
 constexpr std::size_t kMaxNameBytes = 24;
 
-enum class Prompt : std::uint8_t { None, Name, Value, Contents, NewChip, DevPassword };
+enum class Prompt : std::uint8_t { None, Name, Value, Contents, NewChip, DevPassword, InsidePassword };
 
 constexpr const char* kDevPassword = "1111";  // opens every act of the lessons, for this run
 
@@ -124,7 +124,9 @@ public:
     bool quitting() const { return quitting_; }
     bool codeOpen() const { return code_.has_value(); }
     // The program editor is the view now: under the toolbar, which keeps working, over everything else.
-    bool codeVisible() const { return code_.has_value() && codeShown_ && !homeOpen_ && !lessonsOpen_ && !galleryOpen_ && topic_ < 0; }
+    bool codeVisible() const {
+        return code_.has_value() && codeShown_ && !homeOpen_ && !lessonsOpen_ && !galleryOpen_ && topic_ < 0 && insidePlan_ == nullptr;
+    }
     int codeHeight() const { return height_ - static_cast<int>(app::kToolbarHeight); }
     std::size_t codeProblems() const { return code_ ? code_->problems.size() : 0; }
 
@@ -151,7 +153,12 @@ public:
                 mouseDown(event.button.button, event.button.x, event.button.y);
                 if (event.button.button == SDL_BUTTON_LEFT && event.button.clicks == 2 && overBoard(mouseX_, mouseY_) && !modal()) {
                     session_.leftUp();
-                    session_.openChipUnderCursor();
+                    const editor::Part* part = session_.partUnderCursor();
+                    if (part != nullptr && part->kind == editor::PartKind::Chip) {
+                        session_.openChipUnderCursor();
+                    } else if (part != nullptr && app::canLookInside(*part)) {
+                        lookInside(part->id);
+                    }
                 }
                 break;
             case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -199,7 +206,7 @@ public:
         const int right = extent.right;
         const int bottom = extent.bottom;
         const float areaWidth = static_cast<float>(width_) - app::kPanelWidth - rightEdgeWidth() - 110.0f;
-        const float areaHeight = static_cast<float>(height_) - boardTop() - app::kStatusHeight - 40.0f;
+        const float areaHeight = static_cast<float>(height_) - boardTop() - app::kStatusHeight - (session_.currentCircuit() != 0 ? 80.0f : 40.0f);
         const float zoom = std::min(areaWidth / static_cast<float>(right - left), areaHeight / static_cast<float>(bottom - top));
         // A board with little on it isn't blown up to fill the window: it stays at a size to build on,
         // in the middle, with room around for what comes next.
@@ -207,7 +214,9 @@ public:
         const float spareX = std::max(0.0f, (areaWidth - static_cast<float>(right - left) * camera_.cellPixels) / 2.0f);
         const float spareY = std::max(0.0f, (areaHeight - static_cast<float>(bottom - top) * camera_.cellPixels) / 2.0f);
         camera_.originX = static_cast<float>(left) - (app::kPanelWidth + 20.0f + spareX) / camera_.cellPixels;
-        camera_.originY = static_cast<float>(top) - (boardTop() + 20.0f + spareY) / camera_.cellPixels;
+        // Inside a chip, the way back sits over the board's top: room is left under it.
+        const float margin = session_.currentCircuit() != 0 ? 60.0f : 20.0f;
+        camera_.originY = static_cast<float>(top) - (boardTop() + margin + spareY) / camera_.cellPixels;
     }
 
     // Where the board starts on screen: under the toolbar, and under the lesson's strip during one.
@@ -258,7 +267,23 @@ public:
         homeOpen_ = false;
         topic_ = topic;
         readingScroll_ = 0.0f;
+        readingPage_ = 0;
         finished_ = profiles_.finishedLessons();
+    }
+    void showReadingPage(int page) {
+        if (topic_ < 0) return;
+        readingPage_ = std::clamp(page, 0, app::readingPageCount(topic_) - 1);
+        readingScroll_ = 0.0f;
+    }
+    // Answers every question of the reading right: for the screenshots.
+    void answerReading() {
+        if (topic_ < 0) return;
+        const editor::Topic& topic = editor::topics()[static_cast<std::size_t>(topic_)];
+        std::vector<int>& answers = readingAnswers_[topic_];
+        answers.assign(topic.blocks.size(), -1);
+        for (std::size_t b = 0; b < topic.blocks.size(); ++b) {
+            if (topic.blocks[b].kind == editor::TheoryBlockKind::Question) answers[b] = editor::questionParts(topic.blocks[b].text).right;
+        }
     }
 
     app::ReadingView readingView() const {
@@ -266,6 +291,9 @@ public:
         view.topic = topic_;
         view.scroll = readingScroll_;
         view.read = topic_ >= 0 && finishedHere(editor::readingId(editor::topics()[static_cast<std::size_t>(topic_)]));
+        view.page = readingPage_;
+        const auto answers = readingAnswers_.find(topic_);
+        if (answers != readingAnswers_.end()) view.answers = &answers->second;
         return view;
     }
 
@@ -490,6 +518,7 @@ public:
                 showLessons();
                 break;
             case app::LessonButton::Program: openLessonProgram(); break;
+            case app::LessonButton::Reading: openReading(editor::topicOfLesson(lesson_)); break;
             case app::LessonButton::Next: goToNext(); break;
             case app::LessonButton::None: break;
         }
@@ -602,6 +631,13 @@ public:
         strip.hasNext = next.lesson >= 0 || next.topic >= 0;
         const editor::Lesson& lesson = editor::lessons()[static_cast<std::size_t>(lesson_)];
         strip.program = lesson.check == editor::LessonCheck::Program;
+        const std::vector<int> act = editor::actLessons(lesson.act);
+        for (std::size_t i = 0; i < act.size(); ++i) {
+            if (act[i] == lesson_) strip.position = static_cast<int>(i) + 1;
+            const char* id = editor::lessons()[static_cast<std::size_t>(act[i])].id;
+            strip.actDone.push_back(std::find(finished_.begin(), finished_.end(), id) != finished_.end());
+        }
+        strip.hasReading = editor::topicOfLesson(lesson_) >= 0;
         if (strip.passed) {
             strip.message = lessonResult_.message;
         } else if (lessonHint_ >= 0 && lesson.check == editor::LessonCheck::Answer && quizIndex_ < lesson.questions.size()) {
@@ -657,7 +693,7 @@ public:
             text.note = note_.c_str();
             text.noteIsError = noteIsError_;
         }
-        text.showTable = tableVisible_;
+        text.showTable = tableVisible_ && !quizLesson() && !codeVisible();
         text.tableScroll = tableScroll_;
         text.showHelp = helpOpen_;
         text.mouseX = mouseX_;
@@ -673,6 +709,7 @@ public:
         text.computer32 = computer32 ? &*computer32 : nullptr;
         text.console = &console_;
         text.view = view_;
+        text.zoom = zoom_;
         text.programShown = codeVisible();
         if (view_ == app::kViewXray && computer) advanceXray(*computer, text);
         if (view_ == app::kViewXray && computer32) advanceXray(computer32->pc, computer32->halted, text);
@@ -730,10 +767,123 @@ public:
             SDL_SetRenderViewport(renderer_, nullptr);
         }
         if (homeOpen_) app::drawHome(renderer_, width_, height_, mouseX_, mouseY_, homeInfo(), homeComputers_);
+        if (homeOpen_ && prompt_ == Prompt::InsidePassword) app::drawPrompt(renderer_, promptTitle(), std::string(typing_.size(), '*'), width_, height_);
         if (lessonsOpen_) app::drawLessonList(renderer_, width_, height_, mouseX_, mouseY_, lessonListView());
         if (lessonsOpen_ && prompt_ == Prompt::DevPassword) app::drawPrompt(renderer_, promptTitle(), std::string(typing_.size(), '*'), width_, height_);
         if (topic_ >= 0) app::drawReading(renderer_, width_, height_, mouseX_, mouseY_, readingView());
-        if (galleryOpen_) app::drawGallery(renderer_, width_, height_, mouseX_, mouseY_);
+        if (galleryOpen_) app::drawGallery(renderer_, width_, height_, mouseX_, mouseY_, galleryGroup_);
+        refreshInside();
+        if (insidePlan_ != nullptr) app::drawInside(renderer_, width_, height_, mouseX_, mouseY_, insideView_);
+        if (bundle_ != 0 && insidePlan_ == nullptr) {
+            app::BundleView view;
+            view.part = session_.board().part(bundle_);
+            if (view.part == nullptr) {
+                bundle_ = 0;
+            } else {
+                for (unsigned pin = 0; pin <= view.part->inputs; ++pin) view.values.push_back(session_.circuit().pinValue(bundle_, pin));
+                app::drawBundle(renderer_, width_, height_, mouseX_, mouseY_, view);
+            }
+        }
+    }
+
+    // "Por dentro": the computer drawn whole. Its plan is made the first time, and kept.
+    void openInside(bool is32, app::InsideLevel level = app::InsideLevel::Gates) {
+        std::optional<editor::Architecture>& plan = is32 ? inside32_ : inside16_;
+        if (!plan) plan = is32 ? editor::architecture32() : editor::architecture16();
+        insidePlan_ = &*plan;
+        insideView_ = app::insideWhole(*plan, width_, height_);
+        insideView_.level = level;
+        homeOpen_ = false;
+    }
+    void closeInside() {
+        insidePlan_ = nullptr;
+        insideDragging_ = false;
+        if (insideLiveMode_) {  // back to the board it was opened from
+            insideLiveMode_ = false;
+            insideLive_.reset();
+            return;
+        }
+        homeOpen_ = true;
+        homeComputers_ = true;
+    }
+
+    // A part of the board from the inside, live: the plan of the whole board, the part big in the middle, its
+    // wires lit by what the running circuit has on them. A splitter or a joiner has no gates: its own view.
+    void lookInside(editor::PartId id) {
+        const editor::Part* part = session_.board().part(id);
+        if (part == nullptr) return;
+        if (editor::isBundle(part->kind)) {
+            bundle_ = id;
+            return;
+        }
+        const std::string board = session_.currentCircuit() != 0 ? session_.currentName() : projectName_;
+        insideLive_ = editor::buildArchitecture(session_.board(), &session_.chipBoards(), board.empty() ? std::string("Bancada") : board);
+        insideRevision_ = session_.revision();
+        insidePlan_ = &*insideLive_;
+        insideLiveMode_ = true;
+        insideFocus_ = part->label.empty() ? std::string(i18n::tr(editor::partName(*part))) : part->label;
+        for (const editor::CircuitEntry& circuit : session_.circuits()) {
+            if (part->kind == editor::PartKind::Chip && circuit.id == part->chip) insideFocus_ = circuit.name;
+        }
+        insideView_ = app::insideWhole(*insidePlan_, width_, height_);
+        for (const editor::ArchPlace& place : insidePlan_->places) {
+            if (place.x == part->position.x && place.y == part->position.y) insideView_ = app::insideOn(*insidePlan_, place.rect, width_, height_);
+        }
+    }
+
+    // The values the live plan shows: read from the running circuit every frame.
+    void refreshInside() {
+        if (!insideLiveMode_ || insidePlan_ == nullptr) return;
+        try {
+            insideValues_ = editor::archValues(*insidePlan_, session_.circuit());
+        } catch (const std::exception&) {
+            insideValues_.clear();
+        }
+        insideView_.values = &insideValues_;
+        insideView_.running = session_.running();
+        insideView_.clockHigh = session_.clockLevel();
+        insideView_.focus = insideFocus_;
+    }
+    // Closer by factor, keeping the point under (x, y) where it is.
+    void zoomInside(float x, float y, float factor) {
+        const float whole = app::insideWhole(*insidePlan_, width_, height_).scale;
+        const float next = std::clamp(insideView_.scale * factor, whole * 0.6f, 90.0f);
+        const float k = next / insideView_.scale;
+        insideView_.originX = x - (x - insideView_.originX) * k;
+        insideView_.originY = y - (y - insideView_.originY) * k;
+        insideView_.scale = next;
+    }
+    // For the screenshots: the plan zoomed by factor around a point given as a share of its width and height.
+    void lookInside(float factor, float shareX, float shareY) {
+        if (insidePlan_ == nullptr) return;
+        const SDL_FRect area = app::insidePlanArea(width_, height_);
+        const float px = insideView_.originX + shareX * insidePlan_->width * insideView_.scale;
+        const float py = insideView_.originY + shareY * insidePlan_->height * insideView_.scale;
+        insideView_.originX += area.x + area.w / 2.0f - px;
+        insideView_.originY += area.y + area.h / 2.0f - py;
+        zoomInside(area.x + area.w / 2.0f, area.y + area.h / 2.0f, factor);
+    }
+    void pressInside(Uint8 button, float x, float y) {
+        if (button != SDL_BUTTON_LEFT) return;
+        const SDL_FRect area = app::insidePlanArea(width_, height_);
+        switch (app::insideAt(x, y, width_, height_, insideLiveMode_)) {
+            case app::InsideChoice::Run: toggleRun(); return;
+            case app::InsideChoice::Step: session_.stepClock(); return;
+            case app::InsideChoice::Back: closeInside(); return;
+            case app::InsideChoice::Gates: insideView_.level = app::InsideLevel::Gates; return;
+            case app::InsideChoice::Nands: insideView_.level = app::InsideLevel::Nands; return;
+            case app::InsideChoice::Transistors: insideView_.level = app::InsideLevel::Transistors; return;
+            case app::InsideChoice::Closer: zoomInside(area.x + area.w / 2.0f, area.y + area.h / 2.0f, 1.6f); return;
+            case app::InsideChoice::Farther: zoomInside(area.x + area.w / 2.0f, area.y + area.h / 2.0f, 1.0f / 1.6f); return;
+            case app::InsideChoice::Whole: {
+                const app::InsideLevel level = insideView_.level;
+                insideView_ = app::insideWhole(*insidePlan_, width_, height_);
+                insideView_.level = level;
+                return;
+            }
+            case app::InsideChoice::None: break;
+        }
+        if (y >= area.y && y < area.y + area.h) insideDragging_ = true;
     }
 
     void showHome() {
@@ -755,7 +905,38 @@ public:
         code_->helpScroll = scroll;
     }
     void scrollReading(float amount) { readingScroll_ = amount; }
-    void showAct(int act) { lessonAct_ = std::clamp(act, 0, static_cast<int>(editor::lessonActs().size()) - 1); }
+    void showLive(int which) {
+        openExample();
+        for (int i = 0; i < 12; ++i) session_.stepClock();
+        const auto find = [&](auto test) -> editor::PartId {
+            for (const editor::Part& part : session_.board().parts()) {
+                if (test(part)) return part.id;
+            }
+            return 0;
+        };
+        const auto chipNamed = [&](const char* name) {
+            for (const editor::CircuitEntry& circuit : session_.circuits()) {
+                if (circuit.name.find(name) != std::string::npos) return circuit.id;
+            }
+            return editor::ChipId{0};
+        };
+        if (which == 0) {
+            lookInside(find([&](const editor::Part& p) { return p.kind == editor::PartKind::Chip && p.chip == chipNamed("CPU"); }));
+            return;
+        }
+        if (which < 0) {
+            session_.openCircuit(chipNamed("CPU"));
+            session_.openCircuit(chipNamed("Decodificador"));
+            fit();
+            return;
+        }
+        session_.openCircuit(chipNamed("Decodificador"));
+        lookInside(find([&](const editor::Part& p) { return p.kind == (which == 1 ? editor::PartKind::Box : editor::PartKind::Splitter); }));
+    }
+    void showAct(int act, bool toEnd = false) {
+        lessonAct_ = std::clamp(act, 0, static_cast<int>(editor::lessonActs().size()) - 1);
+        lessonScroll_ = toEnd ? app::lessonListMaxScroll(width_, height_, lessonListView()) : 0.0f;
+    }
 
     void openBoardExample(editor::Board board, const char* name) {
         io::Project project;
@@ -987,6 +1168,14 @@ public:
             openProgram32();
             return;
         }
+        if (choice == app::HomeChoice::InsideLock) {
+            openPrompt(Prompt::InsidePassword);
+            return;
+        }
+        if (choice == app::HomeChoice::Inside16 || choice == app::HomeChoice::Inside32) {
+            openInside(choice == app::HomeChoice::Inside32);
+            return;
+        }
         if (choice == app::HomeChoice::Computer16) choice = app::HomeChoice::Program;
         homeComputers_ = false;
         homeOpen_ = false;
@@ -1040,9 +1229,10 @@ public:
         showNote(example.note.c_str(), false);
     }
 
-    void showGallery() {
+    void showGallery(int folder = -1) {
         homeOpen_ = false;
         galleryOpen_ = true;
+        if (folder >= 0) galleryGroup_ = std::clamp(folder, 0, static_cast<int>(editor::galleryGroups().size()) - 1);
     }
 
     // The player's own computer, to write programs on: kept in a file of its own, apart from the
@@ -1091,6 +1281,14 @@ public:
                 break;
             }
         }
+    }
+
+    // For the screenshot scripts: the diagram this much closer, around its middle.
+    // The numbers on the diagrams in hexadecimal (or back in decimal), as the Dec | Hex switch does.
+    void showHex(bool on) { zoom_.hex = on; }
+    void zoomDiagram(float factor) {
+        draw("");
+        if (const std::optional<SDL_FRect> plan = diagramArea()) zoomAt(plan->x + plan->w / 2.0f, plan->y + plan->h / 2.0f, factor);
     }
 
     // For the screenshot scripts: the editor on its Blocks tab, scrolled this many blocks down.
@@ -1178,7 +1376,8 @@ public:
     // A programming lesson's code, in the editor: the ROM chosen, the way a click on it and Editar programa would.
     void openLessonProgram() {
         for (const editor::Part& part : session_.board().parts()) {
-            if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom")) {
+            if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom") &&
+                (part.width == editor::kWordBits || part.width == editor::kWord32Bits)) {
                 session_.selectOnly(part.id);
                 openCode();
                 return;
@@ -1446,6 +1645,15 @@ private:
     }
 
     void mouseMoved(float x, float y) {
+        if (insidePlan_ != nullptr) {
+            if (insideDragging_) {
+                insideView_.originX += x - mouseX_;
+                insideView_.originY += y - mouseY_;
+            }
+            mouseX_ = x;
+            mouseY_ = y;
+            return;
+        }
         if (codeVisible()) {
             mouseX_ = x;
             mouseY_ = y;
@@ -1453,12 +1661,21 @@ private:
             return;
         }
         if (panning_) camera_.pan(x - mouseX_, y - mouseY_);
+        if (zoomDragging_) {
+            zoom_.panX += x - mouseX_;
+            zoom_.panY += y - mouseY_;
+        }
         mouseX_ = x;
         mouseY_ = y;
         if (!profilesOpen_) sendCursor();
     }
 
-    float rightEdgeWidth() const { return tableVisible_ && view_ == app::kViewBoard ? app::rightPanelWidth(session_) : 0.0f; }
+    float rightEdgeWidth() const {
+        return tableVisible_ && view_ == app::kViewBoard && !quizLesson() && !codeVisible() ? app::rightPanelWidth(session_) : 0.0f;
+    }
+
+    // A lesson of questions: no parts, no table, just the questions.
+    bool quizLesson() const { return lesson_ >= 0 && editor::lessons()[static_cast<std::size_t>(lesson_)].check == editor::LessonCheck::Answer; }
 
     bool overRightPanel(float x) const { return x >= static_cast<float>(width_) - rightEdgeWidth(); }
 
@@ -1478,7 +1695,7 @@ private:
 
     bool modal() const {
         return profilesOpen_ || helpOpen_ || prompt_ != Prompt::None || codeVisible() || homeOpen_ || lessonsOpen_ || galleryOpen_ ||
-               topic_ >= 0;
+               topic_ >= 0 || insidePlan_ != nullptr;
     }
 
     app::CodeView codeView() const {
@@ -1676,7 +1893,11 @@ private:
             code_->helpScroll = 0.0f;
             return;
         }
-        if (code_->help) return;
+        if (code_->help) {
+            const float to = app::codeHelpGroupAt(renderer_, width_, codeHeight(), code_->mips, x, y);
+            if (to >= 0.0f) code_->helpScroll = to;
+            return;
+        }
         if (inside(layout.assemble, x, y)) {
             assembleCode();
         } else if (inside(layout.close, x, y)) {
@@ -1782,7 +2003,37 @@ private:
         palette_.scroll = std::clamp(palette_.scroll, 0.0f, limit);
     }
 
+    // The diagram the mouse is over, if a computer's view shows one: the X-ray's, or the 16-bit panel's.
+    std::optional<SDL_FRect> diagramArea() const {
+        if (!computerHere_ || view_ == app::kViewBoard || modal()) return std::nullopt;
+        if (view_ == app::kViewXray) return app::xrayParts(viewArea()).plan;
+        if (!is32_) return app::panelPlanArea(viewArea());
+        return std::nullopt;
+    }
+
+    // Closer or farther, keeping the point under the mouse where it is.
+    void zoomAt(float x, float y, float factor) {
+        const std::optional<SDL_FRect> plan = diagramArea();
+        if (!plan) return;
+        const float next = std::clamp(zoom_.zoom * factor, 0.5f, 5.0f);
+        const float k = next / zoom_.zoom;
+        const float cx = plan->x + plan->w / 2.0f;
+        const float cy = plan->y + plan->h / 2.0f;
+        zoom_.panX = (x - cx) - (x - cx - zoom_.panX) * k;
+        zoom_.panY = (y - cy) - (y - cy - zoom_.panY) * k;
+        zoom_.zoom = next;
+    }
+
     void wheel(float amount) {
+        if (insidePlan_ != nullptr) {
+            zoomInside(mouseX_, mouseY_, std::pow(1.25f, amount));
+            return;
+        }
+        if (const std::optional<SDL_FRect> plan = diagramArea();
+            plan && mouseX_ >= plan->x && mouseX_ < plan->x + plan->w && mouseY_ >= plan->y && mouseY_ < plan->y + plan->h) {
+            zoomAt(mouseX_, mouseY_, amount > 0 ? 1.15f : 1.0f / 1.15f);
+            return;
+        }
         if (codeVisible()) {
             if (mouseY_ >= app::kToolbarHeight) scrollCode(amount);
             return;
@@ -1828,6 +2079,11 @@ private:
                 if (shown) session_.openCircuit(shown->part.chip);
                 break;
             }
+            case app::PanelButton::LookInside: {
+                const std::optional<editor::Inspected> shown = session_.inspected();
+                if (shown) lookInside(shown->part.id);
+                break;
+            }
             default: break;
         }
     }
@@ -1846,7 +2102,8 @@ private:
             }
             case Prompt::Contents: return "Conteúdo: palavras em hexadecimal, separadas por espaco";
             case Prompt::NewChip: return "Nome do novo chip";
-            case Prompt::DevPassword: return "Senha de desenvolvedor";
+            case Prompt::DevPassword:
+            case Prompt::InsidePassword: return "Senha de desenvolvedor";
             default: return "";
         }
     }
@@ -1894,6 +2151,10 @@ private:
             } else {
                 devDeniedUntil_ = SDL_GetTicks() + kNoteMs;
             }
+            return;
+        }
+        if (prompt == Prompt::InsidePassword) {
+            app::showInsideOnMenu(text == kDevPassword);  // for this run only, like the lessons' switch
             return;
         }
         if (prompt == Prompt::NewChip) {
@@ -1962,6 +2223,15 @@ private:
     void mouseDown(Uint8 button, float x, float y) {
         mouseX_ = x;
         mouseY_ = y;
+        if (insidePlan_ != nullptr) {
+            pressInside(button, x, y);
+            return;
+        }
+        if (bundle_ != 0) {
+            const SDL_FRect back = app::bundleBackRect(width_, height_);
+            if (button == SDL_BUTTON_LEFT && x >= back.x && x < back.x + back.w && y >= back.y && y < back.y + back.h) bundle_ = 0;
+            return;
+        }
         if (codeVisible()) {
             if (button != SDL_BUTTON_LEFT) return;
             if (y >= app::kToolbarHeight) {
@@ -1979,15 +2249,18 @@ private:
             }
         }
         if (homeOpen_) {
+            if (prompt_ != Prompt::None) return;  // the password first, or Esc
             if (button == SDL_BUTTON_LEFT) chooseHome(app::homeAt(x, y, width_, height_, homeComputers_));
             return;
         }
         if (galleryOpen_) {
             if (button != SDL_BUTTON_LEFT) return;
-            const int chosen = app::galleryAt(x, y, width_, height_);
+            const int chosen = app::galleryAt(x, y, width_, height_, galleryGroup_);
             if (chosen == app::kGalleryBack) {
                 galleryOpen_ = false;
                 homeOpen_ = true;
+            } else if (chosen >= app::kGalleryGroupFirst && chosen < app::kGalleryGroupFirst + 100) {
+                galleryGroup_ = chosen - app::kGalleryGroupFirst;
             } else if (chosen >= 0) {
                 openGalleryItem(chosen);
             }
@@ -2016,22 +2289,35 @@ private:
                     break;
                 case app::LessonListKind::Reading: openReading(hit.index); break;
                 case app::LessonListKind::Exercise: startLesson(hit.index); break;
-                case app::LessonListKind::None: break;
+                case app::LessonListKind::None:
+                case app::LessonListKind::Planned: break;
             }
             return;
         }
         if (topic_ >= 0) {
             if (button != SDL_BUTTON_LEFT) return;
-            switch (app::readingAt(renderer_, x, y, width_, height_, readingView())) {
+            const app::ReadingHit hit = app::readingAt(renderer_, x, y, width_, height_, readingView());
+            switch (hit.button) {
                 case app::ReadingButton::Back: showLessons(); break;
                 case app::ReadingButton::Exercises: startReadingExercises(); break;
+                case app::ReadingButton::Previous: showReadingPage(readingPage_ - 1); break;
+                case app::ReadingButton::Next: showReadingPage(readingPage_ + 1); break;
+                case app::ReadingButton::Option: {
+                    std::vector<int>& answers = readingAnswers_[topic_];
+                    answers.resize(editor::topics()[static_cast<std::size_t>(topic_)].blocks.size(), -1);
+                    answers[static_cast<std::size_t>(hit.block)] = hit.option;
+                    break;
+                }
+                case app::ReadingButton::Figure: app::pressReadingFigure(renderer_, x, y, width_, readingView(), hit.block); break;
                 case app::ReadingButton::None: break;
             }
             return;
         }
         if (quizActive() && !overLessonStrip(x, y) && overBoard(x, y)) {
             if (button == SDL_BUTTON_LEFT) {
-                const SDL_FRect r = app::quizButtonRect(app::quizArea(boardRightEdge(), height_));
+                const editor::Lesson& asked = editor::lessons()[static_cast<std::size_t>(lesson_)];
+                const editor::Question* question = quizIndex_ < asked.questions.size() ? &asked.questions[quizIndex_] : nullptr;
+                const SDL_FRect r = app::quizButtonRect(app::quizArea(boardRightEdge(), height_), question);
                 if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) submitQuiz();
             }
             return;
@@ -2071,6 +2357,24 @@ private:
         if (view_ != app::kViewBoard && overBoard(x, y)) {
             const SDL_FRect area = viewArea();
             const auto hit = [&](const SDL_FRect& r) { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; };
+            if (const std::optional<SDL_FRect> plan = diagramArea(); plan && button == SDL_BUTTON_LEFT) {
+                if (hit(app::zoomButtonRect(*plan, 0))) return zoomAt(plan->x + plan->w / 2.0f, plan->y + plan->h / 2.0f, 1.0f / 1.25f);
+                if (hit(app::zoomButtonRect(*plan, 1))) return zoomAt(plan->x + plan->w / 2.0f, plan->y + plan->h / 2.0f, 1.25f);
+                if (hit(app::zoomButtonRect(*plan, 2))) {
+                    const bool hex = zoom_.hex;  // the whole diagram again, in the same base
+                    zoom_ = {};
+                    zoom_.hex = hex;
+                    return;
+                }
+                if (hit(app::zoomButtonRect(*plan, 3))) {
+                    zoom_.hex = !zoom_.hex;
+                    return;
+                }
+                if (hit(*plan)) {
+                    zoomDragging_ = true;
+                    return;
+                }
+            }
             if (button == SDL_BUTTON_LEFT && hit(app::panelNextButton(area))) {
                 session_.stepClock();
                 session_.stepClock();
@@ -2094,6 +2398,7 @@ private:
         if (button == SDL_BUTTON_LEFT) {
             const bool onSearch = x >= app::kSearchBox.x && x < app::kSearchBox.x + app::kSearchBox.w && y >= app::kSearchBox.y &&
                                   y < app::kSearchBox.y + app::kSearchBox.h;
+            if (x < app::kPanelWidth && quizLesson() && view_ == app::kViewBoard) return;  // the questions' list: nothing to click
             if (onSearch) {
                 startSearch();
                 return;
@@ -2102,6 +2407,18 @@ private:
             if (x < app::kPanelWidth) {
                 pressPalette(x, y);
                 return;
+            }
+            if (session_.currentCircuit() != 0 && view_ == app::kViewBoard) {
+                const std::vector<editor::CircuitEntry> trail = session_.trail();
+                for (const app::TrailPiece& piece : app::trailPieces(renderer_, session_, app::kPanelWidth, boardTop())) {
+                    if (x < piece.rect.x || x >= piece.rect.x + piece.rect.w || y < piece.rect.y || y >= piece.rect.y + piece.rect.h) continue;
+                    if (piece.index < 0) {
+                        session_.goBack();
+                    } else {
+                        session_.openCircuit(trail[static_cast<std::size_t>(piece.index)].id);
+                    }
+                    return;
+                }
             }
             if (overRightPanel(x)) {
                 pressRightPanel(x, y);
@@ -2142,6 +2459,9 @@ private:
     }
 
     void mouseUp(Uint8 button) {
+        if (button == SDL_BUTTON_LEFT) zoomDragging_ = false;
+        if (button == SDL_BUTTON_LEFT) insideDragging_ = false;
+        if (insidePlan_ != nullptr) return;
         if (codeVisible()) {
             code_->selecting = false;
             return;
@@ -2300,8 +2620,30 @@ private:
     }
 
     void keyDown(SDL_Keycode key, SDL_Keymod mod) {
+        if (bundle_ != 0 && insidePlan_ == nullptr) {
+            if (key == SDLK_ESCAPE) bundle_ = 0;
+            return;
+        }
+        if (insidePlan_ != nullptr) {
+            const SDL_FRect area = app::insidePlanArea(width_, height_);
+            if (key == SDLK_ESCAPE) closeInside();
+            if (insideLiveMode_ && key == SDLK_SPACE) toggleRun();
+            if (insideLiveMode_ && key == SDLK_N) session_.stepClock();
+            if (key == SDLK_1 || key == SDLK_KP_1) insideView_.level = app::InsideLevel::Gates;
+            if (key == SDLK_2 || key == SDLK_KP_2) insideView_.level = app::InsideLevel::Nands;
+            if (key == SDLK_3 || key == SDLK_KP_3) insideView_.level = app::InsideLevel::Transistors;
+            if (key == SDLK_EQUALS || key == SDLK_PLUS || key == SDLK_KP_PLUS) zoomInside(area.x + area.w / 2.0f, area.y + area.h / 2.0f, 1.6f);
+            if (key == SDLK_MINUS || key == SDLK_KP_MINUS) zoomInside(area.x + area.w / 2.0f, area.y + area.h / 2.0f, 1.0f / 1.6f);
+            return;
+        }
         if (codeVisible()) {
             codeKey(key, mod);
+            return;
+        }
+        if (homeOpen_ && prompt_ == Prompt::InsidePassword) {
+            if (key == SDLK_ESCAPE) closePrompt();
+            if (key == SDLK_RETURN || key == SDLK_KP_ENTER) confirmPrompt();
+            if (key == SDLK_BACKSPACE && !typing_.empty()) typing_.pop_back();
             return;
         }
         if (homeOpen_) {
@@ -2320,6 +2662,11 @@ private:
                 readingScroll_ = std::min(limit, readingScroll_ + (key == SDLK_DOWN ? 60.0f : page));
             }
             if (key == SDLK_UP || key == SDLK_PAGEUP) readingScroll_ = std::max(0.0f, readingScroll_ - (key == SDLK_UP ? 60.0f : page));
+            // The screens: right goes on once the screen's questions are answered, left goes back.
+            if (key == SDLK_RIGHT && readingPage_ + 1 < app::readingPageCount(topic_) && app::readingPageDone(renderer_, width_, readingView())) {
+                showReadingPage(readingPage_ + 1);
+            }
+            if (key == SDLK_LEFT && readingPage_ > 0) showReadingPage(readingPage_ - 1);
             return;
         }
         if (lessonsOpen_ && prompt_ == Prompt::DevPassword) {
@@ -2386,7 +2733,13 @@ private:
         } else if (ctrl && key == SDLK_N) {
             if (mayDiscard()) startBlank();
         } else if (key == SDLK_ESCAPE) {
-            session_.key(Key::Escape);
+            // With nothing to cancel, Esc goes back out of the chip that's open.
+            const bool idle = session_.mode() == editor::Mode::Idle && session_.selectedParts().empty() && session_.selectedWires().empty();
+            if (idle && session_.currentCircuit() != 0) {
+                session_.goBack();
+            } else {
+                session_.key(Key::Escape);
+            }
         } else if (key == SDLK_DELETE || key == SDLK_BACKSPACE) {
             session_.key(Key::Delete);
         } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
@@ -2465,7 +2818,19 @@ private:
     float lessonScroll_ = 0.0f;
     int topic_ = -1;            // the reading that covers the window, or -1
     float readingScroll_ = 0.0f;
+    int readingPage_ = 0;       // its screen on show
+    std::map<int, std::vector<int>> readingAnswers_;  // per reading, the option chosen in each question: kept for this run
     bool galleryOpen_ = false;  // so does the gallery of examples
+    std::optional<editor::Architecture> inside16_, inside32_;  // the computers drawn whole, once made
+    const editor::Architecture* insidePlan_ = nullptr;
+    std::optional<editor::Architecture> insideLive_;  // a board's own plan, opened from a part on it
+    bool insideLiveMode_ = false;
+    std::uint64_t insideRevision_ = 0;
+    std::vector<std::uint8_t> insideValues_;
+    std::string insideFocus_;
+    editor::PartId bundle_ = 0;  // a splitter or a joiner seen from the inside, or 0         // the one on screen, if any: it covers everything
+    app::InsideView insideView_;
+    bool insideDragging_ = false;
     int example_ = -1;          // the example on the board, from the gallery, with its explanation over it
     int exampleVersion_ = 0;    // and the version of it that's on the board
     bool programMode_ = false;  // the player's own program computer is on the board
@@ -2473,6 +2838,8 @@ private:
     app::LibraryLimit lessonLimit_;
     editor::LessonResult lessonResult_;
     std::uint64_t lessonRevision_ = UINT64_MAX;  // the board the result is about
+    app::XrayZoom zoom_;          // how close the computer's diagram is seen
+    bool zoomDragging_ = false;   // the diagram is being moved with the mouse
     std::size_t quizIndex_ = 0;  // a lesson of questions: the one being asked
     std::string quizTyped_;
     bool quizWrong_ = false;
@@ -2507,6 +2874,7 @@ private:
     bool tableVisible_ = true;
     int tableScroll_ = 0;
     bool helpOpen_ = false;
+    int galleryGroup_ = 0;  // the folder of examples on show
 };
 
 // Sends events as the window system would, in screen coordinates, through App::handle.
@@ -2774,7 +3142,8 @@ void showGates(App& app, SDL_Window* window) {
     app.camera().originX = -14.0f;
     app.camera().originY = -4.0f;
     int row = 0;
-    for (const app::PaletteItem& item : app.libraryGroups()[0].items) {
+    const std::vector<app::PaletteGroup> groups = app.libraryGroups();  // kept: the loop below reads from it
+    for (const app::PaletteItem& item : groups[0].items) {
         s.place(item.kind, {2 + (row % 3) * 7, 2 + (row / 3) * 7});
         ++row;
     }
@@ -3138,9 +3507,23 @@ int main(int argc, char** argv) {
         showCode(app, window);
         app.openCodeHelp(script[12] == ':' ? static_cast<float>(std::atof(script + 13)) : 0.0f);
     }
+    // ajuda-mips[:S], the 32-bit computer's instruction help, scrolled S pixels down.
+    if (script != nullptr && std::strncmp(script, "ajuda-mips", 10) == 0) {
+        app.openProgram32();
+        app.openCodeHelp(script[10] == ':' ? static_cast<float>(std::atof(script + 11)) : 0.0f);
+    }
     if (script != nullptr && std::strcmp(script, "velocidade") == 0) startSpeedRun(app, window);
     if (script != nullptr && std::strncmp(script, "dentro:", 7) == 0) showInside(app, window, std::atoi(script + 7));
     if (script != nullptr && std::strcmp(script, "inicio") == 0) app.showHome();
+    // aovivo:N, the example computer from the inside, live, a few clock cycles in: 0 its CPU, 1 the first box inside
+    // the CPU's decoder, 2 the decoder's first splitter.
+    if (script != nullptr && std::strncmp(script, "aovivo:", 7) == 0) app.showLive(std::atoi(script + 7));
+    // trilha: the example computer, two chips in, CPU and then its decoder, with the way back on show.
+    if (script != nullptr && std::strcmp(script, "trilha") == 0) app.showLive(-1);
+    if (script != nullptr && std::strcmp(script, "atalhos") == 0) {  // the board's shortcuts, as F1 shows them
+        Script s(app, window);
+        s.key(SDLK_F1);
+    }
     if (script != nullptr && std::strcmp(script, "computadores") == 0) app.showComputers();
     if (script != nullptr && std::strcmp(script, "programar32") == 0) app.openProgram32();
     // blocos32:N:R, the 32-bit program N instructions in, on the Blocks tab scrolled R blocks down.
@@ -3151,7 +3534,8 @@ int main(int argc, char** argv) {
         app.draw("");
         app.showBlocks(scroll != nullptr ? std::atoi(scroll + 1) : 0);
     }
-    // rodar32:N:V[:S]: the 32-bit program computer, N instructions in, on view V (1 Panel, 2 X-ray), at X-ray step S.
+    // rodar32:N:V[:S[:Z[:H]]]: the 32-bit program computer, N instructions in, on view V (1 Panel, 2 X-ray), at X-ray step S, zoomed Z times,
+    // in hexadecimal if H is 1.
     if (script != nullptr && std::strncmp(script, "rodar32:", 8) == 0) {
         Script s(app, window);
         app.openProgram32();
@@ -3164,17 +3548,56 @@ int main(int argc, char** argv) {
             if (const char* stage = std::strchr(view + 1, ':'); stage != nullptr) {
                 app.draw("");
                 app.chooseXrayStage(std::atoi(stage + 1));
+                if (const char* zoom = std::strchr(stage + 1, ':'); zoom != nullptr) {
+                    app.zoomDiagram(static_cast<float>(std::atof(zoom + 1)));
+                    if (const char* hex = std::strchr(zoom + 1, ':'); hex != nullptr) app.showHex(std::atoi(hex + 1) == 1);
+                }
             }
         }
         s.moveScreen(700, 400);
     }
+    // pordentro:B:L[:Z:X:Y]: the B-bit computer from the inside, picture L (0 gates, 1 NANDs, 2 transistors), zoomed Z times
+    // around the point at X, Y (shares of the plan's width and height).
+    if (script != nullptr && std::strncmp(script, "pordentro:", 10) == 0) {
+        int bits = 16, level = 0;
+        float zoom = 1.0f, px = 0.5f, py = 0.5f;
+        std::sscanf(script + 10, "%d:%d:%f:%f:%f", &bits, &level, &zoom, &px, &py);
+        app.openInside(bits == 32, static_cast<app::InsideLevel>(std::clamp(level, 0, 2)));
+        if (zoom != 1.0f) app.lookInside(zoom, px, py);
+    }
     if (script != nullptr && std::strcmp(script, "aulas") == 0) app.showLessons();
+    // aulas:N[:end], the list on act N, counted from 0, scrolled to its end.
+    if (script != nullptr && std::strncmp(script, "aulas:", 6) == 0) {
+        app.showLessons();
+        app.showAct(std::atoi(script + 6), std::strstr(script + 6, ":end") != nullptr);
+    }
     // leitura:N, the reading of topic N; leitura:N:S, scrolled S pixels down.
     if (script != nullptr && std::strncmp(script, "leitura:", 8) == 0) {
         app.openReading(std::atoi(script + 8));
-        if (const char* colon = std::strchr(script + 8, ':')) app.scrollReading(static_cast<float>(std::atof(colon + 1)));
+        int page = 0, answered = 0;
+        float scroll = 0.0f, clickX = -1.0f, clickY = -1.0f;
+        std::sscanf(script + 8, "%*d:%f:%d:%d:%f:%f", &scroll, &page, &answered, &clickX, &clickY);
+        if (answered == 1) app.answerReading();
+        app.showReadingPage(page);
+        app.scrollReading(scroll);
+        if (clickX >= 0.0f) {  // and a click there, the way a person would
+            Script s(app, window);
+            app.draw("");
+            s.clickScreen(clickX, clickY);
+        }
     }
     // senha:TEXTO[:enter], the lesson list with the developer's password field open and TEXTO typed (and confirmed).
+    // dentro-senha:TEXT: the computers' page, with TEXT typed as the password for "Por dentro" and Enter pressed.
+    if (script != nullptr && std::strncmp(script, "dentro-senha:", 13) == 0) {
+        Script s(app, window);
+        app.showComputers();
+        app.draw("");
+        const SDL_FRect lock = app::insideLockRect(app.width(), app.height());
+        s.clickScreen(lock.x + lock.w / 2.0f, lock.y + lock.h / 2.0f);
+        s.text(script + 13);
+        s.key(SDLK_RETURN);
+        s.moveScreen(10.0f, 300.0f);
+    }
     if (script != nullptr && std::strncmp(script, "senha:", 6) == 0) {
         Script s(app, window);
         app.showLessons();
@@ -3210,7 +3633,8 @@ int main(int argc, char** argv) {
         app.showLessons();
         app.showAct(std::atoi(script + 4));
     }
-    if (script != nullptr && std::strcmp(script, "galeria") == 0) app.showGallery();
+    // galeria[:N], the examples on folder N.
+    if (script != nullptr && std::strncmp(script, "galeria", 7) == 0) app.showGallery(script[7] == ':' ? std::atoi(script + 8) : 0);
     if (script != nullptr && std::strcmp(script, "programar") == 0) app.openProgram();
     // exemplo:ID, exemplo:ID:N for its version N, and @NAME at the end to pick the label with that name.
     if (script != nullptr && std::strncmp(script, "exemplo:", 8) == 0) {

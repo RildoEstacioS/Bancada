@@ -139,6 +139,23 @@ ChipData controlChip(ChipId id) {
     single("Liga", kLink);
     single("ZeraA", kAluZero);
     field("OpULA", kAluOpLow, 3);
+
+    // Whether a branch is taken: BEQ when the ALU's difference was zero, BNE when it wasn't. Z comes from the
+    // ALU, and the control tells the next-PC multiplexer what to pick.
+    const PartId zero = l.input("Z", {0, 46});
+    const PartId notZero = l.gate(PartKind::Not, {14, 50});
+    l.wire(zero, 0u, notZero, 0u);
+    const PartId equalTaken = l.gate(PartKind::And, {48, 46});
+    l.wire(lines, 1 + kBranchEq, equalTaken, 0u);
+    l.wire(zero, 0u, equalTaken, 1u);
+    const PartId differentTaken = l.gate(PartKind::And, {48, 54});
+    l.wire(lines, 1 + kBranchNe, differentTaken, 0u);
+    l.wire(notZero, 1u, differentTaken, 1u);
+    const PartId take = l.gate(PartKind::Or, {58, 50});
+    l.wire(equalTaken, 2u, take, 0u);
+    l.wire(differentTaken, 2u, take, 1u);
+    const PartId branch = l.output("Desvia", {68, l.pinY(take, 2u) - 1});
+    l.wire(take, 2u, branch, 0u);
     return chip;
 }
 
@@ -152,9 +169,7 @@ ChipData counterChip(ChipId id) {
     const PartId clock = l.input("Clk", {0, 0});
     const PartId reset = l.input("Rst", {0, 3});
     const PartId halt = l.input("Pare", {0, 6});
-    const PartId zero = l.input("Z", {0, 10});
-    const PartId onEqual = l.input("SeIgual", {0, 13});
-    const PartId onDifferent = l.input("SeDif", {0, 16});
+    const PartId take = l.input("Desvia", {0, 13});  // the control's answer: this branch is taken
     const PartId jump = l.input("Salto", {0, 19});
     const PartId jumpRegister = l.input("SaltoR", {0, 22});
     const PartId offset = l.input("Imm6", {0, 25}, 16);
@@ -163,17 +178,6 @@ ChipData counterChip(ChipId id) {
 
     const PartId go = l.gate(PartKind::Not, {10, 5});
     l.wire(halt, 0u, go, 0u);
-    const PartId notZero = l.gate(PartKind::Not, {10, 10});
-    l.wire(zero, 0u, notZero, 0u);
-    const PartId equalTaken = l.gate(PartKind::And, {18, 11});
-    l.wire(onEqual, 0u, equalTaken, 0u);
-    l.wire(zero, 0u, equalTaken, 1u);
-    const PartId differentTaken = l.gate(PartKind::And, {18, 17});
-    l.wire(onDifferent, 0u, differentTaken, 0u);
-    l.wire(notZero, 1u, differentTaken, 1u);
-    const PartId take = l.gate(PartKind::Or, {26, 14});
-    l.wire(equalTaken, 2u, take, 0u);
-    l.wire(differentTaken, 2u, take, 1u);
 
     const PartId pc = l.box("register", {66, 0}, 16);
     l.wire(go, 1u, pc, "En");
@@ -194,7 +198,7 @@ ChipData counterChip(ChipId id) {
     const PartId nextBranch = l.box("mux2_n", {50, 8}, 16);
     l.wire(increment, "S", nextBranch, "A");
     l.wire(branchTarget, "S", nextBranch, "B");
-    l.wire(take, 2u, nextBranch, "Sel");
+    l.wire(take, 0u, nextBranch, "Sel");
     const PartId nextJump = l.box("mux2_n", {50, 18}, 16);
     l.wire(nextBranch, "S", nextJump, "A");
     l.wire(target, 0u, nextJump, "B");
@@ -381,9 +385,9 @@ ChipData cpuChip(ChipId id, const std::vector<ChipData>& parts) {
     l.nameInput(counter, "Clk");
     l.nameInput(counter, "Rst");
     l.nameInput(counter, "Pare");
-    l.nameInput(counter, "Z");
-    l.nameInput(counter, "SeIgual");
-    l.nameInput(counter, "SeDif");
+    l.nameInput(counter, "Desvia");
+    l.nameInput(control, "Z");
+    l.nameOutput(control, "Desvia", "Desvia");
     l.nameInput(counter, "Salto");
     l.nameInput(counter, "SaltoR");
     l.nameInput(counter, "Imm6", 16);

@@ -47,6 +47,13 @@ std::string hex(std::uint32_t value) {
 
 std::string number(std::uint32_t value) { return std::to_string(static_cast<std::int32_t>(value)); }
 
+// A number in hexadecimal without its leading zeros: 0x400000, 0x1F.
+std::string shortHexNumber(std::uint32_t value) {
+    char text[16];
+    std::snprintf(text, sizeof text, "0x%X", static_cast<unsigned>(value));
+    return text;
+}
+
 struct Fields {
     std::uint32_t op, funct;
     unsigned rs, rt, rd, shamt;
@@ -421,18 +428,39 @@ Trace32 traceInstruction32(const Computer32State& state) {
     return traceInstruction32(state.instruction, state.pc, state.registers, state.switches, state.memoryAtAddress);
 }
 
-std::string explainStage32(const Trace32& t, int stage) {
+// The ALU's operation by the instruction's name for it, as its control line carries it.
+std::string aluName32(const Trace32& t) {
+    static const std::pair<const char*, const char*> kNames[] = {{"+", "ADD"}, {"-", "SUB"}, {"E", "AND"}, {"OU", "OR"}, {"OUX", "XOR"}, {"NOU", "NOR"},
+                                                                 {"<", "SLT"}, {"<u", "SLTU"}, {"<<", "SLL"}, {">>", "SRL"}, {">>±", "SRA"}, {"<<16", "LUI"}};
+    for (const auto& [symbol, mnemonic] : kNames) {
+        if (t.aluOperation == symbol) return mnemonic;
+    }
+    return "?";
+}
+
+std::string join(const std::vector<std::string>& parts) {
+    std::string all;
+    for (std::size_t i = 0; i < parts.size(); ++i) all += (i == 0 ? "" : ", ") + parts[i];
+    return all;
+}
+
+std::string explainStage32(const Trace32& t, int stage, bool inHex) {
     using Back = Trace32::Back;
     using Next = Trace32::Next;
     using i18n::format;
     using i18n::tr;
     const auto name = [](unsigned index) { return std::string(mips::registerName(index)); };
-    const auto with = [&](unsigned index, std::uint32_t value) { return name(index) + " (" + number(value) + ")"; };
+    // A value in the base the X-ray is showing: signed in decimal; an address, never negative.
+    const auto value = [inHex](std::uint32_t v) { return inHex ? shortHexNumber(v) : number(v); };
+    const auto address = [inHex](std::uint32_t v) { return inHex ? shortHexNumber(v) : std::to_string(v); };
+    const auto with = [&](unsigned index, std::uint32_t v) { return name(index) + " (" + value(v) + ")"; };
     switch (stage) {
         case 0:
-            return format("O PC vale {}: é o endereço da instrução. A ROM de instruções entrega a palavra desse endereço, {}, que é {}. Ao mesmo "
-                          "tempo, o somador PC + 4 calcula {}: cada instrução ocupa 4 bytes, então a seguinte está 4 endereços adiante.",
-                          {hex(t.pc), hex(t.word), t.text, hex(t.pc4)});
+            // Fetching, the CPU only has a number: what instruction it is, the decoder finds out in the next step.
+            return format("O PC vale {}: é o endereço da instrução. A ROM de instruções entrega a palavra desse endereço: {}, os 32 bits da faixa "
+                          "acima, escritos em hexadecimal. Por enquanto é só um número; que instrução ele é, o decodificador descobre na próxima "
+                          "etapa. Ao mesmo tempo, o somador PC + 4 calcula {}: cada instrução ocupa 4 bytes, então a seguinte está 4 endereços adiante.",
+                          {address(t.pc), hex(t.word), address(t.pc4)});
         case 1: {
             if (t.invalid && !t.syscall) {
                 return format("Os 6 bits de cima, op = {}, e o funct = {} não formam nenhuma instrução deste computador: o controle liga Inválida, e ele para.",
@@ -440,14 +468,14 @@ std::string explainStage32(const Trace32& t, int stage) {
             }
             std::string fields;
             if (t.format == 'R') {
-                fields = format("Os 6 bits de cima, op = 0, dizem que é do tipo R: o funct = {}, nos 6 de baixo, diz qual é: {}.", {std::to_string(t.funct), t.name});
+                fields = format("Os 6 bits de cima, op = 0, dizem o formato: tipo R, em que a conta vem no funct, os 6 bits de baixo: funct = {}.", {std::to_string(t.funct)});
             } else if (t.format == 'J') {
-                fields = format("Os 6 bits de cima, op = {}, dizem que é do tipo J: {}, com um alvo de 26 bits.", {std::to_string(t.op), t.name});
+                fields = format("Os 6 bits de cima, op = {}, dizem o formato: tipo J, com um alvo de 26 bits.", {std::to_string(t.op)});
             } else {
-                fields = format("Os 6 bits de cima, op = {}, dizem que é do tipo I: {}, com um imediato de 16 bits.", {std::to_string(t.op), t.name});
+                fields = format("Os 6 bits de cima, op = {}, dizem o formato: tipo I, com um imediato de 16 bits.", {std::to_string(t.op)});
             }
             if (t.syscall) {
-                fields += " " + format("Num syscall, o controle faz os registradores lerem $v0 ({}) e $a0 ({}).", {number(t.valueA), number(t.valueB)});
+                fields += " " + format("Num syscall, o controle faz os registradores lerem $v0 ({}) e $a0 ({}).", {value(t.valueA), value(t.valueB)});
             } else if (t.readsA && t.readsB) {
                 fields += " " + format("Os registradores lidos são {} e {}.", {with(t.registerA, t.valueA), with(t.registerB, t.valueB)});
             } else if (t.readsA) {
@@ -457,12 +485,26 @@ std::string explainStage32(const Trace32& t, int stage) {
             }
             if (t.usesImmediate) {
                 fields += " " + format("O imediato {} vira 32 bits no extensor, {}: {}.",
-                                       {hex(t.imm).substr(6), tr(t.signExtends ? "copiando o sinal" : "com zeros em cima"), number(t.extended)});
+                                       {inHex ? shortHexNumber(t.imm) : std::to_string(t.imm), tr(t.signExtends ? "copiando o sinal" : "com zeros em cima"), value(t.extended)});
             }
+            // The control: the op (and, for an R type, the funct) picks a row of its ROMs, a wire per bit.
+            std::vector<std::string> signals;
+            if (t.usesAlu) signals.push_back(format("OpULA = {} (a conta da ULA)", {aluName32(t)}));
+            if (t.usesAlu) signals.push_back(t.aluTakesImmediate ? tr("UsaImm = 1 (o MUX B deixa passar o imediato)") : tr("UsaImm = 0 (o MUX B deixa passar o registrador)"));
+            if (t.usesImmediate) signals.push_back(t.signExtends ? tr("SinalImm = 1 (estender copiando o sinal)") : tr("SinalImm = 0 (estender com zeros)"));
             if (t.back != Back::None) {
                 static constexpr const char* kWhich[] = {"rt", "rd", "$ra", "$v0"};
-                fields += " " + format("O resultado vai para {}: o MUX do destino escolhe {}.", {name(t.written), kWhich[t.destination]});
+                signals.push_back(format("RegEsc = 1 e RegDest = {} (gravar em {})", {kWhich[t.destination], name(t.written)}));
             }
+            if (t.writesMemory) signals.push_back(tr("MemEsc = 1 (grava na RAM)"));
+            if (t.syscall) signals.push_back(tr("Sistema = 1 (é um syscall)"));
+            if (t.branches) signals.push_back(tr(t.op == mips::kOpBeq ? "SeIgual = 1 (desvia se Z = 1)" : "SeDif = 1 (desvia se Z = 0)"));
+            if (t.next == Next::Jump) signals.push_back(tr("Salto = 1 (o PC vai para o alvo do salto)"));
+            if (t.next == Next::Register) signals.push_back(tr("SaltoR = 1 (o PC vai para o registrador)"));
+            const std::string lookup = t.format == 'R' ? format("O op = 0 e o funct = {} vão ao Controle, que acha nas suas ROMs a linha de {}.", {std::to_string(t.funct), t.name})
+                                                       : format("O op = {} vai ao Controle, que acha na sua ROM a linha de {}.", {std::to_string(t.op), t.name});
+            fields = std::string(tr("O decodificador não sabe que instrução é: só corta a palavra em campos.")) + " " + fields + " " + lookup;
+            if (!signals.empty()) fields += " " + format("Cada bit da linha é um fio azul que sai do Controle: {}.", {join(signals)});
             return fields;
         }
         case 2: {
@@ -476,41 +518,42 @@ std::string explainStage32(const Trace32& t, int stage) {
                 }
             }
             if (t.next == Next::Jump) {
-                return format("O alvo do salto junta os 4 bits de cima de PC + 4 com o alvo × 4: {}. A ULA não é usada.", {hex(t.jumpTarget)});
+                return format("O alvo do salto junta os 4 bits de cima de PC + 4 com o alvo × 4: {}. A ULA não é usada.", {address(t.jumpTarget)});
             }
-            if (t.next == Next::Register) return format("jr não usa a ULA: o endereço de volta já está em {}: {}.", {name(t.registerA), hex(t.valueA)});
+            if (t.next == Next::Register) return format("jr não usa a ULA: o endereço de volta já está em {}: {}.", {name(t.registerA), address(t.valueA)});
             if (!t.usesAlu) return tr("Esta instrução não usa a ULA.");
             if (t.branches) {
-                return format("A ULA subtrai para comparar: {} - {} = {}, então Z = {}. Ao mesmo tempo, o somador do desvio calcula PC + 4 + imediato × 4 = {}.",
-                              {number(t.aluA), number(t.aluB), number(t.aluResult), std::to_string(t.zero ? 1 : 0), hex(t.branchTarget)});
+                return format("A ULA subtrai para comparar, porque o Controle mandou OpULA = SUB: {} - {} = {}, então Z = {}. O Z desce até o Controle, que o junta com o tipo de desvio "
+                              "(beq desvia se Z = 1, bne se Z = 0). Ao mesmo tempo, o somador do desvio calcula PC + 4 + imediato × 4 = {}.",
+                              {value(t.aluA), value(t.aluB), value(t.aluResult), std::to_string(t.zero ? 1 : 0), address(t.branchTarget)});
             }
             if (t.shifts) {
-                return format("O deslocador da ULA move {} {} casas ({}): dá {}.", {hex(t.aluB), number(t.aluA), t.aluOperation, hex(t.aluResult)});
+                return format("O deslocador da ULA move {} {} casas ({}): dá {}.", {value(t.aluB), number(t.aluA), t.aluOperation, value(t.aluResult)});
             }
             const std::string second = t.aluTakesImmediate ? tr("o imediato") : tr("o registrador B");
-            std::string sentence = format("A ULA faz {} {} {} = {}. A entrada B é {}, escolhido pelo MUX B.",
-                                          {number(t.aluA), tr(t.aluOperation.c_str()), number(t.aluB), number(t.aluResult), second});
-            if (t.readsMemory || t.writesMemory) sentence += " " + format("O resultado é um endereço: {}.", {hex(t.address)});
+            std::string sentence = format("A ULA faz {} {} {} = {}, porque o Controle mandou OpULA = {}. A entrada B é {}, escolhido pelo MUX B.",
+                                          {value(t.aluA), tr(t.aluOperation.c_str()), value(t.aluB), value(t.aluResult), aluName32(t), second});
+            if (t.readsMemory || t.writesMemory) sentence += " " + format("O resultado é um endereço: {}.", {address(t.address)});
             return sentence;
         }
         case 3:
-            if (t.readsMemory) return format("A RAM de dados lê o endereço {} e entrega {}.", {hex(t.address), number(t.memoryValue)});
-            if (t.writesMemory) return format("A RAM de dados grava {} no endereço {}, na subida do clock.", {number(t.memoryValue), hex(t.address)});
+            if (t.readsMemory) return format("A RAM de dados lê o endereço {} e entrega {}.", {address(t.address), value(t.memoryValue)});
+            if (t.writesMemory) return format("A RAM de dados grava {} no endereço {}, na subida do clock.", {value(t.memoryValue), address(t.address)});
             return tr("Esta instrução não usa a RAM.");
         case 4: {
             if (t.back == Back::None) return tr("Nada é gravado nos registradores.");
             const char* from = t.back == Back::Alu ? "o resultado da ULA" : t.back == Back::Memory ? "o que veio da RAM" : t.back == Back::Link ? "PC + 4, o endereço de volta" : "as chaves";
-            return format("O MUX de volta escolhe {}, {}, e ele é gravado em {} na subida do clock.", {tr(from), number(t.writtenValue), name(t.written)});
+            return format("O MUX de volta escolhe {}, {}, e ele é gravado em {} na subida do clock.", {tr(from), value(t.writtenValue), name(t.written)});
         }
         default:
             switch (t.next) {
-                case Next::Branch: return format("O desvio é tomado: o MUX do próximo PC escolhe o alvo do desvio, e o PC recebe {}.", {hex(t.nextPc)});
-                case Next::Jump: return format("O MUX do próximo PC escolhe o alvo do salto: o PC recebe {}.", {hex(t.nextPc)});
-                case Next::Register: return format("O MUX do próximo PC escolhe o registrador: o PC recebe {}.", {hex(t.nextPc)});
-                case Next::Stay: return format("O computador para: o PC fica em {}.", {hex(t.pc)});
+                case Next::Branch: return format("O desvio é tomado: com Desvia = 1, o MUX do próximo PC escolhe o alvo do desvio, e o PC recebe {}.", {address(t.nextPc)});
+                case Next::Jump: return format("O MUX do próximo PC escolhe o alvo do salto: o PC recebe {}.", {address(t.nextPc)});
+                case Next::Register: return format("O MUX do próximo PC escolhe o registrador: o PC recebe {}.", {address(t.nextPc)});
+                case Next::Stay: return format("O computador para: o PC fica em {}.", {address(t.pc)});
                 default:
-                    if (t.branches) return format("O desvio não é tomado: o MUX do próximo PC escolhe PC + 4, e o PC recebe {}.", {hex(t.nextPc)});
-                    return format("O MUX do próximo PC escolhe PC + 4: o PC recebe {}.", {hex(t.nextPc)});
+                    if (t.branches) return format("O desvio não é tomado: com Desvia = 0, o MUX do próximo PC escolhe PC + 4, e o PC recebe {}.", {address(t.nextPc)});
+                    return format("O MUX do próximo PC escolhe PC + 4: o PC recebe {}.", {address(t.nextPc)});
             }
     }
 }

@@ -16,7 +16,18 @@ void checkWidth(unsigned width) {
 
 NetId Netlist::add(Node node) {
     nodes_.push_back(std::move(node));
+    if (tagging_) nodeTags_.push_back(current_);
     return static_cast<NetId>(nodes_.size() - 1);
+}
+
+std::uint32_t Netlist::openTag(TagKind kind, std::string_view label, int x, int y) {
+    const std::uint32_t previous = current_;
+    if (!tagging_) return previous;
+    if (kind == TagKind::Gate && label.empty()) return previous;  // a part that is no gate: nothing to tag
+    if (kind == TagKind::Gate && current_ != kNoTag && tags_[current_].kind == TagKind::Gate) return previous;
+    tags_.push_back({kind, current_, std::string(label), x, y});
+    current_ = static_cast<std::uint32_t>(tags_.size() - 1);
+    return previous;
 }
 
 void Netlist::check(NetId net) const {
@@ -120,6 +131,7 @@ std::uint32_t Netlist::memory(unsigned addressBits, unsigned dataBits, std::vect
     if (initial.size() > (std::size_t{1} << addressBits)) throw std::invalid_argument("more initial words than the memory holds");
     for (std::uint64_t& word : initial) word &= widthMask(dataBits);
     memories_.push_back({addressBits, dataBits, std::move(initial)});
+    if (tagging_) memoryTags_.push_back(current_);
     return static_cast<std::uint32_t>(memories_.size() - 1);
 }
 

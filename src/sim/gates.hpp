@@ -9,17 +9,35 @@
 
 namespace bancada::sim::gates {
 
-inline NetId notGate(Netlist& n, NetId a) { return n.nand(a, a); }
-inline NetId andGate(Netlist& n, NetId a, NetId b) { return notGate(n, n.nand(a, b)); }
-inline NetId orGate(Netlist& n, NetId a, NetId b) { return n.nand(notGate(n, a), notGate(n, b)); }
-inline NetId norGate(Netlist& n, NetId a, NetId b) { return notGate(n, orGate(n, a, b)); }
+// Each gate tags its NANDs with its name, for drawing the circuit's insides (free unless asked for). A NAND
+// used as it is, like the three of a MUX, is a gate of its own.
+inline NetId notGate(Netlist& n, NetId a) {
+    const TagScope gate(n, TagKind::Gate, "NOT");
+    return n.nand(a, a);
+}
+inline NetId andGate(Netlist& n, NetId a, NetId b) {
+    const TagScope gate(n, TagKind::Gate, "AND");
+    return notGate(n, n.nand(a, b));
+}
+inline NetId orGate(Netlist& n, NetId a, NetId b) {
+    const TagScope gate(n, TagKind::Gate, "OR");
+    return n.nand(notGate(n, a), notGate(n, b));
+}
+inline NetId norGate(Netlist& n, NetId a, NetId b) {
+    const TagScope gate(n, TagKind::Gate, "NOR");
+    return notGate(n, orGate(n, a, b));
+}
 
 inline NetId xorGate(Netlist& n, NetId a, NetId b) {
+    const TagScope gate(n, TagKind::Gate, "XOR");
     const NetId shared = n.nand(a, b);
     return n.nand(n.nand(a, shared), n.nand(b, shared));
 }
 
-inline NetId xnorGate(Netlist& n, NetId a, NetId b) { return notGate(n, xorGate(n, a, b)); }
+inline NetId xnorGate(Netlist& n, NetId a, NetId b) {
+    const TagScope gate(n, TagKind::Gate, "XNOR");
+    return notGate(n, xorGate(n, a, b));
+}
 
 // out = a while sel is 0, b while sel is 1. All three are single wires.
 inline NetId mux(Netlist& n, NetId a, NetId b, NetId sel) {
@@ -35,6 +53,7 @@ inline NetId fan(Netlist& n, NetId bit, unsigned width) {
 
 // A whole bus through a mux: a while sel is 0, b while it's 1.
 inline NetId muxBus(Netlist& n, NetId a, NetId b, NetId sel) {
+    const TagScope piece(n, TagKind::Detail, "MUX 2:1");
     const unsigned width = n.width(a);
     const NetId wide = fan(n, sel, width);
     return n.nand(n.nand(a, notGate(n, wide)), n.nand(b, wide));
@@ -46,8 +65,11 @@ struct Sum {
 };
 
 inline Sum fullAdder(Netlist& n, NetId a, NetId b, NetId carryIn) {
+    const TagScope piece(n, TagKind::Detail, "Somador completo");
     const NetId partial = xorGate(n, a, b);
-    return {xorGate(n, partial, carryIn), n.nand(n.nand(a, b), n.nand(partial, carryIn))};
+    const NetId sum = xorGate(n, partial, carryIn);
+    // The carry: (a AND b) OR (partial AND carry in), as three NANDs.
+    return {sum, n.nand(n.nand(a, b), n.nand(partial, carryIn))};
 }
 
 // Adds two buses of the same width, one full adder per bit.
@@ -86,6 +108,7 @@ inline Latch dLatch(Netlist& n, NetId d, NetId enable) {
 // Two latches back to back: the first is open while the clock is low, the second while it's high, so
 // q changes only on the rising edge.
 inline Latch dFlipFlop(Netlist& n, NetId d, NetId clock) {
+    const TagScope piece(n, TagKind::Detail, "Flip-flop D");
     const Latch first = dLatch(n, d, notGate(n, clock));
     return dLatch(n, first.q, clock);
 }

@@ -40,6 +40,7 @@ void Session::adopt(Board board, std::span<const PartId> togglesOn, bool saved) 
     toggles_.clear();
     for (PartId toggle : togglesOn) toggles_[toggle] = 1;
     current_ = 0;
+    trail_.clear();
     currentName_ = "principal";
     stored_.erase(0);
     restart();
@@ -163,6 +164,14 @@ ChipId Session::createChip(std::string name) {
 void Session::openCircuit(ChipId id) {
     if (id == current_ || boardOf(id) == nullptr) return;
     cancelTool();
+    // Going to one on the way back cuts the way there; going anywhere else adds the one being left.
+    if (id == 0) {
+        trail_.clear();
+    } else if (const auto back = std::find(trail_.begin(), trail_.end(), id); back != trail_.end()) {
+        trail_.erase(back, trail_.end());
+    } else {
+        trail_.push_back(current_);
+    }
     const ChipId left = current_;
 
     Stored parked;
@@ -201,6 +210,22 @@ void Session::refreshChip(ChipId chip) {
     }
     if (current_ != chip) board_.updateChip(chip, interface);
 }
+
+std::vector<CircuitEntry> Session::trail() const {
+    std::vector<CircuitEntry> out;
+    for (const ChipId id : trail_) {
+        const auto found = stored_.find(id);
+        out.push_back({id, id == 0 ? std::string("principal") : found != stored_.end() ? found->second.name : std::string()});
+    }
+    return out;
+}
+
+void Session::goBack() {
+    if (current_ == 0) return;
+    openCircuit(trail_.empty() ? 0 : trail_.back());
+}
+
+const Part* Session::partUnderCursor() const { return board_.partAtCell(cellUnder(worldX_, worldY_)); }
 
 void Session::openChipUnderCursor() {
     if (mode_ != Mode::Idle) return;

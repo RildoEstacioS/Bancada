@@ -12,6 +12,7 @@
 #include "editor/analog.hpp"
 #include "editor/board.hpp"
 #include "sim/backend.hpp"
+#include "sim/netlist.hpp"
 
 namespace bancada::editor {
 
@@ -21,6 +22,16 @@ using ChipBoards = std::unordered_map<ChipId, const Board*>;
 class BoardCircuit {
 public:
     explicit BoardCircuit(const Board& board, const ChipBoards* chips = nullptr);
+
+    // The board flattened into one netlist, each node tagged with the chips, boxes and gates it came from:
+    // for drawing what's inside a circuit, down to its NANDs. Not for running.
+    static sim::Netlist tagged(const Board& board, const ChipBoards* chips = nullptr);
+    // The same netlist without the tags: the one the circuit runs. Its nets are numbered as tagged()'s, so a
+    // plan drawn from tagged() can show the running circuit's values.
+    static sim::Netlist plain(const Board& board, const ChipBoards* chips = nullptr);
+
+    // The value on any net of the running netlist, by its number.
+    std::uint64_t netValue(sim::NetId net) const;
 
     void setToggle(PartId toggle, std::uint64_t value);
     void settle();
@@ -68,6 +79,8 @@ public:
     std::uint64_t outputValue(PartId output) const;
 
 private:
+    BoardCircuit() = default;  // for tagged(): the maps are filled, and then thrown away
+
     struct Group {
         sim::NetId net = 0;
         int drivers = 0;

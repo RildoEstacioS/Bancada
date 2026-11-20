@@ -30,6 +30,12 @@ enum class TheoryBlockKind : std::uint8_t {
     Tip,      // a paragraph set apart: a rule worth remembering
     Word,     // an instruction's 16 bits, field by field in colour, with the text as its caption
     Code,     // a few lines of assembly, coloured the way the editor colours them
+    Page,      // a new screen starts here, with the text as its title: one idea per screen
+    Question,  // asked in the middle of the reading: the question, one line per option with '*' before the right one,
+               // then '=' and why it's right, and '?' and a nudge for a wrong answer. The next screen waits for it.
+    Example,   // a worked example: its title, then one line per step
+    Mistake,   // a common mistake: the mistake, then a line or two on why it's wrong and how to avoid it
+    Summary,   // what to take away, one line per point
 };
 
 struct TheoryBlock {
@@ -50,6 +56,19 @@ struct Topic {
 };
 
 const std::vector<Topic>& topics();
+
+// A Question block's text taken apart.
+struct QuestionParts {
+    std::string prompt;
+    std::vector<std::string> options;
+    int right = -1;
+    std::string explain;
+    std::string hint;
+};
+QuestionParts questionParts(std::string_view text);
+
+// A reading's screens: the first and one-past-the-last block of each. A reading with no Page block is one screen.
+std::vector<std::pair<std::size_t, std::size_t>> readingPages(const Topic& topic);
 
 // Circuits from every act, for the start screen to show faded behind its menu.
 const std::vector<TheoryFigure (*)()>& backdropFigures();

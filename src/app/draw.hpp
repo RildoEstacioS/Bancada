@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "asm/assembler.hpp"
+#include "editor/architecture.hpp"
 #include "editor/computer32_view.hpp"
 #include "editor/computer_view.hpp"
 #include "editor/lessons.hpp"
@@ -151,8 +152,19 @@ float toolbarButtonX(int index);
 // The panel on the right: the selected part's properties, above the truth table.
 enum class PanelButton : std::uint8_t {
     None, InputsDown, InputsUp, BitsDown, BitsUp, AddressDown, AddressUp, SizeDown, SizeUp, EditName, EditValue, EditContents, OpenChip,
-    EditProgram
+    EditProgram, LookInside
 };
+
+// Whether a part has an inside to look at: gates, boxes, chips, splitters and joiners.
+bool canLookInside(const editor::Part& part);
+
+// Inside a chip, over the board's top left: Voltar, and the way here, each circuit on it a click away.
+struct TrailPiece {
+    int index;  // -1 for Voltar, else an index into Session::trail()
+    SDL_FRect rect;
+};
+std::vector<TrailPiece> trailPieces(SDL_Renderer* renderer, const editor::Session& session, float left, float top);
+float boardTopFor(bool strip);  // where the board starts: under the toolbar, and under a lesson's or an example's strip
 
 struct PanelControl {
     PanelButton button;
@@ -169,6 +181,14 @@ struct LessonStrip;
 struct ExampleStrip;
 struct DebugView;
 struct QuizView;
+
+// How close a computer's diagram is seen, in the X-ray and on the panel: 1 fits it whole.
+struct XrayZoom {
+    float zoom = 1.0f;
+    float panX = 0.0f;
+    float panY = 0.0f;
+    bool hex = false;  // the values on the wires in hexadecimal, not decimal
+};
 
 struct InterfaceText {
     bool programShown = false;  // the program editor is the view now
@@ -195,6 +215,7 @@ struct InterfaceText {
     float xrayProgress = 0.0f;                        // seconds into it, for the values moving along the wires
     const DebugView* debug = nullptr;                 // the debugger beside the X-ray
     const QuizView* quiz = nullptr;                   // a lesson of questions, over the board
+    XrayZoom zoom;                                    // the diagrams' zoom
     const char* reading = "";  // what the electric part under the mouse is doing
 };
 
@@ -209,6 +230,19 @@ constexpr int kViewCount = 3;
 SDL_FRect viewSwitchRect(float rightEdge, int which);
 SDL_FRect panelNextButton(const SDL_FRect& area);
 SDL_FRect xrayStageRect(const SDL_FRect& area, int stage);  // the button for one of the six steps
+
+// Where the X-ray's pieces go: the step's explanation in a column on the right; the bits, the diagram and the
+// short names on the left. The panel's diagram takes the panel. Over a diagram: the zoom buttons, 0 farther,
+// 1 closer, 2 back to fit.
+struct XrayParts {
+    SDL_FRect side;
+    SDL_FRect strip;
+    SDL_FRect plan;
+    SDL_FRect legend;
+};
+XrayParts xrayParts(const SDL_FRect& area);
+SDL_FRect panelPlanArea(const SDL_FRect& area);
+SDL_FRect zoomButtonRect(const SDL_FRect& plan, int which);
 
 // The debugger beside the X-ray, the way a debugger in an IDE looks: the program with the line about to
 // run and the breakpoints, the registers with the ones the last instruction changed, the memory, and the
@@ -247,9 +281,14 @@ void drawXray32(SDL_Renderer* renderer, const editor::Computer32State& state, co
 // Portuguese and English are the language switch, top right: they don't leave the home screen.
 enum class HomeChoice : std::uint8_t {
     None, Continue, New, Example, Open, Lessons, Program, Portuguese, English, Computers, Computer16, Computer32, Back,
+    Inside16, Inside32,  // a computer seen whole, from the inside
+    InsideLock,          // asks for the developer's password, which puts the two above on the page
 };
 // The home's first page, or, with computers set, the page that picks a computer to program.
 HomeChoice homeAt(float x, float y, int width, int height, bool computers);
+// "Por dentro" is closed until the developer's password is given: then its buttons are on the computers' page.
+void showInsideOnMenu(bool open);
+SDL_FRect insideLockRect(int width, int height);  // the button that asks for it
 
 // What the lessons' card says: how far the player got, and the act that comes next.
 struct HomeInfo {
@@ -261,10 +300,43 @@ struct HomeInfo {
 };
 void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const HomeInfo& info, bool computers);
 
+// "Por dentro": a computer drawn whole, every gate in its place, in frames that say what each part is. The
+// same plan three ways: logic gates, the NANDs they're made of, or the transistors of those NANDs.
+enum class InsideLevel : std::uint8_t { Gates, Nands, Transistors };
+struct InsideView {
+    const editor::Architecture* plan = nullptr;
+    // Live: each signal's value now, for the wires to light like the board's, and the clock's buttons.
+    const std::vector<std::uint8_t>* values = nullptr;
+    bool running = false;
+    bool clockHigh = false;
+    std::string focus;  // the part it was opened on, for the title
+    InsideLevel level = InsideLevel::Gates;
+    float scale = 1.0f;    // screen pixels for one slot (a NAND)
+    float originX = 0.0f;  // where the plan's top-left corner is on the screen
+    float originY = 0.0f;
+};
+enum class InsideChoice : std::uint8_t { None, Back, Gates, Nands, Transistors, Closer, Farther, Whole, Run, Step };
+InsideChoice insideAt(float x, float y, int width, int height, bool live = false);
+// The view that shows this rectangle of the plan big, in the middle.
+InsideView insideOn(const editor::Architecture& plan, const editor::ArchRect& rect, int width, int height);
+
+// A splitter or a joiner from the inside: no gates, only wires, each bit to its place, with its value now.
+struct BundleView {
+    const editor::Part* part = nullptr;
+    std::vector<std::uint64_t> values;  // on each of its pins
+};
+SDL_FRect bundleBackRect(int width, int height);
+void drawBundle(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const BundleView& view);
+SDL_FRect insidePlanArea(int width, int height);
+// The scale and corner that show the whole plan.
+InsideView insideWhole(const editor::Architecture& plan, int width, int height);
+void drawInside(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const InsideView& view);
+
 // The gallery: every example, group by group in columns.
 constexpr int kGalleryBack = -2;
-int galleryAt(float x, float y, int width, int height);  // an index into editor::galleryItems(), kGalleryBack, or -1
-void drawGallery(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY);
+constexpr int kGalleryGroupFirst = -1000;  // a folder on the left: kGalleryGroupFirst plus its index
+int galleryAt(float x, float y, int width, int height, int group);  // an index into editor::galleryItems(), kGalleryBack, a folder, or -1
+void drawGallery(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, int group);
 
 // The lessons: the acts down the left, each with its progress and a lock until the one before is done;
 // on the right, the chosen act's readings, each followed by its exercises.
@@ -276,7 +348,7 @@ struct LessonListView {
     bool unlocked = false;    // the developer's switch: every act open, whatever is done
     bool denied = false;      // a wrong password was just typed
 };
-enum class LessonListKind : std::uint8_t { None, Back, Reset, Act, Reading, Exercise, Unlock };
+enum class LessonListKind : std::uint8_t { None, Back, Reset, Act, Reading, Exercise, Unlock, Planned };
 struct LessonListHit {
     LessonListKind kind = LessonListKind::None;
     int index = -1;  // the act, the topic or the lesson
@@ -290,15 +362,26 @@ struct ReadingView {
     int topic = 0;
     float scroll = 0.0f;
     bool read = false;  // already read once
+    int page = 0;       // the screen on show
+    const std::vector<int>* answers = nullptr;  // per block, the option last chosen in its question, or -1
 };
-enum class ReadingButton : std::uint8_t { None, Back, Exercises };
-ReadingButton readingAt(SDL_Renderer* renderer, float x, float y, int width, int height, const ReadingView& view);
+enum class ReadingButton : std::uint8_t { None, Back, Exercises, Previous, Next, Option, Figure };
+struct ReadingHit {
+    ReadingButton button = ReadingButton::None;
+    int block = -1;   // Option and Figure: which block
+    int option = -1;  // Option: which one
+};
+ReadingHit readingAt(SDL_Renderer* renderer, float x, float y, int width, int height, const ReadingView& view);
+int readingPageCount(int topic);
+bool readingPageDone(SDL_Renderer* renderer, int width, const ReadingView& view);  // every question of the screen answered right
+// A click on a figure of the reading: the switch under it flips. False if there was none.
+bool pressReadingFigure(SDL_Renderer* renderer, float x, float y, int width, const ReadingView& view, int block);
 float readingMaxScroll(SDL_Renderer* renderer, int width, int height, const ReadingView& view);
 void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const ReadingView& view);
 
 // The strip over the board during a lesson: what it's about, the steps, and its buttons.
 constexpr float kLessonStripHeight = 236.0f;
-enum class LessonButton : std::uint8_t { None, Check, Hint, Restart, List, Next, Program };
+enum class LessonButton : std::uint8_t { None, Check, Hint, Restart, List, Next, Program, Reading };
 
 struct LessonStrip {
     int index = 0;
@@ -308,6 +391,9 @@ struct LessonStrip {
     bool hint = false;     // the message is a hint
     bool hasNext = false;
     bool program = false;  // a programming lesson: its first button opens the code editor
+    int position = 0;           // this exercise among its act's, counted from 1
+    std::vector<bool> actDone;  // each exercise of the act, in order: done or not
+    bool hasReading = false;    // it belongs to a reading, which Ler a aula opens
 };
 
 LessonButton lessonStripAt(const SDL_FRect& area, const LessonStrip& strip, float x, float y);
@@ -325,7 +411,7 @@ struct QuizView {
 };
 
 SDL_FRect quizArea(float rightEdge, int height);
-SDL_FRect quizButtonRect(const SDL_FRect& area);
+SDL_FRect quizButtonRect(const SDL_FRect& area, const editor::Question* question);
 void drawQuiz(SDL_Renderer* renderer, const SDL_FRect& area, const QuizView& quiz, float mouseX, float mouseY);
 void drawLessonStrip(SDL_Renderer* renderer, const SDL_FRect& area, const LessonStrip& strip, float mouseX, float mouseY);
 
@@ -405,6 +491,8 @@ struct CodeView {
 
 // How far the instruction list scrolls.
 float codeHelpMaxScroll(SDL_Renderer* renderer, int width, int height, bool mips);
+// A click on the help's header: the scroll that shows the group clicked, or -1 for none. y is from the top of the editor.
+float codeHelpGroupAt(SDL_Renderer* renderer, int width, int height, bool mips, float x, float y);
 
 // The tabs of the editor's right column: which one is at this point, or -1.
 constexpr int kCodeTabTask = 0;

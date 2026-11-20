@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "asm/assembler.hpp"
+#include "asm/mips.hpp"
 #include "check.hpp"
 #include "editor/boxes.hpp"
 #include "editor/circuit.hpp"
@@ -649,6 +650,69 @@ TEST(a_flip_flop_a_register_and_a_counter_follow_the_clock) {
         l.wire(clockOf(board), 0u, keep, "Clk");
         l.wire(keep, "Q", display(board, "S"), 0u);
     }));
+    // The flip-flop from the inside: two latches, the leader on the inverted clock.
+    CHECK(passes("flip-flop-latches", [](Board& board, Layout& l) {
+        const PartId inverted = l.gate(PartKind::Not, {8, 12});
+        const PartId leader = l.box("d_latch", {14, 2});
+        const PartId follower = l.box("d_latch", {32, 2});
+        l.wire(clockOf(board), 0u, inverted, 0u);
+        l.wire(input(board, "D"), 0u, leader, "D");
+        l.wire(inverted, 1u, leader, "En");
+        l.wire(leader, "Q", follower, "D");
+        l.wire(clockOf(board), 0u, follower, "En");
+        l.wire(follower, "Q", ledResistor(board, "Q"), 0u);
+    }));
+    // Without the NOT both latches open together, and D goes straight through.
+    CHECK(!passes("flip-flop-latches", [](Board& board, Layout& l) {
+        const PartId leader = l.box("d_latch", {14, 2});
+        const PartId follower = l.box("d_latch", {32, 2});
+        l.wire(input(board, "D"), 0u, leader, "D");
+        l.wire(clockOf(board), 0u, leader, "En");
+        l.wire(leader, "Q", follower, "D");
+        l.wire(clockOf(board), 0u, follower, "En");
+        l.wire(follower, "Q", ledResistor(board, "Q"), 0u);
+    }));
+    CHECK(passes("registrador-flip-flops", [](Board& board, Layout& l) {
+        static constexpr const char* kIn[] = {"D0", "D1", "D2", "D3"};
+        static constexpr const char* kOut[] = {"Q0", "Q1", "Q2", "Q3"};
+        for (int i = 0; i < 4; ++i) {
+            const PartId flop = l.box("d_flip_flop", {16, 1 + 9 * i});
+            l.wire(input(board, kIn[i]), 0u, flop, "D");
+            l.wire(clockOf(board), 0u, flop, "Clk");
+            l.wire(flop, "Q", ledResistor(board, kOut[i]), 0u);
+        }
+    }));
+    CHECK(passes("ram", [](Board& board, Layout& l) {
+        const PartId memory = l.box("ram", {24, 6});
+        l.wire(input(board, "A"), 0u, memory, "A");
+        l.wire(input(board, "Dado"), 0u, memory, "D");
+        l.wire(input(board, "Grava"), 0u, memory, "We");
+        l.wire(clockOf(board), 0u, memory, "Clk");
+        l.wire(memory, "Q", display(board, "S"), 0u);
+    }));
+    // A register in place of the RAM keeps one word for every address.
+    CHECK(!passes("ram", [](Board& board, Layout& l) {
+        const PartId keep = l.box("register", {24, 6});
+        l.wire(input(board, "Dado"), 0u, keep, "D");
+        l.wire(input(board, "Grava"), 0u, keep, "En");
+        l.wire(clockOf(board), 0u, keep, "Clk");
+        l.wire(keep, "Q", display(board, "S"), 0u);
+    }));
+    CHECK(passes("banco", [](Board& board, Layout& l) {
+        const PartId file = l.box("regfile", {26, 8});
+        for (const char* pin : {"Ra", "Rb", "Rw"}) l.wire(input(board, pin), 0u, file, pin);
+        l.wire(input(board, "Dado"), 0u, file, "D");
+        l.wire(input(board, "Grava"), 0u, file, "We");
+        l.wire(clockOf(board), 0u, file, "Clk");
+        l.wire(file, "A", display(board, "A"), 0u);
+        l.wire(file, "B", display(board, "B"), 0u);
+    }));
+    // The questions of the act are answered by what their explanations say.
+    for (const char* id : {"clock-perguntas", "ram-perguntas", "lei-de-ohm", "tabelas-transistores", "hexadecimal-perguntas", "portas-perguntas", "somas-binarias", "complemento-de-dois", "cpu-perguntas", "campos-perguntas", "desvios-perguntas", "assembly-perguntas", "lacos-perguntas", "sub-rotinas-perguntas", "espera-perguntas", "sistema-perguntas", "paridade-perguntas", "multiplicar-perguntas", "display-perguntas", "aleatorio-perguntas", "ascii-perguntas", "deslocar-perguntas", "mips-perguntas", "formatos-mips-perguntas", "desvios-mips-perguntas"}) {
+        const Lesson& asked = lesson(id);
+        CHECK(!asked.questions.empty());
+        for (const Question& question : asked.questions) CHECK(answers(question, question.answer));
+    }
     CHECK(passes("contador", [](Board& board, Layout& l) {
         const PartId keep = l.box("register", {30, 4});
         const PartId adder = l.box("adder_n", {14, 14});
@@ -994,6 +1058,42 @@ TEST(negative_numbers_and_multiplication_are_sums) {
     }));
 }
 
+TEST(shifting_and_extending_are_wiring) {
+    CHECK(passes("deslocar", [](Board& board, Layout& l) {
+        const PartId split = l.bundle(PartKind::Splitter, {12, 1}, 4, 4);
+        const PartId left = l.bundle(PartKind::Joiner, {28, 0}, 4, 4);
+        const PartId right = l.bundle(PartKind::Joiner, {28, 12}, 4, 4);
+        const PartId zero = l.constant(0, {20, 22}, 1);
+        const PartId choose = l.box("mux2_n", {40, 5}, 4);
+        l.wire(input(board, "A"), 0u, split, 0u);
+        l.wire(zero, 0u, left, 0u);
+        l.wire(zero, 0u, right, 3u);
+        for (unsigned i = 0; i < 3; ++i) {
+            l.wire(split, 1 + i, left, i + 1);
+            l.wire(split, 2 + i, right, i);
+        }
+        l.wire(left, 4u, choose, "A");
+        l.wire(right, 4u, choose, "B");
+        l.wire(input(board, "Dir"), 0u, choose, "Sel");
+        l.wire(choose, "S", display(board, "Q"), 0u);
+    }));
+    const auto extend = [](bool sign) {
+        return [sign](Board& board, Layout& l) {
+            const PartId split = l.bundle(PartKind::Splitter, {12, 1}, 4, 4);
+            const PartId join = l.bundle(PartKind::Joiner, {32, 0}, 8, 8);
+            l.wire(input(board, "A"), 0u, split, 0u);
+            for (unsigned i = 0; i < 4; ++i) l.wire(split, 1 + i, join, i);
+            if (sign) {
+                for (unsigned i = 4; i < 8; ++i) l.wire(split, 4u, join, i);
+            }
+            l.wire(join, 8u, display(board, "Q"), 0u);
+        };
+    };
+    CHECK(passes("estender", extend(true)));
+    // Filling the top with zeros turns −3 into 13.
+    CHECK(failsSaying("estender", "Q devia ser", extend(false)));
+}
+
 // --- input and output -----------------------------------------------------------------------------------
 
 TEST(segments_a_button_and_random_numbers) {
@@ -1184,6 +1284,83 @@ TEST(the_ready_parts_are_made_of_gates_in_their_lessons) {
     }));
 }
 
+// --- act 12 -------------------------------------------------------------------------------------------
+
+namespace {
+
+// Writes a MIPS program into the 32-bit computer's ROM, and its .data into the RAM, as Editar programa does.
+void writeProgram32(Board& board, const std::string& source) {
+    PartId rom = 0;
+    PartId ram = 0;
+    for (const Part& part : board.parts()) {
+        if (part.kind == PartKind::Box && part.width == 32 && part.box == boxFromKey("rom")) rom = part.id;
+        if (part.kind == PartKind::Box && part.width == 32 && part.box == boxFromKey("ram")) ram = part.id;
+    }
+    const mips::Program assembled = mips::assemble(source);
+    for (const assembly::Error& error : assembled.errors) std::printf("  line %d: %s\n", error.line, error.message.c_str());
+    if (rom == 0 || ram == 0 || !assembled.ok()) throw std::logic_error("no program");
+    Part code = *board.part(rom);
+    code.rom = std::make_shared<const std::vector<std::uint64_t>>(assembled.text.begin(), assembled.text.end());
+    code.source = source;
+    Part data = *board.part(ram);
+    data.rom = std::make_shared<const std::vector<std::uint64_t>>(assembled.data.begin(), assembled.data.end());
+    if (!board.reconfigurePart(rom, code) || !board.reconfigurePart(ram, data)) throw std::logic_error("the memories refused the program");
+}
+
+std::function<void(Board&, Layout&)> mipsProgram(std::string source) {
+    return [source](Board& board, Layout&) { writeProgram32(board, source); };
+}
+
+const std::string kArray = "        .data\nvetor:  .word 3, 5, 7, 9\nn:      .word 4\n        .text\n"
+                           "main:   la   $t0, vetor\n        lw   $t1, n\n        li   $t2, 0\n";
+const std::string kArrayEnd = "fim:    move $a0, $t2\n        li   $v0, 1\n        syscall\n        li   $v0, 10\n        syscall\n";
+const std::string kReadSwitches = "main:   li   $v0, 5\n        syscall\n        move $t0, $v0\n";
+const std::string kShowA0AndEnd = "        li   $v0, 1\n        syscall\n        li   $v0, 10\n        syscall\n";
+
+}  // namespace
+
+// The 32-bit lessons run the program the ROM holds, with the RAM's data, and print what MIPS's syscalls print.
+TEST(mips_programs_finish_the_32_bit_lessons) {
+    CHECK(passes("mips-primeiro", mipsProgram("main:   li   $a0, 42\n" + kShowA0AndEnd)));
+    CHECK(failsSaying("mips-primeiro", "mostrou \"41\"", mipsProgram("main:   li   $a0, 41\n" + kShowA0AndEnd)));
+    CHECK(failsSaying("mips-primeiro", "para sempre", mipsProgram("main:   li   $a0, 42\n        li   $v0, 1\n        syscall\n")));
+    CHECK(failsSaying("mips-primeiro", "mostrou nada", mipsProgram("main:   li   $v0, 10\n        syscall\n")));
+
+    const std::string loop = "laco:   beq  $t1, $zero, fim\n        lw   $t3, 0($t0)\n        add  $t2, $t2, $t3\n"
+                             "        addi $t0, $t0, STEP\n        addi $t1, $t1, -1\n        j    laco\n";
+    std::string right = loop;
+    right.replace(right.find("STEP"), 4, "4");
+    std::string byOne = loop;
+    byOne.replace(byOne.find("STEP"), 4, "1");
+    CHECK(passes("mips-vetor", mipsProgram(kArray + right + kArrayEnd)));
+    CHECK(failsSaying("mips-vetor", "mostrou \"12\"", mipsProgram(kArray + byOne + kArrayEnd)));
+
+    const std::string digit = "        li   $v0, 1\n        syscall\n";
+    const std::string space = "        li   $a0, 32\n        li   $v0, 11\n        syscall\n";
+    const std::string low = "        andi $a0, $t0, 0xF\n";
+    const std::string high = "        srl  $t1, $t0, 4\n        andi $a0, $t1, 0xF\n";
+    const std::string end = "        li   $v0, 10\n        syscall\n";
+    CHECK(passes("mips-mascara", mipsProgram(kReadSwitches + low + digit + space + high + digit + end)));
+    CHECK(failsSaying("mips-mascara", "0x5A), a saída mostrou \"5 10\"", mipsProgram(kReadSwitches + high + digit + space + low + digit + end)));
+    CHECK(failsSaying("mips-mascara", "srl", mipsProgram(kReadSwitches + low + digit + end)));
+
+    CHECK(passes("mips-soma-ate", mipsProgram(kReadSwitches + "        li   $t1, 0\n        li   $t2, 1\n"
+                                                               "laco:   bgt  $t2, $t0, fim\n        add  $t1, $t1, $t2\n"
+                                                               "        addi $t2, $t2, 1\n        j    laco\nfim:    move $a0, $t1\n" + kShowA0AndEnd)));
+    CHECK(failsSaying("mips-soma-ate", "beq ou bne", mipsProgram("main:   li   $a0, 15\n" + kShowA0AndEnd)));
+    // Adding before testing counts one too many when N is 0.
+    CHECK(failsSaying("mips-soma-ate", "mostrou \"1\"", mipsProgram(kReadSwitches + "        li   $t1, 0\n        li   $t2, 1\n"
+                                                                   "laco:   add  $t1, $t1, $t2\n        addi $t2, $t2, 1\n"
+                                                                   "        ble  $t2, $t0, laco\n        move $a0, $t1\n" + kShowA0AndEnd)));
+
+    const std::string square = "quadrado: li  $v0, 0\n        move $t0, $a0\nvolta:  beq  $t0, $zero, pronto\n"
+                               "        add  $v0, $v0, $a0\n        addi $t0, $t0, -1\n        j    volta\npronto: jr   $ra\n";
+    const std::string call = "main:   li   $v0, 5\n        syscall\n        move $a0, $v0\n        jal  quadrado\n";
+    CHECK(passes("mips-quadrado", mipsProgram(call + "        move $a0, $v0\n" + kShowA0AndEnd + square)));
+    CHECK(failsSaying("mips-quadrado", "mostrou \"7\"", mipsProgram(call + kShowA0AndEnd + square)));
+    CHECK(failsSaying("mips-quadrado", "jal", mipsProgram("main:   li   $a0, 49\n" + kShowA0AndEnd)));
+}
+
 // The course: every reading names exercises that exist, in its own act, each in one reading only; and
 // every lesson of an act that has readings belongs to one of them.
 TEST(the_readings_name_their_exercises) {
@@ -1236,6 +1413,26 @@ TEST(the_readings_figures_and_tables_hold_together) {
                 }
             }
         }
+    }
+}
+
+// Every question in a reading has a prompt, two options or more, exactly one marked right, and says why.
+TEST(the_readings_questions_hold_together) {
+    for (const Topic& topic : topics()) {
+        for (const TheoryBlock& block : topic.blocks) {
+            if (block.kind != TheoryBlockKind::Question) continue;
+            const std::string text(block.text);
+            const QuestionParts parts = questionParts(text);
+            CHECK(!parts.prompt.empty());
+            CHECK(parts.options.size() >= 2);
+            CHECK(parts.right >= 0);
+            CHECK(!parts.explain.empty());
+            CHECK_EQ(static_cast<std::size_t>(std::count(text.begin(), text.end(), '*')), std::size_t{1});
+        }
+        // A reading in screens starts with one.
+        bool paged = false;
+        for (const TheoryBlock& block : topic.blocks) paged = paged || block.kind == TheoryBlockKind::Page;
+        if (paged) CHECK(topic.blocks.front().kind == TheoryBlockKind::Page);
     }
 }
 

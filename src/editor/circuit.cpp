@@ -140,7 +140,32 @@ private:
                 for (unsigned pin = 1; pin < part.inputs; ++pin) result = combine(n_, result, pinNet(part, pin));
                 return result;
             };
-            // Every gate becomes NANDs here: the simulator never sees anything else.
+            // Every gate becomes NANDs here: the simulator never sees anything else. Each gate, box and chip
+            // tags what it makes, when someone wants to draw the insides.
+            const auto tag = [&]() -> sim::TagScope {
+                const auto kind = [&]() -> const char* {
+                    switch (part.kind) {
+                        case PartKind::And: return "AND";
+                        case PartKind::Or: return "OR";
+                        case PartKind::Xor: return "XOR";
+                        case PartKind::Nand: return "NAND";
+                        case PartKind::Nor: return "NOR";
+                        case PartKind::Xnor: return "XNOR";
+                        case PartKind::Not: return "NOT";
+                        default: return "";
+                    }
+                };
+                if (!n_.tagging()) return sim::TagScope(n_, sim::TagKind::Gate, "");
+                if (part.kind == PartKind::Box) {
+                    return sim::TagScope(n_, sim::TagKind::Box, part.label.empty() ? std::string(boxSpec(part.box).name) : part.label, part.position.x, part.position.y);
+                }
+                if (part.kind == PartKind::Chip) {
+                    const std::string name = !part.label.empty() ? part.label : part.interface != nullptr ? part.interface->name : std::string();
+                    return sim::TagScope(n_, sim::TagKind::Chip, name, part.position.x, part.position.y);
+                }
+                return sim::TagScope(n_, sim::TagKind::Gate, kind(), part.position.x, part.position.y);
+            };
+            const sim::TagScope partTag = tag();
             switch (part.kind) {
                 case PartKind::And: drive(part, output, fold(g::andGate)); break;
                 case PartKind::Or: drive(part, output, fold(g::orGate)); break;
@@ -483,6 +508,23 @@ private:
     const ChipBoards* chips_;
     std::vector<PartId> path_;  // the chips being built, from the top board in
 };
+
+sim::Netlist BoardCircuit::tagged(const Board& board, const ChipBoards* chips) {
+    sim::Netlist n;
+    n.keepTags();
+    BoardCircuit scratch;
+    CircuitBuilder(scratch, n, chips).buildTop(board);
+    return n;
+}
+
+sim::Netlist BoardCircuit::plain(const Board& board, const ChipBoards* chips) {
+    sim::Netlist n;
+    BoardCircuit scratch;
+    CircuitBuilder(scratch, n, chips).buildTop(board);
+    return n;
+}
+
+std::uint64_t BoardCircuit::netValue(sim::NetId net) const { return simulator_->get(net); }
 
 BoardCircuit::BoardCircuit(const Board& board, const ChipBoards* chips) {
     sim::Netlist n;

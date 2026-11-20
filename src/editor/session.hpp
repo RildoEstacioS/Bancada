@@ -76,7 +76,11 @@ public:
     const std::string& currentName() const { return currentName_; }
     ChipId createChip(std::string name);
     void openCircuit(ChipId id);
+    // The way here: the circuits opened one inside the other, from the main board, not the open one.
+    std::vector<CircuitEntry> trail() const;
+    void goBack();  // to the circuit this one was opened from
     void openChipUnderCursor();
+    const Part* partUnderCursor() const;  // the part the pointer is on, if any
     bool canPlaceChip(ChipId chip) const;   // false if it would end up inside itself
 
     // Clock: a tick is one full cycle, low to high and back.
@@ -230,6 +234,7 @@ private:
     };
     std::map<ChipId, Stored> stored_;  // every circuit but the open one
     ChipId current_ = 0;
+    std::vector<ChipId> trail_;  // the circuits before the open one, outermost first
     std::string currentName_ = "principal";
     ChipId nextChip_ = 1;
     ChipBoards chipBoards_;

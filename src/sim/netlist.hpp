@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace bancada::sim {
@@ -50,6 +51,23 @@ struct MemoryPort {
     NetId clock = 0;
 };
 
+// Where each node came from, for drawing a circuit's insides: the chips and boxes it's in, and the gate it
+// belongs to. Kept only when asked for: the simulator never needs them, and then they cost nothing.
+enum class TagKind : std::uint8_t {
+    Chip,    // a chip on a board
+    Box,     // a ready-made box on a board
+    Detail,  // a known piece inside a box, like a full adder
+    Gate,    // one logic gate: its NANDs, together
+};
+inline constexpr std::uint32_t kNoTag = 0xFFFFFFFFu;
+
+struct Tag {
+    TagKind kind = TagKind::Chip;
+    std::uint32_t parent = kNoTag;
+    std::string label;  // a gate's kind ("AND", "XOR"...), or the name of a chip or box
+    int x = 0, y = 0;   // where the part that made it sits on its board: the order of the board, kept
+};
+
 struct Node {
     Op op = Op::Wire;
     std::uint8_t width = 1;
@@ -88,6 +106,17 @@ public:
     // How many NAND nodes, the number that decides simulation speed.
     std::size_t nandCount() const;
 
+    // Tags: off until keepTags(). openTag() makes a new tag, under the current one, the current one, and
+    // returns the one closeTag() goes back to. A gate inside a gate gets no tag of its own: the outer gate
+    // is the one a person sees, its NANDs all together.
+    void keepTags() { tagging_ = true; }
+    bool tagging() const { return tagging_; }
+    std::uint32_t openTag(TagKind kind, std::string_view label, int x = 0, int y = 0);
+    void closeTag(std::uint32_t previous) { current_ = previous; }
+    const std::vector<Tag>& tags() const { return tags_; }
+    std::uint32_t tagOf(NetId net) const { return net < nodeTags_.size() ? nodeTags_[net] : kNoTag; }
+    std::uint32_t memoryTag(std::uint32_t memory) const { return memory < memoryTags_.size() ? memoryTags_[memory] : kNoTag; }
+
 private:
     NetId add(Node node);
     void check(NetId net) const;
@@ -95,6 +124,24 @@ private:
     std::vector<Node> nodes_;
     std::vector<Memory> memories_;
     std::vector<MemoryPort> ports_;
+    bool tagging_ = false;
+    std::vector<Tag> tags_;
+    std::vector<std::uint32_t> nodeTags_;    // each node's innermost tag, while tagging
+    std::vector<std::uint32_t> memoryTags_;  // the tag each memory was made in
+    std::uint32_t current_ = kNoTag;
+};
+
+// A tag open for as long as this lives.
+class TagScope {
+public:
+    TagScope(Netlist& n, TagKind kind, std::string_view label, int x = 0, int y = 0) : n_(n), previous_(n.openTag(kind, label, x, y)) {}
+    ~TagScope() { n_.closeTag(previous_); }
+    TagScope(const TagScope&) = delete;
+    TagScope& operator=(const TagScope&) = delete;
+
+private:
+    Netlist& n_;
+    std::uint32_t previous_;
 };
 
 }  // namespace bancada::sim

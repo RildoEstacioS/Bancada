@@ -2137,4 +2137,26 @@ TEST(random_play_then_undoing_everything_leaves_an_empty_board) {
     }
 }
 
+// Going into a chip and into another inside it is always a way back: Voltar goes one up, and a click on the
+// way back goes straight there.
+TEST(the_way_into_chips_is_the_way_back) {
+    Session session;
+    const ChipId outer = session.createChip("Fora");
+    CHECK_EQ(session.trail().size(), std::size_t{1});
+    const ChipId inner = session.createChip("Dentro");
+    CHECK_EQ(session.currentCircuit(), inner);
+    CHECK_EQ(session.trail().size(), std::size_t{2});
+    CHECK(session.trail()[0].name == "principal");
+    CHECK(session.trail()[1].name == "Fora");
+    session.goBack();
+    CHECK_EQ(session.currentCircuit(), outer);
+    CHECK_EQ(session.trail().size(), std::size_t{1});
+    session.openCircuit(inner);
+    session.openCircuit(0);
+    CHECK_EQ(session.currentCircuit(), ChipId{0});
+    CHECK(session.trail().empty());
+    session.goBack();
+    CHECK_EQ(session.currentCircuit(), ChipId{0});
+}
+
 int main() { return check::runAll(); }

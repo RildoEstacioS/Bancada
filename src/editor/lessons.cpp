@@ -7,8 +7,10 @@
 #include <optional>
 
 #include "asm/assembler.hpp"
+#include "asm/mips.hpp"
 #include "editor/boxes.hpp"
 #include "editor/computer16.hpp"
+#include "editor/computer32.hpp"
 #include "editor/computer_view.hpp"
 #include "editor/circuit.hpp"
 #include "editor/layout.hpp"
@@ -266,6 +268,25 @@ std::uint64_t priorityOfFour(std::span<const std::uint64_t> in, std::size_t outp
 
 std::uint64_t minusOf(std::span<const std::uint64_t> in, std::size_t) { return (16u - in[0]) & 15u; }
 std::uint64_t productOf(std::span<const std::uint64_t> in, std::size_t) { return in[0] * in[1]; }
+std::uint64_t shiftedOnce(std::span<const std::uint64_t> in, std::size_t) { return in[1] != 0 ? in[0] >> 1 : (in[0] << 1) & 15u; }
+std::uint64_t extendedOf(std::span<const std::uint64_t> in, std::size_t) { return (in[0] & 8u) != 0 ? in[0] | 0xF0u : in[0]; }
+
+Board shiftOnceBoard() {
+    Board board;
+    Layout l(board);
+    l.input("A", {0, 2}, 4);
+    l.input("Dir", {0, 14});
+    l.output("Q", {56, 7}, 4);
+    return board;
+}
+
+Board extendBoard() {
+    Board board;
+    Layout l(board);
+    l.input("A", {0, 2}, 4);
+    l.output("Q", {56, 4}, 8);
+    return board;
+}
 
 Board parityBoard() { return namedSignals({"A", "B", "C", "D"}, {"P"}); }
 Board muxBoard() { return namedSignals({"A", "B", "Sel"}, {"S"}); }
@@ -365,6 +386,57 @@ Board registerBoard() {
     return board;
 }
 
+// D, a clock and the LED Q, with room between them for two latches and a NOT.
+Board flipFlopLatchesBoard() {
+    Board board;
+    Layout l(board);
+    l.input("D", {0, 2});
+    l.part(PartKind::Clock, {0, 12});
+    ledOutput(l, "Q", {54, 4});
+    return board;
+}
+
+// Four switches, D0 to D3, a clock, and an LED for each bit.
+Board fourFlipFlopsBoard() {
+    Board board;
+    Layout l(board);
+    static constexpr const char* kIn[] = {"D0", "D1", "D2", "D3"};
+    static constexpr const char* kOut[] = {"Q0", "Q1", "Q2", "Q3"};
+    for (int i = 0; i < 4; ++i) {
+        l.input(kIn[i], {0, 2 + 9 * i});
+        ledOutput(l, kOut[i], {40, 1 + 9 * i});
+    }
+    l.part(PartKind::Clock, {0, 38});
+    return board;
+}
+
+// An address, a word and its write switch, a clock, and the display of what's read.
+Board ramBoard() {
+    Board board;
+    Layout l(board);
+    l.input("A", {0, 1}, 8);
+    l.input("Dado", {0, 8}, 8);
+    l.input("Grava", {0, 15});
+    l.part(PartKind::Clock, {0, 21});
+    l.output("S", {50, 8}, 8);
+    return board;
+}
+
+// The register file's inputs as switches and its two outputs as displays.
+Board registerFileBoard() {
+    Board board;
+    Layout l(board);
+    l.input("Ra", {0, 0}, 3);
+    l.input("Rb", {0, 6}, 3);
+    l.input("Rw", {0, 12}, 3);
+    l.input("Dado", {0, 18}, 16);
+    l.input("Grava", {0, 24});
+    l.part(PartKind::Clock, {0, 30});
+    l.output("A", {56, 6}, 16);
+    l.output("B", {56, 18}, 16);
+    return board;
+}
+
 Board counterBoard() {
     Board board;
     Layout l(board);
@@ -388,6 +460,34 @@ Board computerStart() {
 }
 
 std::vector<ChipData> computerChips() { return buildCpuChips(1); }
+
+// --- Programming the 32-bit computer ----------------------------------------------------------------------
+
+constexpr const char* kMipsStarter =
+    "# Escreva o seu programa aqui.\n"
+    "# Ctrl+Enter monta e grava na ROM.\n"
+    "        .text\n"
+    "main:   li   $v0, 10       # termina\n"
+    "        syscall\n";
+
+constexpr const char* kMipsArray =
+    "# Some as palavras do vetor e mostre a soma.\n"
+    "        .data\n"
+    "vetor:  .word 3, 5, 7, 9\n"
+    "n:      .word 4\n"
+    "\n"
+    "        .text\n"
+    "main:   la   $t0, vetor    # o endereço da primeira palavra\n"
+    "        lw   $t1, n        # quantas faltam\n"
+    "        li   $t2, 0        # a soma\n"
+    "\n"
+    "        li   $v0, 10       # termina\n"
+    "        syscall\n";
+
+Board mipsBoard(const char* source) { return buildComputer32(mips::assemble(source), source).board; }
+Board mipsStart() { return mipsBoard(kMipsStarter); }
+Board mipsArrayStart() { return mipsBoard(kMipsArray); }
+std::vector<ChipData> mipsChips() { return buildComputer32(mips::Program{}, "").chips; }
 
 // --- Machine code: the programs of Act 6, to be written as numbers -----------------------------------
 
@@ -629,6 +729,26 @@ std::vector<Lesson> makeLessons() {
     }
     {
         Lesson l;
+        l.id = "lei-de-ohm";
+        l.act = 0;
+        l.title = "Contas com a lei de Ohm";
+        l.story = "Sem montar nada desta vez: contas com tensão, corrente e resistência. Antes de escolher o resistor do LED, vale treinar a conta que diz quanto de corrente passa.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"I = V ÷ R, com V em volts e R em ohms, dá I em ampères. Vezes 1000, em miliampères.", "No circuito do LED, o resistor fica com a tensão que sobra: 5 V - 2 V."};
+        l.success = "A lei de Ohm é a conta mais usada da eletrônica, e agora você a faz de cabeça.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Um resistor de 100 Ω tem 5 V sobre ele. Qual a corrente, em mA?", "", 10, "50", "I = 5 ÷ 100 = 0,05 A = 50 mA.", "I = V ÷ R, e depois vezes 1000 para passar a miliampères."},
+            {"A bateria dá 5 V e o LED aceso fica com 2 V. Quantos volts sobram para o resistor?", "", 10, "3", "5 - 2 = 3 V.", "A tensão da bateria se divide entre o LED e o resistor."},
+            {"Com esses 3 V num resistor de 300 Ω, qual a corrente, em mA?", "", 10, "10", "I = 3 ÷ 300 = 0,01 A = 10 mA: o LED acende bem.", "I = V ÷ R, e depois vezes 1000."},
+            {"Que resistor, em ohms, deixa passar 15 mA com 3 V sobre ele?", "", 10, "200", "R = 3 ÷ 0,015 = 200 Ω.", "R = V ÷ I, com I em ampères: 15 mA = 0,015 A."},
+            {"Quantos ohms tem um resistor de 2,2 kΩ?", "", 10, "2200", "k quer dizer mil: 2,2 × 1000 = 2200 Ω.", "1 kΩ são 1000 Ω."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
         l.id = "resistor-certo";
         l.act = 0;
         l.title = "O resistor certo";
@@ -747,6 +867,26 @@ std::vector<Lesson> makeLessons() {
         l.inputs = {"A"};
         l.outputs = {"S"};
         l.table = "10";
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "tabelas-transistores";
+        l.act = 1;
+        l.title = "As tabelas dos transistores";
+        l.story = "Sem montar nada desta vez: pense nos transistores ligando e desligando e diga o que S mostra. Responda com 0 ou 1.";
+        l.steps = {"Leia a pergunta e digite 0 ou 1.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Os transistores só puxam S para 0. Se nenhum caminho até o terra se fecha, o pull-up deixa S em 1.", "Em série precisa dos dois ligados; em paralelo basta um."};
+        l.success = "Você lê o circuito como o transistor lê: caminho fechado até o terra, 0; sem caminho, 1.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"No inversor, com A = 0, quanto vale S?", "", 10, "1", "O transistor fica desligado e o pull-up puxa S para 5 V.", "Com A em 0, o transistor liga?"},
+            {"Na NAND, com A = 1 e B = 1, quanto vale S?", "", 10, "0", "Os dois em série ligam e fecham o caminho até o terra.", "Em série, os dois ligados fecham o caminho."},
+            {"Na NAND, com A = 0 e B = 1, quanto vale S?", "", 10, "1", "O transistor de A está desligado e corta o caminho: o pull-up ganha.", "Um transistor desligado em série corta o caminho inteiro."},
+            {"Na NOR, com A = 0 e B = 1, quanto vale S?", "", 10, "0", "Em paralelo, o transistor de B sozinho já liga S ao terra.", "Em paralelo, basta um transistor ligado."},
+            {"Na NOR, com A = 0 e B = 0, quanto vale S?", "", 10, "1", "Nenhum transistor liga: o pull-up mantém S em 1.", "Algum caminho até o terra se fecha?"},
+        };
         all.push_back(l);
     }
     {
@@ -923,8 +1063,50 @@ std::vector<Lesson> makeLessons() {
         };
         all.push_back(l);
     }
+    {
+        Lesson l;
+        l.id = "hexadecimal-perguntas";
+        l.act = 2;
+        l.title = "Tamanhos e hexadecimal";
+        l.story = "Sem montar nada desta vez: quantos números cabem em tantos bits, e números escritos em hexadecimal.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Cada dígito hexadecimal são 4 bits. A vale 10, B 11, C 12, D 13, E 14 e F 15.", "n bits: 2 elevado a n combinações, e o maior número é uma a menos."};
+        l.success = "Tamanhos e hexadecimal, de cabeça: é assim que se lê a memória de um computador.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quantos números diferentes cabem em 8 bits? Em decimal.", "", 10, "256", "2 elevado a 8 = 256: de 0 a 255.", "Dobre 8 vezes, começando de 1."},
+            {"Qual é o maior número de 16 bits? Em decimal.", "", 10, "65535", "2 elevado a 16 = 65.536 combinações; o maior é uma a menos.", "O maior é 2 elevado a 16, menos 1."},
+            {"Escreva 1011 em hexadecimal.", "", 16, "B", "1011 = 8 + 2 + 1 = 11, que é B.", "Calcule o valor e lembre: 10 é A, 11 é B..."},
+            {"Quanto vale 0x2F em decimal?", "", 10, "47", "2 × 16 + 15 = 47.", "O 2 está na casa do 16; F vale 15."},
+            {"Escreva 200 em hexadecimal.", "", 16, "C8", "200 = 12 × 16 + 8: os dígitos são C (12) e 8.", "Quantas vezes 16 cabe em 200? E quanto sobra?"},
+            {"Escreva 0xA5 em binário, com 8 bits.", "", 2, "10100101", "A é 1010 e 5 é 0101: 1010 0101.", "Troque cada dígito pelos seus 4 bits."},
+        };
+        all.push_back(l);
+    }
 
     // Act 4: logic gates.
+    {
+        Lesson l;
+        l.id = "portas-perguntas";
+        l.act = 3;
+        l.title = "As regras das portas";
+        l.story = "Sem montar nada desta vez: diga o que cada porta entrega. Responda com 0 ou 1.";
+        l.steps = {"Leia a pergunta e digite 0 ou 1.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"E: só 1 com todas em 1. OU: 1 com pelo menos uma em 1. XOR: 1 com as entradas diferentes.", "NAND e NOR são o E e o OU com a saída invertida."};
+        l.success = "As seis regras na ponta da língua: com elas você lê qualquer circuito de portas.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Com A = 1 e B = 0, quanto dá A E B?", "", 2, "0", "O E só dá 1 quando as duas são 1.", "B está em 0."},
+            {"E A OU B, com as mesmas entradas?", "", 2, "1", "Basta uma em 1: A está em 1.", "Pelo menos uma está em 1?"},
+            {"E A XOR B, ainda com A = 1 e B = 0?", "", 2, "1", "As entradas são diferentes: o XOR dá 1.", "As duas são iguais ou diferentes?"},
+            {"Com A = 1 e B = 1, quanto dá A NAND B?", "", 2, "0", "1 E 1 = 1, e a NAND inverte: 0.", "Calcule o E e inverta."},
+            {"Com A = 0 e B = 0, quanto dá A NOR B?", "", 2, "1", "0 OU 0 = 0, e a NOR inverte: 1.", "Calcule o OU e inverta."},
+            {"Quanto dá NÃO (1 OU 0)?", "", 2, "0", "1 OU 0 = 1, e NÃO 1 = 0.", "Faça primeiro o que está entre parênteses."},
+        };
+        all.push_back(l);
+    }
     {
         Lesson l;
         l.id = "porta-e";
@@ -1069,6 +1251,25 @@ std::vector<Lesson> makeLessons() {
     // Act 5: arithmetic.
     {
         Lesson l;
+        l.id = "somas-binarias";
+        l.act = 4;
+        l.title = "Somas em binário";
+        l.story = "Sem montar nada desta vez: somas no papel, em binário, com vai-um. Atenção à base que cada pergunta pede.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Some casa por casa, da direita para a esquerda: 1 + 1 = 10, fica 0 e vai 1.", "Com 4 bits, o vai-um que sai da última casa se perde: é o estouro."};
+        l.success = "Você soma em binário como o somador da CPU: casa por casa, com vai-um.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quanto dá 0101 + 0011? Em binário, com 4 bits.", "", 2, "1000", "5 + 3 = 8: 1000.", "Some casa por casa; três vai-uns seguidos."},
+            {"Quanto dá 0110 + 0111? Em decimal.", "", 10, "13", "6 + 7 = 13, ou 1101.", "Leia os dois números em decimal e some."},
+            {"Quanto dá 1011 + 0101, com 4 bits? Em binário, sem o vai-um que sobra.", "", 2, "0000", "11 + 5 = 16 = 10000: com 4 bits sobra 0000, e o vai-um se perde.", "16 cabe em 4 bits?"},
+            {"E nessa soma, quanto vale o vai-um que sai da última casa? 0 ou 1.", "", 2, "1", "A soma passou de 15: o último Cs acende. É o sinal do estouro.", "O resultado coube em 4 bits?"},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
         l.id = "meio-somador";
         l.act = 4;
         l.title = "Meio somador";
@@ -1129,6 +1330,25 @@ std::vector<Lesson> makeLessons() {
     }
 
     // Act 5, more: subtracting, comparing, and the ALU slice.
+    {
+        Lesson l;
+        l.id = "complemento-de-dois";
+        l.act = 4;
+        l.title = "Complemento de dois";
+        l.story = "Sem montar nada desta vez: números negativos em 4 bits. -N é NÃO N mais 1.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Para achar -N: escreva N em 4 bits, inverta todos os bits e some 1.", "A - B é A + (-B). O vai-um que sobra da última casa se descarta."};
+        l.success = "Negativos e subtração com o mesmo somador: é assim que a ULA da CPU faz SUB.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Como se escreve -1 com 4 bits? Em binário.", "", 2, "1111", "1 é 0001; invertendo, 1110; mais 1, 1111.", "Inverta 0001 e some 1."},
+            {"E -5 com 4 bits?", "", 2, "1011", "5 é 0101; invertendo, 1010; mais 1, 1011.", "Inverta os bits de 0101 e some 1."},
+            {"Para fazer 7 - 3, a ULA soma 7 com qual número de 4 bits? Em binário.", "", 2, "1101", "7 - 3 = 7 + (-3), e -3 é 1101.", "Ache -3 em complemento de dois."},
+            {"Quanto dá 0110 + 1111 com 4 bits, em decimal? (6 + (-1))", "", 10, "5", "0110 + 1111 = 10101; com 4 bits sobra 0101, que é 5.", "Some em binário e descarte o vai-um que sai da última casa."},
+        };
+        all.push_back(l);
+    }
     {
         Lesson l = gatesLesson("subtrator", 4, "Subtrator completo",
                                "Subtrair um bit é parecido com somar: D é A − B − Ve, e Vs, o empresta-um, liga quando a conta fica abaixo de "
@@ -1214,6 +1434,25 @@ std::vector<Lesson> makeLessons() {
     }
     {
         Lesson l;
+        l.id = "clock-perguntas";
+        l.act = 5;
+        l.title = "Contar os pulsos";
+        l.story = "Sem montar nada desta vez: contas com o clock. Frequência é quantos ciclos por segundo; o período é quanto dura um ciclo.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Hz quer dizer por segundo: 4 Hz são 4 bordas de subida a cada segundo.", "Período = 1 ÷ frequência. Um segundo tem 1000 milissegundos."};
+        l.success = "Frequência, período e bordas: a matemática do compasso do computador.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Um clock de 4 Hz faz quantas bordas de subida em 3 segundos?", "", 10, "12", "4 por segundo, vezes 3 segundos: 12.", "Hz é por segundo: 4 Hz são 4 subidas a cada segundo. Multiplique pelos segundos."},
+            {"Quanto dura um ciclo desse clock de 4 Hz, em milissegundos?", "", 10, "250", "1 segundo = 1000 ms, dividido em 4 ciclos: 250 ms cada.", "Período = 1 ÷ frequência. Divida 1000 milissegundos por 4."},
+            {"Um processador de 2 GHz faz quantos milhões de ciclos por segundo?", "", 10, "2000", "Giga é bilhão: 2 bilhões = 2000 milhões.", "1 GHz é mil milhões de ciclos por segundo."},
+            {"O clock passa por 0, 1, 0, 1, 1, 0, 1. Quantas bordas de subida há?", "", 10, "3", "Ele sobe de 0 para 1 na 2ª, na 4ª e na 7ª posição. Ficar em 1 não é borda.", "Conte só as passagens de 0 para 1."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
         l.id = "flip-flop";
         l.act = 5;
         l.title = "O flip-flop e o clock";
@@ -1228,6 +1467,24 @@ std::vector<Lesson> makeLessons() {
         l.check = LessonCheck::Sequence;
         l.outputs = {"Q"};
         // Step 4 holds the clock high while D changes: a latch would let the new D through, the flip-flop waits.
+        l.sequence = {{{{"D", 0}}, true, {{"Q", 0}}},  {{{"D", 1}}, false, {{"Q", 0}}},           {{}, true, {{"Q", 1}}},
+                      {{{"Clock", 1}, {"D", 0}}, false, {{"Q", 1}}}, {{{"Clock", 0}}, false, {{"Q", 1}}}, {{}, true, {{"Q", 0}}}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "flip-flop-latches";
+        l.act = 5;
+        l.title = "Flip-flop com dois latches";
+        l.story = "Agora por dentro: um flip-flop D é feito de dois latches D em fila. O primeiro, o mestre, fica aberto com o clock em 0; o segundo, o escravo, com o clock em 1. Os dois nunca abrem juntos.";
+        l.steps = {"Arraste dois Latch D, da pasta Memória, e uma porta NOT.", "Mestre: o D no D dele, e o clock passando pela NOT no En. Escravo: o Q do mestre no D dele, e o clock direto no En.", "O Q do escravo vai no resistor do LED Q. Teste com Avançar meio ciclo (N)."};
+        l.hints = {"A NOT faz o mestre abrir com o clock em 0 e fechar quando ele sobe.", "Se Q muda sem esperar a subida, o clock está chegando direto nos dois latches."};
+        l.success = "Você montou o flip-flop por dentro: o mestre segura D até a borda, e o escravo o entrega na saída. Só muda na subida.";
+        l.start = flipFlopLatchesBoard;
+        l.parts = {PartKind::Not};
+        l.boxes = {"d_latch"};
+        l.check = LessonCheck::Sequence;
+        l.outputs = {"Q"};
         l.sequence = {{{{"D", 0}}, true, {{"Q", 0}}},  {{{"D", 1}}, false, {{"Q", 0}}},           {{}, true, {{"Q", 1}}},
                       {{{"Clock", 1}, {"D", 0}}, false, {{"Q", 1}}}, {{{"Clock", 0}}, false, {{"Q", 1}}}, {{}, true, {{"Q", 0}}}};
         all.push_back(l);
@@ -1252,6 +1509,24 @@ std::vector<Lesson> makeLessons() {
     }
     {
         Lesson l;
+        l.id = "registrador-flip-flops";
+        l.act = 5;
+        l.title = "Quatro flip-flops, um número";
+        l.story = "Um registrador de 4 bits é isto: quatro flip-flops D, um por bit, todos no mesmo clock. Na borda, os quatro guardam juntos.";
+        l.steps = {"Arraste quatro Flip-flop D, da pasta Memória.", "Ligue cada chave (D0 a D3) no D de um flip-flop, e o Q dele no LED do mesmo número.", "Ligue o clock no Clk dos quatro. Teste: escolha os bits e dê um pulso."};
+        l.hints = {"O mesmo fio do clock pode ir aos quatro Clk.", "D0 vai com Q0, D1 com Q1, e assim por diante."};
+        l.success = "Quatro bits guardados juntos, na mesma borda: um registrador. Com um multiplexador na frente de cada bit, ele ganha a entrada Grava.";
+        l.start = fourFlipFlopsBoard;
+        l.boxes = {"d_flip_flop"};
+        l.check = LessonCheck::Sequence;
+        l.outputs = {"Q0", "Q1", "Q2", "Q3"};
+        l.sequence = {{{{"D0", 1}, {"D1", 0}, {"D2", 1}, {"D3", 0}}, true, {{"Q0", 1}, {"Q1", 0}, {"Q2", 1}, {"Q3", 0}}},
+                      {{{"D0", 0}, {"D1", 1}, {"D2", 1}, {"D3", 1}}, false, {{"Q0", 1}, {"Q1", 0}, {"Q2", 1}, {"Q3", 0}}},
+                      {{}, true, {{"Q0", 0}, {"Q1", 1}, {"Q2", 1}, {"Q3", 1}}}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
         l.id = "contador";
         l.act = 5;
         l.title = "Monte um contador";
@@ -1268,6 +1543,61 @@ std::vector<Lesson> makeLessons() {
         l.outputs = {"S"};
         l.sequence = {{{{"Conta", 1}}, true, {{"S", 1}}}, {{}, true, {{"S", 2}}}, {{}, true, {{"S", 3}}}, {{{"Conta", 0}}, true, {{"S", 3}}},
                       {{{"Conta", 1}}, true, {{"S", 4}}}};
+        all.push_back(l);
+    }
+
+    {
+        Lesson l;
+        l.id = "ram-perguntas";
+        l.act = 5;
+        l.title = "Endereços e palavras";
+        l.story = "Sem montar nada desta vez: contas com endereços. Cada bit de endereço dobra o número de palavras.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Com n bits de endereço há 2 elevado a n palavras: 1 bit dá 2, 2 bits dão 4, 3 bits dão 8.", "Os endereços começam no 0."};
+        l.success = "Endereços, palavras e tamanhos: é assim que se mede uma memória.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Uma memória com 3 bits de endereço tem quantas palavras?", "", 10, "8", "2 × 2 × 2 = 8: os endereços vão de 0 a 7.", "Cada bit de endereço dobra: 1 bit dá 2, 2 bits dão 4..."},
+            {"E com 10 bits de endereço?", "", 10, "1024", "2 elevado a 10 = 1024.", "Dobre 10 vezes, começando de 1: 2, 4, 8, 16..."},
+            {"Uma memória de 16 palavras precisa de quantos bits de endereço?", "", 10, "4", "2 × 2 × 2 × 2 = 16.", "Quantas vezes você dobra 1 até chegar a 16?"},
+            {"Uma RAM de 16 palavras de 8 bits guarda quantos bits ao todo?", "", 10, "128", "16 palavras × 8 bits = 128 bits.", "Multiplique o número de palavras pelos bits de cada uma."},
+            {"Qual é o maior endereço de uma memória de 256 palavras?", "", 10, "255", "Os endereços começam no 0: vão de 0 a 255.", "O primeiro endereço é 0, não 1."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "ram";
+        l.act = 5;
+        l.title = "Guardar e ler na RAM";
+        l.story = "A RAM guarda uma palavra em cada endereço. Lê na hora: Q mostra a palavra do endereço A. Grava só na subida do clock, e só com Grava ligado.";
+        l.steps = {"Arraste uma RAM, da pasta Memória.", "Ligue A no A dela, o Dado no D, o Grava no We, o clock no Clk, e o Q no visor S.", "Teste: grave 5 no endereço 1, grave 9 no 2, e volte ao 1 para ler."};
+        l.hints = {"A RAM já vem com 8 bits de endereço e 8 de dado, iguais às chaves: não precisa mudar nada.", "We é a permissão de gravar: é ali que vai o Grava."};
+        l.success = "Cada endereço guarda a sua palavra, e o visor mostra a do endereço escolhido. A memória do computador é isso, com mais endereços.";
+        l.start = ramBoard;
+        l.boxes = {"ram"};
+        l.check = LessonCheck::Sequence;
+        l.outputs = {"S"};
+        l.sequence = {{{{"A", 1}, {"Dado", 5}, {"Grava", 1}}, true, {{"S", 5}}}, {{{"A", 2}, {"Dado", 9}}, true, {{"S", 9}}},
+                      {{{"A", 1}, {"Grava", 0}}, false, {{"S", 5}}}, {{{"Dado", 7}}, true, {{"S", 5}}}, {{{"A", 3}}, false, {{"S", 0}}}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "banco";
+        l.act = 5;
+        l.title = "O banco de registradores";
+        l.story = "Oito registradores numa peça, como na CPU: Rw, Dado e Grava gravam um deles na subida do clock; Ra e Rb escolhem os dois que aparecem em A e B.";
+        l.steps = {"Arraste um Banco de registradores, da pasta Memória.", "Ligue Ra, Rb e Rw nos pinos de mesmo nome, o Dado no D, o Grava no We e o clock no Clk.", "Ligue as saídas A e B nos visores A e B. Teste: grave 7 no R2 e 3 no R5, e leia os dois de uma vez."};
+        l.hints = {"O banco já vem com 16 bits e 3 bits para escolher o registrador, como as chaves.", "Ra e Rb só leem, e na hora; gravar, só com Grava ligado e na borda."};
+        l.success = "Dois registradores lidos e um gravado, no mesmo ciclo: é o que a CPU faz em ADD R3, R1, R2.";
+        l.start = registerFileBoard;
+        l.boxes = {"regfile"};
+        l.check = LessonCheck::Sequence;
+        l.outputs = {"A", "B"};
+        l.sequence = {{{{"Ra", 2}, {"Rw", 2}, {"Dado", 7}, {"Grava", 1}}, true, {{"A", 7}}}, {{{"Rw", 5}, {"Dado", 3}}, true, {{"A", 7}}},
+                      {{{"Rb", 5}, {"Grava", 0}}, false, {{"A", 7}, {"B", 3}}}, {{{"Rw", 2}, {"Dado", 1}}, true, {{"A", 7}, {"B", 3}}}};
         all.push_back(l);
     }
 
@@ -1296,6 +1626,25 @@ std::vector<Lesson> makeLessons() {
         l.machineCode = true;
         return l;
     };
+    {
+        Lesson l;
+        l.id = "cpu-perguntas";
+        l.act = 6;
+        l.title = "As peças e o op";
+        l.story = "Sem montar nada desta vez: o ciclo da instrução e os códigos de operação.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Os 4 bits de cima da palavra são o op. A tabela de ops está na aula.", "Em hexadecimal, cada dígito são 4 bits."};
+        l.success = "Você já lê uma instrução como a CPU: o op primeiro, depois os detalhes.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quantas etapas o Raio-X mostra para cada instrução?", "", 10, "6", "Busca, decodifica, executa, memória, escreve e próximo PC.", "Conte as linhas da tabela do ciclo."},
+            {"Quantos bits tem o op?", "", 10, "4", "Os 4 bits de cima da palavra de 16.", "Com ele há 16 códigos."},
+            {"Qual é o op de HLT, em decimal?", "", 10, "15", "HLT é 1111, o último código.", "Procure HLT na tabela de ops."},
+            {"Escreva LI R1, 7 em hexadecimal.", "", 16, "2207", "op 2 = 0010, rd 1 = 001, imm9 7 = 000000111: 0010 0010 0000 0111 = 2207.", "Monte os 16 bits e agrupe de quatro em quatro."},
+        };
+        all.push_back(l);
+    }
     all.push_back(machine(program("binario-primeiro", "Três instruções em binário",
                                   "Para a CPU, um programa é uma lista de números de 16 bits. Escreva à mão as três palavras de LI R1, 7, OUT R1 e HLT, "
                                   "campo por campo, para a saída mostrar 7.",
@@ -1307,6 +1656,25 @@ std::vector<Lesson> makeLessons() {
                                   "7! Você escreveu um programa em linguagem de máquina, do jeito que se fazia antes de existirem montadores.", {7},
                                   {{assembly::kOpOut, -1, "OUT", -1}}),
                           machineFirstStart));
+    {
+        Lesson l;
+        l.id = "campos-perguntas";
+        l.act = 6;
+        l.title = "Campos e imediatos";
+        l.story = "Sem montar nada desta vez: monte e leia os campos das instruções.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Formato R: op(4) rd(3) rs(3) rt(3) func(3). Contas da ULA usam op 0.", "O imm6 tem sinal: -1 é 111111."};
+        l.success = "Campos, func e imediatos: o decodificador não sabe nada além disso.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Escreva ADD R3, R1, R2 em hexadecimal.", "", 16, "0653", "0000 011 001 010 011 = 0000 0110 0101 0011 = 0653.", "op 0, rd 3, rs 1, rt 2, func 3. Junte e agrupe de quatro em quatro."},
+            {"Qual é o func de SUB, em decimal?", "", 10, "4", "SUB é 100, o func 4.", "Procure SUB na tabela do func."},
+            {"Qual é o maior número que cabe no imm9?", "", 10, "511", "9 bits: 2 elevado a 9 = 512 valores, de 0 a 511.", "O maior é 2 elevado a 9, menos 1."},
+            {"Em ADDI R1, R1, -1, quanto vale o campo imm6, em binário?", "", 2, "111111", "-1 em complemento de dois, com 6 bits, é tudo 1.", "Ache -1 com 6 bits: inverta 000001 e some 1."},
+        };
+        all.push_back(l);
+    }
     all.push_back(machine(program("binario-soma", "Uma soma em binário",
                                   "Agora uma instrução da ULA: ADD tem cinco campos, e o último, func, diz qual conta fazer. Escreva em binário um "
                                   "programa que guarda 3 e 4, soma os dois e mostra 7.",
@@ -1317,6 +1685,25 @@ std::vector<Lesson> makeLessons() {
                                   "7 de novo, mas agora quem somou foi a ULA, mandada por uma palavra que você montou bit a bit.", {7},
                                   {{assembly::kOpAlu, assembly::kAdd, "ADD", -1}}),
                           machineSumStart));
+    {
+        Lesson l;
+        l.id = "desvios-perguntas";
+        l.act = 6;
+        l.title = "Desvios e saltos";
+        l.story = "Sem montar nada desta vez: para onde vão os desvios e os saltos.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Desvio: destino = PC + 1 + imm6.", "CALL guarda em R7 o endereço da instrução seguinte."};
+        l.success = "Distâncias e endereços: é com eles que o programa anda pela ROM.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Um BEQ no endereço 3, com imm6 = 4, desvia para qual endereço?", "", 10, "8", "3 + 1 + 4 = 8.", "Destino = PC + 1 + imm6."},
+            {"Um CALL 10 no endereço 4: que valor fica em R7?", "", 10, "5", "O endereço da instrução seguinte: 4 + 1 = 5.", "R7 guarda para onde voltar."},
+            {"Escreva JMP 20 em hexadecimal.", "", 16, "8014", "op 8 = 1000, e 20 em 12 bits é 0000 0001 0100: 8014.", "O op de JMP é 8; o endereço vai nos 12 bits de baixo."},
+            {"Um BNE no endereço 4 volta para o endereço 2. Quanto vale o imm6, em binário com 6 bits?", "", 2, "111101", "2 = 4 + 1 + imm6, então imm6 = -3, que com 6 bits é 111101.", "Ache a distância a partir do endereço 5, depois escreva o negativo com 6 bits."},
+        };
+        all.push_back(l);
+    }
     all.push_back(machine(program("binario-laco", "Um laço em binário",
                                   "Um desvio guarda a distância até o destino, e não o endereço. Escreva em binário um laço que mostra 3, 2 e 1: conte "
                                   "para baixo com ADDI e volte com BNE enquanto R1 não for 0.",
@@ -1329,6 +1716,25 @@ std::vector<Lesson> makeLessons() {
                                   {{assembly::kOpBne, -1, "BNE ou BEQ", assembly::kOpBeq}}),
                           machineLoopStart));
 
+    {
+        Lesson l;
+        l.id = "assembly-perguntas";
+        l.act = 7;
+        l.title = "Seguindo programas";
+        l.story = "Antes de escrever, ler: siga cada programa à mão, anotando os registradores, e diga o que a saída mostra.";
+        l.steps = {"Siga o programa à mão, linha por linha, e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Anote o valor de cada registrador depois de cada linha.", "R0 vale sempre 0."};
+        l.success = "Quem consegue seguir um programa à mão consegue achar o erro de qualquer um.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"LI R1, 10, depois ADDI R1, R1, -3, depois OUT R1. O que a saída mostra?", "", 10, "7", "10 - 3 = 7.", "ADDI soma um número, que pode ser negativo."},
+            {"LI R1, 4, ADD R2, R1, R1, ADD R2, R2, R1, OUT R2. O que a saída mostra?", "", 10, "12", "R2 = 4 + 4 = 8, depois R2 = 8 + 4 = 12.", "Faça uma linha de cada vez."},
+            {"Depois de LI R0, 9, quanto vale R0?", "", 10, "0", "R0 vale sempre 0: o 9 se perde.", "R0 é especial."},
+            {"LI R1, 300, LI R2, 200, ADD R3, R1, R2, OUT R3. O que a saída mostra?", "", 10, "500", "300 + 200 = 500. Juntando dois LI, passa do limite de 511 de um só.", "Some os dois."},
+        };
+        all.push_back(l);
+    }
     all.push_back(program("primeiro-programa", "O primeiro programa",
                           "O computador de 16 bits está pronto na placa: ele lê as instruções da ROM, uma por uma. Para mudar o que ele faz você não "
                           "mexe em fio nenhum: escreve um programa. Faça a saída mostrar 42.",
@@ -1343,6 +1749,25 @@ std::vector<Lesson> makeLessons() {
                           {"LI R1, 300 e LI R2, 212.", "ADD R3, R1, R2 soma e guarda em R3.", "OUT R3, e HLT."},
                           {"No Raio-X dá para ver a ULA somando os dois números."}, "512! A ULA somou dois registradores, do jeito que você montou no Ato 5.",
                           {512}, {{assembly::kOpAlu, assembly::kAdd, "ADD", -1}}));
+    {
+        Lesson l;
+        l.id = "lacos-perguntas";
+        l.act = 7;
+        l.title = "Seguindo laços";
+        l.story = "Siga os laços e os desvios à mão, volta por volta, e responda.";
+        l.steps = {"Siga o programa à mão, linha por linha, e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Faça uma tabela: a cada volta, o valor do contador e o que a saída mostrou.", "BNE volta enquanto os dois forem diferentes."};
+        l.success = "Laços e memória: com isso já dá para escrever quase qualquer programa.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"LI R1, 1; LI R2, 6; laço: OUT R1; ADDI R1, R1, 1; BNE R1, R2, laço; HLT. Quantos números a saída mostra?", "", 10, "5", "Mostra 1, 2, 3, 4 e 5; com R1 em 6, para.", "Conte as voltas até R1 ficar igual a R2."},
+            {"Trocando LI R2, 6 por LI R2, 10, qual é o último número mostrado?", "", 10, "9", "Mostra de 1 a 9; quando R1 chega a 10, o BNE para de voltar.", "O laço para antes de mostrar o valor de R2."},
+            {"Com R4 = 10, em que endereço LD R1, 3(R4) lê?", "", 10, "13", "10 + 3 = 13.", "Endereço = base + deslocamento."},
+            {"LI R1, 5; LI R2, 5; BEQ R1, R2, igual; LI R3, 0; JMP fim; igual: LI R3, 1; fim: OUT R3. O que a saída mostra?", "", 10, "1", "R1 e R2 são iguais: o BEQ desvia para igual, e R3 = 1.", "O BEQ desvia?"},
+        };
+        all.push_back(l);
+    }
     all.push_back(program("conte-ate-cinco", "Um laço: conte até 5",
                           "Em vez de escrever OUT cinco vezes, um laço repete as mesmas instruções. O desvio BNE volta para cima enquanto a conta não "
                           "chega ao fim.",
@@ -1363,6 +1788,25 @@ std::vector<Lesson> makeLessons() {
         l.memory = {{0, 10}, {1, 20}, {2, 30}};
         all.push_back(l);
     }
+    {
+        Lesson l;
+        l.id = "sub-rotinas-perguntas";
+        l.act = 7;
+        l.title = "Seguindo chamadas";
+        l.story = "Siga as chamadas de sub-rotina à mão: para onde o PC vai, o que fica em R7 e o que a saída mostra.";
+        l.steps = {"Siga o programa à mão, linha por linha, e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"CALL guarda em R7 o endereço da instrução seguinte.", "Conte os endereços a partir de 0, uma instrução por endereço."};
+        l.success = "Ir e voltar sem se perder: é o que toda função faz por baixo.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"LI R1, 3; CALL dobra; OUT R1; HLT; dobra: ADD R1, R1, R1; JR R7. O que a saída mostra?", "", 10, "6", "A sub-rotina dobra R1: 3 + 3 = 6.", "Siga o CALL até o JR R7 e volte."},
+            {"Nesse programa, o CALL está no endereço 1. Que valor ele guarda em R7?", "", 10, "2", "O endereço da instrução seguinte, o OUT: 1 + 1 = 2.", "R7 guarda para onde voltar."},
+            {"E em que endereço começa a sub-rotina dobra?", "", 10, "4", "LI é 0, CALL é 1, OUT é 2, HLT é 3: dobra é 4.", "Conte as instruções antes do rótulo."},
+            {"Se o programa chamar dobra duas vezes seguidas antes do OUT, o que a saída mostra?", "", 10, "12", "3 vira 6, e 6 vira 12.", "Cada chamada dobra R1."},
+        };
+        all.push_back(l);
+    }
     all.push_back(program("sub-rotina", "Sub-rotinas",
                           "Um pedaço de programa que se usa várias vezes vira uma sub-rotina. CALL pula para ela e guarda em R7 o endereço de volta; "
                           "JR R7, no fim dela, volta para logo depois do CALL.",
@@ -1379,6 +1823,24 @@ std::vector<Lesson> makeLessons() {
         l.act = 8;
         return l;
     };
+    {
+        Lesson l;
+        l.id = "espera-perguntas";
+        l.act = 8;
+        l.title = "Esperando o mundo";
+        l.story = "Antes de escrever: siga a espera ocupada à mão e conte o tempo que a CPU gasta olhando.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"O laço de espera tem duas instruções: IN e BEQ. Uma instrução por ciclo de clock.", "BEQ volta enquanto R1 for 0."};
+        l.success = "Agora você sabe por que esperar desse jeito custa caro: a CPU não faz mais nada.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"espera: IN R1; BEQ R1, R0, espera; OUT R1. As chaves valem 0, 0, 0 e depois 9. O que a saída mostra?", "", 10, "9", "O laço sai quando lê o 9, e o OUT o mostra.", "Quando o BEQ deixa de voltar?"},
+            {"Nessa história, quantas vezes o IN executou?", "", 10, "4", "Três leituras de 0 e uma de 9.", "Conte todas as leituras, inclusive a que deu 9."},
+            {"Num clock de 1000 Hz, quantas vezes por segundo esse laço lê as chaves?", "", 10, "500", "O laço tem 2 instruções: 1000 ÷ 2 = 500 voltas por segundo.", "Cada volta leva duas instruções."},
+        };
+        all.push_back(l);
+    }
     {
         Lesson l = inAct7(program("entrada-e-saida", "Entrada e saída",
                                   "Um computador precisa conversar com o mundo. Este tem duas portas: IN lê o número das chaves, e OUT mostra um número "
@@ -1406,6 +1868,25 @@ std::vector<Lesson> makeLessons() {
                                   "programas.",
                                   {}, {{assembly::kOpIn, -1, "IN", -1}, {assembly::kOpBeq, -1, "BEQ ou BNE", assembly::kOpBne}}));
         l.runs = {{0, 40, 7, {14}}, {0, 90, 12, {24}}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "sistema-perguntas";
+        l.act = 8;
+        l.title = "Serviços e contextos";
+        l.story = "Antes de escrever: os serviços do sistema e o que guardar ao trocar de tarefa.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Serviços: 1 mostra, 2 lê as chaves, 3 encerra.", "O contexto é o PC e os registradores que a tarefa usa."};
+        l.success = "Serviços e contextos: o coração de todo sistema operacional.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Para mostrar 42 pelo sistema, que número vai em R1?", "", 10, "1", "O serviço 1 mostra o número que está em R2.", "Olhe a tabela de serviços."},
+            {"E para ler as chaves?", "", 10, "2", "O serviço 2 lê as chaves e volta com o número em R2.", "Olhe a tabela de serviços."},
+            {"Uma tarefa usa R1 a R4 e parou no endereço 30. Quantos valores o sistema guarda no contexto dela, contando o PC?", "", 10, "5", "Os quatro registradores e o PC: 5.", "Some os registradores usados e o PC."},
+            {"Num computador de 1000 Hz, se um relógio troca de tarefa a cada 100 instruções, quantas trocas há por segundo?", "", 10, "10", "1000 instruções por segundo ÷ 100 = 10 trocas.", "Uma instrução por ciclo de clock."},
+        };
         all.push_back(l);
     }
     {
@@ -1484,6 +1965,26 @@ std::vector<Lesson> makeLessons() {
         l.expect = expect;
         return l;
     };
+    {
+        Lesson l;
+        l.id = "paridade-perguntas";
+        l.act = 9;
+        l.title = "Paridade, MUX e prioridade";
+        l.story = "Antes de montar: as três peças do ato, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Paridade ímpar: P = 1 quando a quantidade de 1 é ímpar.", "No codificador de prioridade, vence a entrada ligada de número mais alto."};
+        l.success = "As três peças, entendidas. Agora é montá-las.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Com paridade ímpar, qual é o bit P para os dados 1011?", "", 10, "1", "Três 1: quantidade ímpar, P = 1.", "Conte os 1."},
+            {"E para os dados 0110?", "", 10, "0", "Dois 1: quantidade par, P = 0.", "Conte os 1."},
+            {"Um MUX de 4 bits tem S = 1, A = 5 e B = 9. Que número sai?", "", 10, "9", "S = 1 escolhe B.", "S = 0 passa A; S = 1 passa B."},
+            {"Quantos MUX de 1 bit formam um MUX de 16 bits?", "", 10, "16", "Um por bit, todos com o mesmo S.", "Cada MUX escolhe um bit."},
+            {"No codificador de prioridade de 4 entradas, D0, D1 e D2 estão ligadas. Que número sai?", "", 10, "2", "D2 é a ligada de número mais alto.", "Vence a de número mais alto."},
+        };
+        extra.push_back(l);
+    }
     extra.push_back(table("paridade", "Paridade: achar erros",
                           "Quando dados viajam, um bit pode chegar trocado. Um jeito de perceber é a paridade: o LED P acende quando há uma "
                           "quantidade ímpar de 1s entre A, B, C e D. Se um bit mudar no caminho, P muda junto.",
@@ -1513,6 +2014,26 @@ std::vector<Lesson> makeLessons() {
                           {"Para D1 só valer sem D2, use uma E com NÃO D2.", "Um OU pode ter mais entradas: selecione-o e use + no painel."},
                           "Prioridade decidida. É assim que um sistema escolhe qual interrupção atender primeiro.", priorityBoard,
                           {PartKind::And, PartKind::Or, PartKind::Not}, {}, {"D0", "D1", "D2", "D3"}, {"A1", "A0", "V"}, priorityOfFour));
+    {
+        Lesson l;
+        l.id = "multiplicar-perguntas";
+        l.act = 9;
+        l.title = "Negativos e multiplicação";
+        l.story = "Antes de montar: trocar o sinal e multiplicar somando, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"−N é NÃO N + 1. Leia o resultado como número sem sinal.", "Para cada bit 1 de B, some A deslocado até aquela casa."};
+        l.success = "Sinal e multiplicação, à mão. Agora é montar os circuitos.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Em 4 bits, −5 fica guardado como que número sem sinal?", "", 10, "11", "5 é 0101; invertendo, 1010; somando 1, 1011, que é 11.", "Inverta 0101 e some 1."},
+            {"Em 8 bits, −1 fica guardado como que número sem sinal?", "", 10, "255", "1 é 00000001; invertendo, 11111110; somando 1, 11111111, que é 255.", "Todos os bits ficam 1."},
+            {"Quanto vale 5 deslocado 3 casas para a esquerda?", "", 10, "40", "Cada casa multiplica por 2: 5 × 8 = 40.", "3 casas: × 2 × 2 × 2."},
+            {"6 × 5, somando 6 deslocado nas casas dos bits 1 de 5 (101). Quanto dá?", "", 10, "30", "Bits 0 e 2: 6 + 24 = 30.", "Bit 0: 6 sem deslocar. Bit 2: 6 deslocado 2 casas."},
+            {"Multiplicando A por 7, quantas parcelas são somadas, sem contar as que dão 0?", "", 10, "3", "7 é 111: três bits ligados, três parcelas.", "Uma parcela por bit 1 de 7."},
+        };
+        extra.push_back(l);
+    }
     extra.push_back(table("negativo", "Números negativos",
                           "Os computadores guardam −A como NÃO A + 1, o complemento de dois: em 4 bits, −1 é 15 e −3 é 13. A vantagem é que a soma "
                           "comum já funciona com eles. Faça N mostrar −A.",
@@ -1529,9 +2050,71 @@ std::vector<Lesson> makeLessons() {
                           {"No separador e no juntador, o bit 0 é o de baixo.", "O multiplicador pronto da biblioteca faz isso para N bits."},
                           "Multiplicação feita de E e somas: é o multiplicador em matriz, igual ao do exemplo Multiplicador.", multiplyBoard,
                           {PartKind::And, PartKind::Splitter, PartKind::Joiner}, {"half_adder"}, {"A", "B"}, {"P"}, productOf));
+    {
+        Lesson l;
+        l.id = "deslocar-perguntas";
+        l.act = 9;
+        l.title = "Deslocar e estender à mão";
+        l.story = "Antes de montar: deslocar e estender alguns números, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta: em decimal, ou em binário quando ela pedir.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"Uma casa para a esquerda dobra; para a direita, divide por 2 e joga fora o resto.", "Estender com sinal repete o bit de cima."};
+        l.success = "Deslocar e estender, à mão. Agora é montar com fios.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Em 8 bits, quanto dá 6 deslocado 3 casas para a esquerda?", "", 10, "48", "Cada casa dobra: 6 × 8 = 48.", "3 casas: × 2 × 2 × 2."},
+            {"Em 4 bits, quanto dá 12 (1100) deslocado uma casa para a esquerda?", "", 10, "8", "1100 vira 1000: o 1 de cima se perde, e 24 não cabe em 4 bits.", "Faça em binário e corte em 4 bits."},
+            {"Quanto dá 45 deslocado 2 casas para a direita?", "", 10, "11", "45 ÷ 4 = 11, resto 1, e o resto se perde.", "2 casas para a direita: divide por 4."},
+            {"Um deslocador com N de 4 bits tem quantos estágios de MUX?", "", 10, "4", "Um por bit de N: de 1, 2, 4 e 8 casas.", "Cada bit de N liga um estágio."},
+            {"Estendendo 1110 (4 bits) para 8 bits com sinal, o que sai? Responda em binário.", "", 2, "11111110", "O bit de sinal é 1 e se repete: 11111110, o −2 de 8 bits.", "Repita o bit de cima nos quatro bits novos."},
+            {"E sem sinal? Responda em binário.", "", 2, "00001110", "Sem sinal, os bits novos são 0: 00001110, 14.", "Encha de 0."},
+        };
+        extra.push_back(l);
+    }
+    extra.push_back(table("deslocar", "Deslocar uma casa",
+                          "Deslocar uma casa para a esquerda dobra um número; para a direita, divide por 2. Com Dir em 0, Q mostra A deslocado "
+                          "para a esquerda; com Dir em 1, para a direita. O bit que sai se perde, e o que entra é 0.",
+                          {"Separe A em bits com um separador de 4.",
+                           "Num juntador, ligue um 0 no bit 0 e a0, a1, a2 nos bits 1, 2 e 3: é A para a esquerda. Noutro, a1, a2, a3 nos bits 0, "
+                           "1 e 2 e um 0 no bit 3: A para a direita.",
+                           "Um MUX 2:1 de 4 bits escolhe entre os dois, com Dir no Sel. Ligue a saída no visor Q."},
+                          {"Deslocar uma casa não precisa de porta nenhuma: é só ligar cada bit uma casa ao lado.",
+                           "A constante fica na pasta Fios; ponha o valor 0. Uma só serve aos dois juntadores."},
+                          "Um deslocador de uma casa. O Deslocador da biblioteca repete isso em estágios de 1, 2 e 4 casas, com um MUX por "
+                          "estágio.",
+                          shiftOnceBoard, {PartKind::Splitter, PartKind::Joiner, PartKind::Constant}, {"mux2_n"}, {"A", "Dir"}, {"Q"},
+                          shiftedOnce));
+    extra.push_back(table("estender", "Estender o sinal",
+                          "Um número negativo de 4 bits tem de continuar negativo em 8 bits. Para isso, repete-se o bit de cima, o bit de sinal: "
+                          "1101 (−3) vira 11111101, que também é −3. Faça Q mostrar A estendido para 8 bits, com o sinal.",
+                          {"Separe A em bits com um separador de 4.", "Num juntador de 8, ligue a0 a a3 nos bits 0 a 3.",
+                           "Ligue a3, o bit de sinal, também nos bits 4, 5, 6 e 7. Ligue a saída no visor Q."},
+                          {"Uma saída pode ir para vários lugares: puxe vários fios da mesma saída do separador.",
+                           "Com A positivo, a3 é 0 e os bits de cima ficam 0; com A negativo, ficam 1."},
+                          "Extensão de sinal! O Extensor de bits da biblioteca faz isso, e a CPU usa um para completar os imediatos.",
+                          extendBoard, {PartKind::Splitter, PartKind::Joiner}, {}, {"A"}, {"Q"}, extendedOf));
     for (Lesson& l : extra) all.push_back(std::move(l));
 
     // Act 11: input and output.
+    {
+        Lesson l;
+        l.id = "display-perguntas";
+        l.act = 10;
+        l.title = "Contando segmentos";
+        l.story = "Antes de montar: os segmentos de cada algarismo, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"a em cima, b e c à direita, d embaixo, e e f à esquerda, g no meio.", "A tabela da leitura diz quais acendem em cada número."};
+        l.success = "Segmentos contados. Agora é montar as portas de cada um.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quantos segmentos acendem para o 8?", "", 10, "7", "O 8 acende todos.", "São sete barras."},
+            {"E para o 1?", "", 10, "2", "Só b e c.", "A barra da direita."},
+            {"Em quantos algarismos de 0 a 9 o segmento a acende?", "", 10, "8", "Em todos, menos no 1 e no 4.", "Quais algarismos não têm a barra de cima?"},
+            {"E o segmento g, o do meio?", "", 10, "7", "Em todos, menos no 0, no 1 e no 7.", "Quais algarismos não têm traço no meio?"},
+        };
+        all.push_back(l);
+    }
     {
         Lesson l = table("sete-segmentos", "Desenhar números",
                          "Um display de 7 segmentos desenha algarismos com sete barras, a até g: a em cima, b e c à direita, d embaixo, e e f "
@@ -1548,6 +2131,25 @@ std::vector<Lesson> makeLessons() {
                          {"a", "b", "c", "d", "e", "f", "g"}, nullptr);
         l.table = "1111110" "0110000" "1101101" "1111001";
         l.act = 10;
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "aleatorio-perguntas";
+        l.act = 10;
+        l.title = "Apertos e sorteios";
+        l.story = "Antes de montar: o botão no contador e o LFSR, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"O contador anda uma vez por borda de subida.", "LFSR de 4 bits: os bits sobem e entra embaixo a XNOR de q3 e q2."};
+        l.success = "Contagem e sorteio, à mão. Agora é montá-los.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Um botão sem debounce dá 3 pulsos por aperto. Depois de 4 apertos, quanto o contador mostra?", "", 10, "12", "Cada aperto conta 3: 4 × 3 = 12.", "Cada pulso é uma borda."},
+            {"Um contador de 4 bits mostra 15 e o botão é apertado mais uma vez. O que ele mostra?", "", 10, "0", "16 não cabe em 4 bits: o contador dá a volta e recomeça do 0.", "Qual é o maior número de 4 bits?"},
+            {"No LFSR de 4 bits (XNOR de q3 e q2), o que vem depois de 6 (0110)?", "", 10, "12", "q3 = 0 e q2 = 1 são diferentes: entra 0. Fica 1100, 12.", "Veja q3 e q2 de 0110."},
+            {"Por quantos valores esse LFSR passa antes de repetir?", "", 10, "15", "Todos os 16, menos o 1111, que fica preso.", "Um valor de 4 bits fica de fora."},
+        };
         all.push_back(l);
     }
     {
@@ -1593,6 +2195,25 @@ std::vector<Lesson> makeLessons() {
     }
     {
         Lesson l;
+        l.id = "ascii-perguntas";
+        l.act = 10;
+        l.title = "Letras em números";
+        l.story = "Antes de ligar o teclado: os códigos ASCII, à mão.";
+        l.steps = {"Leia a pergunta e digite a resposta em decimal.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"A é 65, a é 97, 0 é 48, espaço é 32.", "As letras e os algarismos vêm em ordem."};
+        l.success = "Letras viraram números. Agora é ligá-las à tela.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Qual é o código da letra c minúscula?", "", 10, "99", "a é 97, b é 98, c é 99.", "Conte a partir de a, que é 97."},
+            {"Qual é o código do algarismo 7?", "", 10, "55", "0 é 48: 48 + 7 = 55.", "Comece do 0, que é 48."},
+            {"Quanto se soma ao código de uma maiúscula para achar a minúscula?", "", 10, "32", "97 − 65 = 32, e vale para todas as letras.", "Compare A e a."},
+            {"Digitando \"oi\" no teclado ligado ao terminal, quantos caracteres o terminal guarda?", "", 10, "2", "Uma borda de Tecla por letra: o e i.", "Cada tecla apertada é um pulso."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
         l.id = "teclado-terminal";
         l.act = 10;
         l.title = "Do teclado à tela";
@@ -1610,6 +2231,151 @@ std::vector<Lesson> makeLessons() {
         l.outputs = {"S"};
         l.sequence = {{{{"Teclado", 0x80 | 'o'}}, false, {{"S", 1}}}, {{{"Teclado", 'o'}}, false, {{"S", 1}}},
                       {{{"Teclado", 0x80 | 'i'}}, false, {{"S", 2}}}, {{{"Teclado", 'i'}}, false, {{"S", 2}}}};
+        all.push_back(l);
+    }
+
+    // Act 12: the 32-bit computer, in MIPS.
+    {
+        Lesson l;
+        l.id = "mips-perguntas";
+        l.act = 11;
+        l.title = "Registradores e endereços";
+        l.story = "Sem montar nada desta vez: os registradores, o syscall e os endereços do MIPS.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"A tabela de registradores e a de serviços estão na aula.", "As palavras ficam de 4 em 4 bytes."};
+        l.success = "Você já sabe onde o MIPS guarda as coisas. Agora, o primeiro programa.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quantos registradores tem a CPU MIPS?", "", 10, "32", "Numerados de 0 a 31, cada um com 32 bits.", "Veja a tabela de registradores: o último é o 31."},
+            {"Qual é o número do registrador $t0?", "", 10, "8", "$t0 a $t7 são os registradores 8 a 15.", "Procure $t0 na tabela de registradores."},
+            {"Que número vai em $v0 para o syscall mostrar um número?", "", 10, "1", "O serviço 1 mostra o número que está em $a0.", "Veja a tabela de serviços."},
+            {"Uma palavra está em 0x10010000. Em que endereço está a seguinte? Responda em hexadecimal.", "", 16, "10010004", "Uma palavra tem 4 bytes: 0x10010000 + 4.", "Os endereços contam bytes."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "mips-primeiro";
+        l.act = 11;
+        l.title = "O primeiro programa MIPS";
+        l.story = "No MIPS, o programa pede as coisas ao mundo com syscall: põe o serviço em $v0 e o número em $a0. Faça a saída mostrar 42 e termine.";
+        l.steps = {"O editor de programa abre sozinho, com o fim do programa já escrito.", "Antes dele, ponha 42 em $a0 com li, e 1 em $v0.", "Chame syscall; as duas linhas do fim terminam o programa. Monte com Ctrl+Enter."};
+        l.hints = {"li $a0, 42 põe 42 em $a0.", "O serviço 1 mostra o número que está em $a0.", "A ordem: li $a0, 42; li $v0, 1; syscall; li $v0, 10; syscall."};
+        l.success = "42! O seu primeiro programa num conjunto de instruções de verdade.";
+        l.start = mipsStart;
+        l.chips = mipsChips;
+        l.check = LessonCheck::Program;
+        l.mips = true;
+        l.mipsRuns = {{0, "42"}};
+        l.needs = {{mips::kOpSpecial, mips::kFnSyscall, "syscall", -1}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "mips-vetor";
+        l.act = 11;
+        l.title = "Somar um vetor";
+        l.story = "O .data já tem um vetor de quatro palavras e, em n, quantas são. Percorra o vetor com lw, somando, e mostre a soma: 24.";
+        l.steps = {"O começo já está escrito: $t0 aponta o vetor, $t1 conta quantas palavras faltam, $t2 guarda a soma.", "No laço: se $t1 for 0, salte para o fim; senão, leia a palavra em 0($t0), some em $t2, avance $t0 4 bytes, diminua $t1 e volte.", "No fim, mostre $t2 com o serviço 1 e termine."};
+        l.hints = {"beq $t1, $zero, fim sai do laço quando acabar.", "addi $t0, $t0, 4 vai para a próxima palavra: os endereços contam bytes.", "j laco volta para o começo do laço. Para mostrar, move $a0, $t2."};
+        l.success = "24! Você percorreu a memória de 4 em 4 bytes, como todo programa MIPS faz com um vetor.";
+        l.start = mipsArrayStart;
+        l.chips = mipsChips;
+        l.check = LessonCheck::Program;
+        l.mips = true;
+        l.mipsRuns = {{0, "24"}};
+        l.needs = {{mips::kOpLw, -1, "lw", -1}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "formatos-mips-perguntas";
+        l.act = 11;
+        l.title = "Campos de 32 bits";
+        l.story = "Sem montar nada desta vez: monte e leia as palavras do MIPS.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"R: op 6, rs 5, rt 5, rd 5, shamt 5, funct 6.", "Em hexadecimal, cada dígito são 4 bits."};
+        l.success = "Formatos R, I e J: a CPU de 32 bits não sabe nada além disso.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Quantos bits tem o op?", "", 10, "6", "Os 6 bits de cima de toda instrução.", "Veja a tabela de formatos."},
+            {"Qual é o funct de add, em decimal?", "", 10, "32", "add é funct 100000, 32.", "Está no exemplo de add $t2, $t0, $t1."},
+            {"Escreva add $t2, $t0, $t1 em hexadecimal.", "", 16, "01095020", "000000 01000 01001 01010 00000 100000 = 0x01095020.", "op 0, rs 8, rt 9, rd 10, shamt 0, funct 32. Junte e agrupe de quatro em quatro."},
+            {"Qual é o maior número que addi aceita no imediato?", "", 10, "32767", "16 bits com sinal vão de −32768 a 32767.", "addi estende o sinal: metade dos 65536 valores é negativa."},
+            {"Com $t0 = 0x5A, quanto vale $t1 depois de srl $t1, $t0, 4? Responda em hexadecimal.", "", 16, "5", "Deslocar 4 casas para a direita desce um dígito hexadecimal: sobra o 5.", "Cada dígito hexadecimal são 4 bits."},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "mips-mascara";
+        l.act = 11;
+        l.title = "Os dois dígitos hexadecimais";
+        l.story = "As chaves dão um número de 8 bits, como 0x5A. Mostre o dígito hexadecimal de baixo e depois o de cima, em decimal, com um espaço entre eles: para 0x5A, 10 5.";
+        l.steps = {"Leia as chaves com o serviço 5: o número volta em $v0. Guarde-o em $t0.", "andi com 0xF dá o dígito de baixo; srl de 4 casas, e andi de novo, dá o de cima.", "Mostre o de baixo, um espaço (o serviço 11, com 32 em $a0) e o de cima, e termine."};
+        l.hints = {"li $v0, 5 e syscall: as chaves vêm em $v0.", "andi $a0, $t0, 0xF põe o dígito de baixo direto em $a0.", "O espaço é o caractere 32: li $a0, 32, li $v0, 11 e syscall."};
+        l.success = "Máscara e deslocamento: é assim que a CPU recorta os campos de uma instrução.";
+        l.start = mipsStart;
+        l.chips = mipsChips;
+        l.check = LessonCheck::Program;
+        l.mips = true;
+        l.mipsRuns = {{0x5A, "10 5"}, {0x3C, "12 3"}, {0xF1, "1 15"}};
+        l.needs = {{mips::kOpAndi, -1, "andi", -1}, {mips::kOpSpecial, mips::kFnSrl, "srl", -1}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "desvios-mips-perguntas";
+        l.act = 11;
+        l.title = "Para onde vai o PC";
+        l.story = "Sem montar nada desta vez: as contas de beq, jal e da pilha.";
+        l.steps = {"Leia a pergunta e digite a resposta na base que ela pede.", "Enter (ou Responder) confere. Errou? Tente de novo: a pergunta espera."};
+        l.hints = {"beq: PC + 4 + imediato × 4.", "jal guarda em $ra o endereço da instrução seguinte."};
+        l.success = "Desvios, saltos e voltas: o PC já não tem segredos.";
+        l.start = noBoard;
+        l.check = LessonCheck::Answer;
+        l.questions = {
+            {"Um beq em 0x00400008 tem imediato 2. Se desviar, para que endereço vai? Responda em hexadecimal.", "", 16, "00400014", "0x00400008 + 4 = 0x0040000C, mais 2 × 4 = 8: 0x00400014.", "Comece da instrução seguinte e some 4 por instrução."},
+            {"Um jal em 0x00400020 põe que valor em $ra? Responda em hexadecimal.", "", 16, "00400024", "O endereço da instrução seguinte: 0x00400020 + 4.", "Para onde a função deve voltar?"},
+            {"Quantos bits de endereço cabem na instrução j?", "", 10, "26", "32 bits menos os 6 do op.", "Veja o formato J."},
+            {"Quantos bytes a pilha desce para guardar um registrador?", "", 10, "4", "Um registrador é uma palavra, de 4 bytes: addi $sp, $sp, -4.", "Quantos bytes tem uma palavra?"},
+        };
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "mips-soma-ate";
+        l.act = 11;
+        l.title = "Somar de 1 até N";
+        l.story = "Leia N das chaves e mostre 1 + 2 + ... + N: para N = 5, 15; para N = 10, 55. Um desvio faz o laço repetir até o contador passar de N.";
+        l.steps = {"Leia N com o serviço 5 e guarde em $t0. Ponha 0 na soma, $t1, e 1 no contador, $t2.", "No laço: se o contador passou de N, saia; senão, some o contador na soma, some 1 no contador e volte.", "Mostre a soma e termine."};
+        l.hints = {"bgt $t2, $t0, fim sai do laço quando o contador passar de N.", "Ou conte para baixo: some N na soma, diminua N e volte com bne enquanto N não for 0.", "Com N = 0, a soma é 0: o teste de saída vem antes da primeira soma."};
+        l.success = "Um laço em MIPS! O desvio volta, o contador anda, e a CPU repete sem você escrever cada passo.";
+        l.start = mipsStart;
+        l.chips = mipsChips;
+        l.check = LessonCheck::Program;
+        l.mips = true;
+        l.mipsRuns = {{5, "15"}, {0xA, "55"}, {1, "1"}, {0, "0"}};
+        l.needs = {{mips::kOpBeq, -1, "beq ou bne", mips::kOpBne}};
+        all.push_back(l);
+    }
+    {
+        Lesson l;
+        l.id = "mips-quadrado";
+        l.act = 11;
+        l.title = "Uma função: o quadrado";
+        l.story = "Escreva a função quadrado: ela recebe um número em $a0 e devolve em $v0 esse número vezes ele mesmo. Este computador não multiplica: some $a0 a si mesmo $a0 vezes. O programa lê as chaves, chama a função com jal e mostra o resultado.";
+        l.steps = {"Em main: leia as chaves (serviço 5), copie $v0 para $a0 e chame jal quadrado.", "Em quadrado: $v0 começa em 0 e um contador em $a0. Enquanto o contador não for 0, some $a0 em $v0 e diminua o contador. Volte com jr $ra.", "De volta em main: copie $v0 para $a0, mostre com o serviço 1 e termine."};
+        l.hints = {"A função não chama outra, então não precisa da pilha: $ra continua certo até o jr.", "beq $t0, $zero, pronto antes de somar cuida do quadrado de 0.", "Cuidado: li $v0, 1 apaga a resposta. Copie $v0 para $a0 antes."};
+        l.success = "Uma função de verdade: argumento em $a0, resposta em $v0, volta com jr $ra. É o combinado de todo programa MIPS.";
+        l.start = mipsStart;
+        l.chips = mipsChips;
+        l.check = LessonCheck::Program;
+        l.mips = true;
+        l.mipsRuns = {{7, "49"}, {0xC, "144"}, {0, "0"}, {1, "1"}};
+        l.needs = {{mips::kOpJal, -1, "jal", -1}, {mips::kOpSpecial, mips::kFnJr, "jr", -1}};
         all.push_back(l);
     }
     return all;
@@ -1907,6 +2673,65 @@ std::string after(const std::string& when, std::string_view sentence) {
     return when + ", " + text;
 }
 
+// The switches of a run, as a sentence's start: in hexadecimal too, when the number is more than a digit.
+std::string switchesAt(std::uint32_t switches) {
+    std::string number = std::to_string(switches);
+    if (switches >= 10) {
+        std::string hex;
+        for (std::uint32_t rest = switches; rest != 0; rest >>= 4) hex.insert(hex.begin(), "0123456789ABCDEF"[rest & 15u]);
+        number += " (0x" + hex + ")";
+    }
+    return format("Com as chaves em {}", {number});
+}
+
+// The 32-bit computer's program, run on the model of asm/mips.hpp with the ROM's words and the RAM's data as the
+// board has them, once for each run. The model is what the circuit is built to do, and much faster to run.
+LessonResult checkMips(const Lesson& lesson, const Board& board) {
+    const Part* rom = nullptr;
+    const Part* ram = nullptr;
+    for (const Part& part : board.parts()) {
+        if (part.kind != PartKind::Box || part.width != kWord32Bits) continue;
+        if (part.box == boxFromKey("rom") && rom == nullptr) rom = &part;
+        if (part.box == boxFromKey("ram") && ram == nullptr) ram = &part;
+    }
+    if (rom == nullptr) return {false, "O computador de 32 bits não está inteiro na placa: falta a ROM."};
+    mips::Program program;
+    if (rom->rom != nullptr) {
+        for (const std::uint64_t word : *rom->rom) program.text.push_back(static_cast<std::uint32_t>(word));
+    }
+    if (ram != nullptr && ram->rom != nullptr) {
+        for (const std::uint64_t word : *ram->rom) program.data.push_back(static_cast<std::uint32_t>(word));
+    }
+
+    for (const NeededInstruction& needed : lesson.needs) {
+        const bool used = std::any_of(program.text.begin(), program.text.end(), [&](std::uint32_t word) {
+            const unsigned op = word >> 26;
+            if (op == needed.op) return needed.func < 0 || static_cast<int>(word & 63u) == needed.func;
+            return needed.alsoOp >= 0 && op == static_cast<unsigned>(needed.alsoOp);
+        });
+        if (!used) return {false, format("O programa precisa usar {}. Clique em Programar a ROM para mudar o código.", {tr(needed.name)})};
+    }
+
+    for (const MipsRun& run : lesson.mipsRuns) {
+        mips::Machine machine = mips::boot(program);
+        machine.switches = run.switches;
+        constexpr std::size_t kMostInstructions = 100000;
+        machine.run(kMostInstructions);
+        const std::string when = run.switches != 0 ? switchesAt(run.switches) : std::string();
+        if (!machine.fault.empty()) return {false, after(when, format("O programa parou: {}.", {machine.fault}))};
+        if (!machine.halted) {
+            return {false, after(when, "O programa não termina: ele roda para sempre. Confira os desvios e, no fim, termine com li $v0, 10 e syscall.")};
+        }
+        if (machine.output == run.prints) continue;
+        const std::string wanted = "\"" + std::string(run.prints) + "\"";
+        if (machine.output.empty()) {
+            return {false, after(when, format("A saída não mostrou nada: falta um syscall com o serviço 1. O objetivo é mostrar {}.", {wanted}))};
+        }
+        return {false, after(when, format("A saída mostrou {}. O objetivo é mostrar {}.", {"\"" + machine.output + "\"", wanted}))};
+    }
+    return {true, lesson.success};
+}
+
 // The program in the computer's ROM, run on the circuit itself until it stops, once for each run.
 LessonResult checkProgram(const Lesson& lesson, const Board& board, const ChipBoards* chips) {
     if (chips == nullptr) return {false, "O computador não está inteiro na placa."};
@@ -2037,15 +2862,25 @@ const std::vector<LessonAct>& lessonActs() {
     static const std::vector<LessonAct> acts{
         {"Ato 1: Eletricidade", "Bateria, LED, resistor e chaves", true, {}},
         {"Ato 2: Transistores", "A chave que se liga sozinha", true, {}},
-        {"Ato 3: Bits", "Zeros e uns: como os fios guardam números", true, {}},
-        {"Ato 4: Portas lógicas", "E, OU, NÃO, NAND e XOR", true, {}},
+        {"Ato 3: Bits", "Zeros e uns: como os fios guardam números", true,
+         {{"Ponto flutuante", "Números com vírgula: sinal, expoente e mantissa"}}},
+        {"Ato 4: Portas lógicas", "E, OU, NÃO, NAND e XOR", true,
+         {{"Simplificar circuitos", "Mapas de Karnaugh: o mesmo circuito com menos portas"}}},
         {"Ato 5: Aritmética", "Somar com portas", true, {}},
-        {"Ato 6: Memória", "Circuitos que lembram", true, {}},
-        {"Ato 7: Linguagem de máquina", "A CPU por dentro e as instruções em binário", true, {}},
-        {"Ato 8: Programação", "Assembly no computador de 16 bits", true, {}},
-        {"Ato 9: Sistema operacional", "O programa que cuida dos outros", true, {}},
+        {"Ato 6: Memória", "Circuitos que lembram", true,
+         {{"Máquinas de estados", "Circuitos que seguem passos: um semáforo, uma fechadura com senha"}}},
+        {"Ato 7: Linguagem de máquina", "A CPU por dentro e as instruções em binário", true,
+         {{"Pipeline", "Várias instruções ao mesmo tempo, cada uma numa etapa"},
+          {"Medir o desempenho", "Ciclos por instrução, frequência e o tempo de um programa"},
+          {"Cache e hierarquia de memória", "Uma memória pequena e rápida perto da CPU"}}},
+        {"Ato 8: Programação", "Assembly no computador de 16 bits", true,
+         {{"Linguagem de alto nível e compilador", "Do if e do while ao assembly"}}},
+        {"Ato 9: Sistema operacional", "O programa que cuida dos outros", true,
+         {{"Memória virtual", "Cada programa com os seus próprios endereços"}}},
         {"Ato 10: Mais peças", "Paridade, seleção e contas", true, {}},
-        {"Ato 11: Entrada e saída", "Displays, botões e teclado", true, {}},
+        {"Ato 11: Entrada e saída", "Displays, botões e teclado", true,
+         {{"Interrupções e DMA", "O dispositivo chama a CPU, e a memória recebe dados sem ela"}}},
+        {"Ato 12: O computador de 32 bits", "Registradores, formatos e funções no MIPS", true, {}},
     };
     return acts;
 }
@@ -2152,7 +2987,7 @@ LessonResult checkLesson(const Lesson& lesson, const Board& board, const ChipBoa
         case LessonCheck::LightSwitches: return checkSwitches(lesson, board);
         case LessonCheck::Table: return checkTable(lesson, board);
         case LessonCheck::Sequence: return checkSequence(lesson, board);
-        case LessonCheck::Program: return checkProgram(lesson, board, chips);
+        case LessonCheck::Program: return lesson.mips ? checkMips(lesson, board) : checkProgram(lesson, board, chips);
         case LessonCheck::Answer: return {false, "Responda as perguntas na tela."};
     }
     return {};

@@ -88,7 +88,8 @@ inline constexpr int kTraceStages = 6;
 inline constexpr const char* kTraceStageNames[kTraceStages] = {"Busca", "Decodifica", "Executa", "Memória", "Escreve", "Próximo PC"};
 
 // What happens in one of those steps, in a sentence with the instruction's own values.
-std::string explainStage(const InstructionTrace& trace, int stage);
+// The numbers in decimal, or in hexadecimal when hex is set (the word from the ROM is always in hexadecimal).
+std::string explainStage(const InstructionTrace& trace, int stage, bool hex = false);
 
 // The parts of the diagram an instruction uses, one bit each.
 enum Block : unsigned { kBlockPc, kBlockRom, kBlockDecoder, kBlockControl, kBlockRegisters, kBlockAlu, kBlockRam, kBlockOutput, kBlockSwitches };

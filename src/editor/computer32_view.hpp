@@ -92,6 +92,7 @@ Trace32 traceInstruction32(std::uint32_t word, std::uint32_t pc, const std::arra
 Trace32 traceInstruction32(const Computer32State& state);
 
 // What happens in one of the six steps, in a sentence or three with the instruction's own values.
-std::string explainStage32(const Trace32& trace, int stage);
+// The numbers in decimal, or in hexadecimal when hex is set (the word from the ROM is always in hexadecimal).
+std::string explainStage32(const Trace32& trace, int stage, bool hex = false);
 
 }  // namespace bancada::editor

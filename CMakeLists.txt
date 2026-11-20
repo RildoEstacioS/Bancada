@@ -57,6 +57,7 @@ target_include_directories(bancada_asm PUBLIC src)
 target_link_libraries(bancada_asm PUBLIC bancada_i18n PRIVATE bancada_warnings)
 
 add_library(bancada_editor STATIC
+    src/editor/architecture.cpp
     src/editor/board.cpp
     src/editor/boxes.cpp
     src/editor/computer16.cpp
@@ -129,6 +130,14 @@ add_test(NAME mips COMMAND bancada_mips_tests)
 add_executable(bancada_cpu32_tests tests/cpu32_tests.cpp)
 target_link_libraries(bancada_cpu32_tests PRIVATE bancada_editor bancada_warnings)
 add_test(NAME cpu32 COMMAND bancada_cpu32_tests)
+
+add_executable(bancada_architecture_tests tests/architecture_tests.cpp)
+target_link_libraries(bancada_architecture_tests PRIVATE bancada_editor bancada_warnings)
+add_test(NAME architecture COMMAND bancada_architecture_tests)
+
+add_executable(bancada_datapath_tests tests/datapath_tests.cpp)
+target_link_libraries(bancada_datapath_tests PRIVATE bancada_editor bancada_warnings)
+add_test(NAME datapath COMMAND bancada_datapath_tests)
 
 add_executable(bancada_lesson_tests tests/lesson_tests.cpp)
 target_link_libraries(bancada_lesson_tests PRIVATE bancada_editor bancada_warnings)

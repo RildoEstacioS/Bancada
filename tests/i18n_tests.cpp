@@ -1,10 +1,12 @@
 // The languages: the catalog covers what a player reads, and the translations keep their blanks.
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <string_view>
 
 #include "asm/assembler.hpp"
 #include "check.hpp"
+#include "editor/architecture.hpp"
 #include "editor/board.hpp"
 #include "editor/boxes.hpp"
 #include "editor/course.hpp"
@@ -76,7 +78,10 @@ TEST(the_lessons_are_all_in_english) {
     for (const LessonAct& act : lessonActs()) {
         missing.need(act.title);
         missing.need(act.line);
-        for (const char* planned : act.planned) missing.need(planned);
+        for (const PlannedTopic& planned : act.planned) {
+            missing.need(planned.title);
+            missing.need(planned.line);
+        }
     }
     for (const Lesson& lesson : lessons()) {
         missing.need(lesson.title);
@@ -127,6 +132,21 @@ TEST(the_gallery_parts_and_boxes_are_all_in_english) {
     }
     if (!list.empty()) std::printf("  missing:%s\n", list.c_str());
     CHECK(list.empty());
+}
+
+// "Por dentro": every frame's name, the chips', the boxes' and the pieces inside them.
+TEST(the_computers_inside_are_in_english) {
+    Missing missing;
+    static constexpr std::string_view kSame[] = {"ROM", "RAM", "Flip-flop D", "MUX 2:1"};
+    for (const Architecture& plan : {architecture16(), architecture32()}) {
+        for (const ArchFrame& frame : plan.frames) {
+            if (std::find(std::begin(kSame), std::end(kSame), frame.label) == std::end(kSame) && missing.list.find(frame.label) == std::string::npos) {
+                missing.need(frame.label);
+            }
+        }
+    }
+    if (!missing.list.empty()) std::printf("  missing:%s\n", missing.list.c_str());
+    CHECK(missing.list.empty());
 }
 
 // A ROM's program is shown in the chosen language, with the words assembled from the Portuguese: the

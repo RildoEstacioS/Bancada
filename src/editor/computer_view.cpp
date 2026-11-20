@@ -234,9 +234,10 @@ InstructionTrace traceInstruction(const ComputerState& state) {
             break;
         case kOpBeq:
         case kOpBne: {
-            // "BNE R1, R0" compares R1 with R0: read in the order they're written.
-            readA(f.rd);
-            readB(f.rs);
+            // As the circuit reads them: port A always takes the rs field, and port B, switched by LeRd, the rd
+            // field. In "BNE R1, R2" the assembler writes R1 in rd and R2 in rs, so A holds R2 and B holds R1.
+            readA(f.rs);
+            readB(f.rd);
             immediate(imm6, "imm6");
             alu(t.valueA, t.valueB, static_cast<std::uint16_t>(t.valueA - t.valueB), "\xE2\x88\x92");
             t.branches = true;
@@ -295,33 +296,49 @@ std::string hexWord(std::uint16_t value) {
 
 }  // namespace
 
-std::string explainStage(const InstructionTrace& t, int stage) {
+// The ALU's operation by the name the instructions give it, as its control line carries it.
+std::string aluName(const InstructionTrace& t) {
+    static constexpr const char* kNames[] = {"AND", "OR", "XOR", "ADD", "SUB", "NOT", "SHL", "SHR"};
+    unsigned code = kAdd;
+    if (t.op == kOpAlu) code = t.func;
+    if (t.op == kOpBeq || t.op == kOpBne) code = kSub;
+    return kNames[code & 7u];
+}
+
+std::string explainStage(const InstructionTrace& t, int stage, bool hex) {
     using WriteBack = InstructionTrace::WriteBack;
     using Next = InstructionTrace::Next;
     using i18n::format;
     using i18n::tr;
     using std::to_string;
     const auto r = [](unsigned index) { return "R" + to_string(index); };
+    // A value on a wire, in the base the X-ray is showing: the fields' numbers (op, rd) stay in decimal.
+    const auto n = [hex](unsigned value) { return hex ? "0x" + hexWord(static_cast<std::uint16_t>(value)) : to_string(value); };
+    const auto sn = [hex](std::uint16_t value) { return hex ? "0x" + hexWord(value) : signedText(value); };
+    const auto opnd = [hex](std::uint16_t value) { return hex ? "0x" + hexWord(value) : operand(value); };
     const auto join = [](const std::vector<std::string>& parts, const char* between) {
         std::string all;
         for (std::size_t i = 0; i < parts.size(); ++i) all += std::string(i == 0 ? "" : between) + parts[i];
         return all;
     };
     const bool storesResult = t.op == kOpAlu || t.op == kOpAddi || t.op == kOpLi || t.op == kOpLui || t.op == kOpLd || t.op == kOpIn;
-    const std::string immediateText = std::string(t.immediateField) == "imm6" ? signedText(t.immediate) : to_string(t.immediate);
+    const std::string immediateText = std::string(t.immediateField) == "imm6" ? sn(t.immediate) : n(t.immediate);
     switch (stage) {
         case 0:
-            return format("O PC vale {}: é o endereço da instrução atual. A ROM, onde o programa fica gravado, entrega a palavra desse endereço, {} "
-                          "(16 bits, escritos em hexadecimal), que é {}. Ao mesmo tempo, o somador PC + 1 calcula {}, o endereço da instrução seguinte.",
-                          {to_string(t.pc), hexWord(t.word), t.text, to_string(t.pcPlusOne)});
+            // Fetching, the CPU only has a number: what instruction it is, the decoder finds out in the next step.
+            return format("O PC vale {}: é o endereço da instrução atual. A ROM, onde o programa fica gravado, entrega a palavra desse endereço: "
+                          "0x{}, os 16 bits da faixa acima, escritos em hexadecimal. Por enquanto é só um número; que instrução ele é, o "
+                          "decodificador descobre na próxima etapa. Ao mesmo tempo, o somador PC + 1 calcula {}, o endereço da instrução seguinte.",
+                          {n(t.pc), hexWord(t.word), n(t.pcPlusOne)});
         case 1: {
             if (t.notAnInstruction) {
                 return format("Os 4 bits de cima da palavra, o campo op, valem {}. Nenhuma instrução usa esse código: o controle não liga nada, "
                               "e o computador só passa para o endereço seguinte.",
                               {to_string(t.op)});
             }
-            // What each field of the word says.
-            std::vector<std::string> fields{format("op = {} diz qual é a instrução: {}", {to_string(t.op), t.name})};
+            // What each field of the word says. The decoder itself knows nothing: it's only wires, each field to
+            // its own place.
+            std::vector<std::string> fields{format("op = {}, o código da instrução", {to_string(t.op)})};
             if (storesResult) fields.push_back(format("rd = {} diz quem recebe o resultado: {}", {to_string(t.rd), r(t.rd)}));
             if (t.readsA && t.readsB) fields.push_back(format("os registradores lidos são {} e {}", {r(t.registerA), r(t.registerB)}));
             else if (t.readsA) fields.push_back(format("o registrador lido é {}", {r(t.registerA)}));
@@ -329,36 +346,41 @@ std::string explainStage(const InstructionTrace& t, int stage) {
                 fields.push_back(format("{} = {} é o imediato: um número escrito dentro da própria instrução ({}), não guardado num registrador",
                                         {t.immediateField, immediateText, t.text}));
             }
-            // And what the control turns on because of them.
+            // And what the control turns on because of them: the row its ROM has for this op, a wire per bit.
             std::vector<std::string> signals;
-            if (t.writeBack != WriteBack::None) signals.push_back(tr("escreve reg (guardar num registrador)"));
-            if (t.aluZeroesA) signals.push_back(tr("ZeraA (o MUX A manda 0 para a ULA)"));
-            if (t.aluTakesImmediate) signals.push_back(tr("UsaImm (a ULA recebe o número da instrução)"));
+            if (t.usesAlu) signals.push_back(format("OpULA = {} (a conta que a ULA vai fazer)", {aluName(t)}));
+            if (t.writeBack != WriteBack::None) signals.push_back(tr("RegEsc = 1 (guardar num registrador)"));
+            if (t.aluZeroesA) signals.push_back(tr("ZeraA = 1 (o MUX A manda 0 para a ULA)"));
+            if (t.aluTakesImmediate) signals.push_back(tr("UsaImm = 1 (a ULA recebe o número da instrução)"));
+            if (t.usesImmediate && t.op != kOpJmp && t.op != kOpCall) signals.push_back(format("QualImm = {} (que número o extensor entrega)", {t.immediateField}));
             if (t.readsMemory) signals.push_back(tr("lê RAM"));
-            if (t.writesMemory) signals.push_back(tr("grava RAM"));
+            if (t.writesMemory) signals.push_back(tr("MemEsc = 1 (grava na RAM)"));
             if (t.branches) signals.push_back(tr(t.op == kOpBeq ? "desvia se forem iguais" : "desvia se forem diferentes"));
             if (t.next == Next::Jump) signals.push_back(tr("pula para imm12"));
             if (t.next == Next::Register) signals.push_back(format("pula para o endereço em {}", {r(t.registerA)}));
-            if (t.shows) signals.push_back(tr("mostra na saída"));
+            if (t.shows) signals.push_back(tr("SaiEsc = 1 (mostra na saída)"));
             if (t.writeBack == WriteBack::Switches) signals.push_back(tr("lê as chaves"));
             if (t.halts) signals.push_back(tr("para o clock"));
             const std::string control = signals.empty() ? tr("O controle não liga nenhum sinal.")
-                                                        : format("Com isso, o controle liga: {}.", {join(signals, ", ")});
-            return format("A palavra é cortada em campos: {}.", {join(fields, "; ")}) + " " + control;
+                                                        : format("Cada bit da linha é um fio azul que sai do Controle: {}.", {join(signals, ", ")});
+            return format("O decodificador não sabe que instrução é: ele só corta a palavra em campos, com fios: {}. O op vai ao Controle, que "
+                          "guarda uma ROM com uma linha para cada op: a linha {} é a do {}.",
+                          {join(fields, "; "), to_string(t.op), t.name}) +
+                   " " + control;
         }
         case 2:
             if (t.shows) {
                 return format("OUT não faz conta: a ULA fica parada. {} vale {}, e esse valor vai direto para o registrador de saída, que o guarda e "
                               "mostra até o próximo OUT.",
-                              {r(t.registerA), to_string(t.valueA)});
+                              {r(t.registerA), n(t.valueA)});
             }
             if (t.branches) {
-                return format("Para comparar, a ULA subtrai: {} ({}) − {} ({}) = {}. ",
-                              {r(t.registerA), to_string(t.aluA), r(t.registerB), to_string(t.aluB), signedText(t.aluResult)}) +
+                return format("Para comparar, a ULA subtrai, porque o Controle mandou OpULA = SUB: {} ({}) − {} ({}) = {}. ",
+                              {r(t.registerA), n(t.aluA), r(t.registerB), n(t.aluB), sn(t.aluResult)}) +
                        tr(t.aluResult == 0 ? "Deu zero, então os dois são iguais. O sinal Z = 1 desce até o Controle, que o junta com o tipo de desvio (BEQ desvia se Z = 1, BNE se "
-                                           "Z = 0) e manda o MUX do Próximo PC desviar ou não."
+                                           "Z = 0) e calcula o sinal Desvia, que o MUX do Próximo PC só usa na última etapa."
                                            : "Não deu zero, então os dois são diferentes. O sinal Z = 0 desce até o Controle, que o junta com o tipo de desvio (BEQ desvia se Z = 1, "
-                                           "BNE se Z = 0) e manda o MUX do Próximo PC desviar ou não.");
+                                           "BNE se Z = 0) e calcula o sinal Desvia, que o MUX do Próximo PC só usa na última etapa.");
             }
             if (!t.usesAlu) {
                 if (t.writeBack == WriteBack::Switches || t.op == kOpIn) return tr("IN não faz conta: a ULA fica parada. O valor vem das chaves, na etapa Escreve.");
@@ -366,53 +388,54 @@ std::string explainStage(const InstructionTrace& t, int stage) {
             }
             if (t.aluZeroesA) {
                 return format("Para pôr um número num registrador, o controle liga ZeraA: o MUX A deixa passar o 0 fixo em vez de um registrador. E liga "
-                              "UsaImm: o MUX B deixa passar o número da instrução, {}. A ULA soma 0 + {} = {}: o número passa direto.",
-                              {to_string(t.aluB), to_string(t.aluB), to_string(t.aluResult)});
+                              "UsaImm: o MUX B deixa passar o número da instrução, {}. Com OpULA = ADD, a ULA soma 0 + {} = {}: o número passa direto.",
+                              {n(t.aluB), n(t.aluB), n(t.aluResult)});
             }
             if (t.func >= kNot && t.op == kOpAlu) {
-                return format("A entrada A da ULA recebe {} ({}). Só ela importa: o controle manda a ULA fazer {}, e o resultado é {}.",
-                              {r(t.registerA), to_string(t.aluA), t.aluOperation, to_string(t.aluResult)});
+                return format("A entrada A da ULA recebe {} ({}). Só ela importa: o controle manda a ULA fazer {}, pelo fio OpULA = {}, e o resultado é {}.",
+                              {r(t.registerA), n(t.aluA), t.aluOperation, aluName(t), n(t.aluResult)});
             }
             {
                 std::string text =
                     t.aluTakesImmediate
                         ? format("A entrada A da ULA recebe {} ({}). A entrada B recebe o número da instrução, {}, porque o controle ligou UsaImm no "
                                  "MUX B. A ULA calcula {} {} {} = {}.",
-                                 {r(t.registerA), to_string(t.aluA), signedText(t.aluB), to_string(t.aluA), t.aluOperation, operand(t.aluB),
-                                  to_string(t.aluResult)})
+                                 {r(t.registerA), n(t.aluA), sn(t.aluB), n(t.aluA), t.aluOperation, opnd(t.aluB),
+                                  n(t.aluResult)})
                         : format("A entrada A da ULA recebe {} ({}) e a entrada B recebe {} ({}): UsaImm está desligado, então o MUX B deixa passar o "
                                  "registrador. A ULA calcula {} {} {} = {}.",
-                                 {r(t.registerA), to_string(t.aluA), r(t.registerB), to_string(t.aluB), to_string(t.aluA), t.aluOperation,
-                                  to_string(t.aluB), to_string(t.aluResult)});
+                                 {r(t.registerA), n(t.aluA), r(t.registerB), n(t.aluB), n(t.aluA), t.aluOperation,
+                                  n(t.aluB), n(t.aluResult)});
+                text += " " + format("Que conta fazer, a ULA não sabe sozinha: o Controle manda pelo fio OpULA = {}.", {aluName(t)});
                 if (t.readsMemory || t.writesMemory) text += std::string(" ") + tr("Esse resultado não vai para um registrador: é o endereço na RAM.");
                 return text;
             }
         case 3:
             if (t.readsMemory) {
                 return format("O resultado da ULA, {}, é o endereço. O controle liga \"lê RAM\", e a RAM entrega o valor guardado nesse endereço: {}.",
-                              {to_string(t.address), to_string(t.memoryValue)});
+                              {n(t.address), n(t.memoryValue)});
             }
             if (t.writesMemory) {
                 return format("O resultado da ULA, {}, é o endereço. O controle liga \"grava RAM\", e a RAM guarda nesse endereço o valor de {}: {}.",
-                              {to_string(t.address), r(t.registerB), to_string(t.memoryValue)});
+                              {n(t.address), r(t.registerB), n(t.memoryValue)});
             }
             return tr("Esta instrução não usa a memória: a RAM fica parada. Só LD (ler) e ST (gravar) usam a RAM.");
         case 4:
             switch (t.writeBack) {
                 case WriteBack::Alu:
                     return format("O MUX \"o que volta\" escolhe a saída da ULA, e o controle liga \"escreve reg\": no fim do ciclo, {} recebe {}.",
-                                  {r(t.writtenRegister), to_string(t.writtenValue)});
+                                  {r(t.writtenRegister), n(t.writtenValue)});
                 case WriteBack::Memory:
                     return format("O MUX \"o que volta\" escolhe o que veio da RAM, e o controle liga \"escreve reg\": no fim do ciclo, {} recebe {}.",
-                                  {r(t.writtenRegister), to_string(t.writtenValue)});
+                                  {r(t.writtenRegister), n(t.writtenValue)});
                 case WriteBack::Link:
                     return format("O MUX \"o que volta\" escolhe PC+1, e R7 guarda {}: o endereço da instrução logo depois deste CALL. Quando a "
                                   "sub-rotina acabar, JR R7 volta para lá.",
-                                  {to_string(t.writtenValue)});
+                                  {n(t.writtenValue)});
                 case WriteBack::Switches:
                     return format("O MUX \"o que volta\" escolhe as chaves, e o controle liga \"escreve reg\": {} recebe {}, o número que as chaves "
                                   "formam.",
-                                  {r(t.writtenRegister), to_string(t.writtenValue)});
+                                  {r(t.writtenRegister), n(t.writtenValue)});
                 case WriteBack::None: break;
             }
             if (storesResult) return tr("O destino é R0, que vale sempre 0: o controle não liga \"escreve reg\", e nada muda.");
@@ -420,22 +443,22 @@ std::string explainStage(const InstructionTrace& t, int stage) {
         default:
             switch (t.next) {
                 case Next::Branch:
-                    return format("O desvio é tomado ({}): o MUX do Próximo PC escolhe o Alvo do desvio em vez de PC + 1. O PC recebe {} + {} = {}.",
-                                  {tr(t.aluResult == 0 ? "os dois são iguais" : "os dois são diferentes"), to_string(t.pcPlusOne), operand(t.immediate),
-                                   to_string(t.nextPc)});
+                    return format("O desvio é tomado ({}): com Desvia = 1, o MUX do Próximo PC escolhe o Alvo do desvio em vez de PC + 1. O PC recebe {} + {} = {}.",
+                                  {tr(t.aluResult == 0 ? "os dois são iguais" : "os dois são diferentes"), n(t.pcPlusOne), opnd(t.immediate),
+                                   n(t.nextPc)});
                 case Next::Jump:
                     return format("O PC recebe {}, o número imm12 escrito na própria instrução: a próxima instrução vem desse endereço.",
-                                  {to_string(t.nextPc)});
+                                  {n(t.nextPc)});
                 case Next::Register:
-                    return format("O PC recebe {}, o valor guardado em {}: a próxima instrução vem desse endereço.", {to_string(t.nextPc), r(t.registerA)});
-                case Next::Stay: return format("HLT: o PC continua em {} e o clock para. O programa acabou.", {to_string(t.nextPc)});
+                    return format("O PC recebe {}, o valor guardado em {}: a próxima instrução vem desse endereço.", {n(t.nextPc), r(t.registerA)});
+                case Next::Stay: return format("HLT: o PC continua em {} e o clock para. O programa acabou.", {n(t.nextPc)});
                 case Next::Plain: break;
             }
             if (t.branches) {
-                return format("O desvio não é tomado ({}): o MUX do Próximo PC escolhe PC + 1, e o PC recebe {}, a instrução seguinte.",
-                              {tr(t.aluResult == 0 ? "os dois são iguais" : "os dois são diferentes"), to_string(t.nextPc)});
+                return format("O desvio não é tomado ({}): com Desvia = 0, o MUX do Próximo PC escolhe PC + 1, e o PC recebe {}, a instrução seguinte.",
+                              {tr(t.aluResult == 0 ? "os dois são iguais" : "os dois são diferentes"), n(t.nextPc)});
             }
-            return format("O MUX do Próximo PC escolhe PC + 1: o PC recebe {}, o endereço seguinte.", {to_string(t.nextPc)});
+            return format("O MUX do Próximo PC escolhe PC + 1: o PC recebe {}, o endereço seguinte.", {n(t.nextPc)});
     }
 }
 
