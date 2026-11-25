@@ -131,6 +131,9 @@ public:
     Mode mode() const { return mode_; }
     const Board& board() const { return preview_ ? *preview_ : board_; }
     const BoardCircuit& circuit() const { return *circuit_; }
+    // Flips the switch under the board point (x, y), as a click on it would, and does nothing else: no wire is
+    // started, nothing is selected or moved. For figures, where the board is only to be played with.
+    bool flipToggleAt(float x, float y);
     bool toggleOn(PartId toggle) const;
     std::uint64_t toggleValue(PartId toggle) const;
 

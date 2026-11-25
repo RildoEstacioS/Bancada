@@ -1,5 +1,6 @@
 #include "editor/gallery.hpp"
 
+#include <algorithm>
 #include <string_view>
 
 #include "asm/assembler.hpp"
@@ -295,6 +296,40 @@ const std::vector<const char*>& galleryGroups() {
 const std::vector<GalleryItem>& galleryItems() {
     static const std::vector<GalleryItem> items = makeItems();
     return items;
+}
+
+PartInside galleryInsideOf(const Part& part) {
+    if (!isGate(part.kind) && part.kind != PartKind::Box) return {};
+    // Which part each example's first version is about, worked out once: the one gate or box on its board.
+    struct Shown {
+        PartKind kind;
+        BoxId box;
+        std::size_t item;
+    };
+    static const std::vector<Shown> shown = [] {
+        std::vector<Shown> out;
+        const std::vector<GalleryItem>& items = galleryItems();
+        for (std::size_t i = 0; i < items.size(); ++i) {
+            if (items[i].versions.size() < 2) continue;
+            const GalleryProject first = items[i].versions[0].build();
+            const Part* core = nullptr;
+            int cores = 0;
+            for (const Part& p : first.board.parts()) {
+                if (isGate(p.kind) || p.kind == PartKind::Box) {
+                    core = &p;
+                    ++cores;
+                }
+            }
+            if (cores != 1) continue;
+            const bool seen = std::any_of(out.begin(), out.end(), [&](const Shown& s) { return s.kind == core->kind && s.box == core->box; });
+            if (!seen) out.push_back({core->kind, core->box, i});
+        }
+        return out;
+    }();
+    for (const Shown& s : shown) {
+        if (s.kind == part.kind && (part.kind != PartKind::Box || s.box == part.box)) return {&galleryItems()[s.item], 1};
+    }
+    return {};
 }
 
 GalleryProject buildGalleryItem(const GalleryItem& item, std::size_t version) {

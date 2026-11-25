@@ -231,6 +231,29 @@ TheoryFigure hexProbes() {
     return figure;
 }
 TheoryFigure nandOfTransistors() { return fromGallery("nand", 1, {"A"}); }
+TheoryFigure andOfTransistors() { return fromGallery("e", 1, {"A"}); }
+TheoryFigure orOfTransistors() { return fromGallery("ou", 1, {"A"}); }
+
+// The CMOS inverter: a PMOS from 5V to the output, an NMOS from the output to ground, both gates on A.
+TheoryFigure cmosInverter() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const PartId a = l.input("A", {0, 6});
+    const PartId p = l.part(PartKind::Pmos, {12, 0});
+    const PartId n = l.part(PartKind::Nmos, {12, 10});
+    const PartId out = l.output("S", {26, 8});
+    const PartId ground = l.part(PartKind::Ground, {14, 17});
+    l.wire(a, 0u, p, 0u);
+    l.wire(a, 0u, n, 0u);
+    l.wire(p, 2u, n, 1u);
+    l.wire(n, 2u, ground, 0u);
+    l.wire(p, 2u, out, 0u);
+    const PartId battery = l.part(PartKind::Battery, {22, -8});
+    l.wire(battery, 0u, p, 1u);
+    const PartId otherGround = l.part(PartKind::Ground, {30, -6});
+    l.wire(battery, 1u, otherGround, 0u);
+    return figure;
+}
 
 // The six basic gates, each with its own A and B, all with A on and B off.
 TheoryFigure gateSymbols() {
@@ -650,8 +673,8 @@ std::vector<Topic> makeTopics() {
              "de chaves que se comandam umas às outras: cada uma delas é um transistor.\n?Pense nas chaves do Ato 1: quem as "
              "mexia?"},
             {K::Page, "As três pernas do NPN"},
-            {K::Table, "Perna|O que faz\nBase (B)|a entrada de comando: uma corrente pequena aqui liga o transistor\nColetor (C)|por "
-             "onde entra a corrente grande, a da carga (o LED)\nEmissor (E)|por onde as duas correntes saem, em direção ao "
+            {K::Table, "Perna|O que faz\n@npn:B Base (B)|a entrada de comando: uma corrente pequena aqui liga o transistor\n@npn:C Coletor (C)|por "
+             "onde entra a corrente grande, a da carga (o LED)\n@npn:E Emissor (E)|por onde as duas correntes saem, em direção ao "
              "terra"},
             {K::Text, "No transistor NPN, o tipo usado aqui, a seta do símbolo fica no emissor e aponta para fora. Quando a base "
              "recebe corrente, mesmo pouca, o caminho entre o coletor e o emissor se abre e a corrente da carga passa. Sem "
@@ -675,6 +698,17 @@ std::vector<Topic> makeTopics() {
              "o transistor esquenta e queima. Sempre um resistor na base."},
             {K::Mistake, "Achar que a corrente do LED passa pela chave\nA chave só leva a corrente pequena da base. A corrente do LED "
              "vai do 5V ao terra pelo coletor e pelo emissor. É isso que deixa um sinal fraco comandar uma carga forte."},
+            {K::Page, "Da válvula ao chip"},
+            {K::Text, "Os primeiros computadores, nos anos 1940, usavam válvulas: tubos de vidro que esquentavam, gastavam muita "
+             "energia e queimavam. O transistor fez a mesma coisa menor, mais frio e mais confiável. Depois veio o circuito "
+             "integrado: muitos transistores e as ligações entre eles fabricados juntos, num pedaço só de silício, o chip."},
+            {K::Table, "Época|Peça|Quantos por chip\nanos 1940|válvula|uma por vez\nanos 1950|transistor avulso|um por peça\nanos "
+             "1960|circuito integrado pequeno|dezenas\nanos 1970|microprocessador|milhares\nhoje|processador|bilhões"},
+            {K::Text, "Em 1965, Gordon Moore, que depois fundou a Intel, notou que o número de transistores num chip dobrava a cada "
+             "ano ou dois. Essa lei de Moore valeu por décadas: transistores menores ficam mais perto, trocam mais rápido e "
+             "gastam menos."},
+            {K::Question, "Se um chip tem 1000 transistores e o número dobra a cada dois anos, quantos terá depois de seis anos?\n3000\n"
+             "6000\n*8000\n=Seis anos são três dobras: 1000, 2000, 4000, 8000.\n?Quantas vezes dois anos cabem em seis?"},
             {K::Summary, "O transistor é uma chave comandada por um sinal elétrico.\nNPN: corrente na base liga o caminho do coletor "
              "para o emissor.\nA base sempre leva um resistor, de alguns kΩ.\nUma corrente pequena comanda uma grande: o "
              "sinal não carrega a carga."},
@@ -683,74 +717,50 @@ std::vector<Topic> makeTopics() {
     });
 
     all.push_back(Topic{
-        "portas-de-transistores",
+        "mosfet-e-cmos",
         1,
-        "0 e 1 como tensões: o inversor",
-        "O bit vira tensão, e um transistor faz a primeira porta",
+        "MOSFET e CMOS: o transistor dos chips",
+        "Comandado por tensão: NMOS, PMOS e o par que forma o inversor CMOS",
         {
-            {K::Page, "0 e 1 viram tensões"},
-            {K::Text, "Dentro de um circuito digital só existem dois valores. Perto de 0 V vale 0: desligado, falso. Perto de 5 V "
-             "vale 1: ligado, verdadeiro. Cada um desses valores é um bit. Uma porta lógica é um circuito que recebe bits e "
-             "entrega outro bit, seguindo uma regra."},
-            {K::Text, "Perto quer dizer com folga: 0,2 V ainda é 0, e 4,8 V ainda é 1. Essa folga é o que deixa o digital robusto: um "
-             "pouco de ruído no fio não muda o bit."},
-            {K::Question, "Num circuito de 5 V, uma saída mede 4,7 V. Que bit ela é?\n0\n*1\nNenhum dos dois\n=4,7 V está perto de 5 V: é "
-             "1. O digital tem folga justamente para isso.\n?De qual dos dois extremos ela está perto?"},
-            {K::Page, "O inversor: a porta NÃO"},
-            {K::Text, "Ligue a saída S no 5 V por um resistor e ponha um transistor entre S e o terra. Com a entrada A em 0, o "
-             "transistor fica desligado e o resistor puxa S para 5 V: S vale 1. Com A em 1, o transistor liga e puxa S para "
-             "perto de 0 V: S vale 0. A saída é sempre o contrário da entrada."},
-            {K::Text, "Esse resistor, que puxa para cima quando ninguém puxa para baixo, se chama resistor de pull-up."},
-            {K::Figure, "O inversor feito de um transistor. Clique na chave A e veja S fazer o contrário.", notOfTransistor, 240},
-            {K::Table, "A|S = NÃO A\n0|1\n1|0"},
-            {K::Example, "Seguindo o inversor\nA = 0: a base não recebe corrente, e o transistor fica desligado.\nSem caminho para o "
-             "terra, nenhuma corrente passa no pull-up, e ele não perde tensão: S fica com 5 V, ou seja, 1.\nA = 1: a base "
-             "recebe corrente e o transistor liga, ligando S ao terra.\nAgora a corrente passa pelo pull-up e o transistor, "
-             "e S cai para perto de 0 V: 0."},
-            {K::Question, "No inversor, com A em 1, onde está S?\nPerto de 5 V\n*Perto de 0 V\nNo meio, 2,5 V\n=Com A em 1 o transistor "
-             "liga e puxa S para o terra: S vale 0.\n?Com A em 1, o transistor está ligado ou desligado?"},
-            {K::Mistake, "Esquecer o resistor de pull-up\nSem ele, com o transistor desligado, nada liga S ao 5 V: S fica solto, sem "
-             "valor definido. O pull-up garante o 1 quando ninguém puxa para baixo."},
-            {K::Summary, "No digital, perto de 0 V é 0 e perto de 5 V é 1, com folga.\nUma porta lógica recebe bits e entrega um bit, "
-             "seguindo uma regra.\nO inversor: um transistor puxa S para o terra, e o pull-up puxa S para 5 V quando o "
-             "transistor está desligado.\nS é sempre o contrário de A: é a porta NÃO."},
+            {K::Page, "Outro tipo de transistor"},
+            {K::Text, "O NPN da aula anterior é um transistor bipolar: quem o liga é uma corrente na base. Os chips de hoje usam "
+             "outro tipo, o MOSFET. Ele também tem três pernas, a porta (G, de gate), o dreno (D) e a fonte (S, de source), "
+             "mas quem o liga é uma tensão na porta, não uma corrente."},
+            {K::Text, "A porta do MOSFET é separada do resto por uma camada finíssima de óxido, um isolante. Por isso quase nenhuma "
+             "corrente entra por ela: basta pôr a tensão, e o transistor obedece. É como um interruptor que se aperta sem "
+             "gastar força para mantê-lo apertado."},
+            {K::Table, "Tipo|Conduz quando...|Comandado por\n@npn NPN|entra corrente na base|corrente\n@pnp PNP|sai corrente da "
+             "base|corrente\n@nmos NMOS|a porta está em 1, perto de 5 V|tensão\n@pmos PMOS|a porta está em 0, perto de 0 "
+             "V|tensão"},
+            {K::Question, "O que liga um MOSFET?\nUma corrente na porta\n*Uma tensão na porta\nUma corrente no dreno\n=A porta é "
+             "isolada: quase não entra corrente. Quem manda é a tensão nela.\n?A porta é separada do resto por um isolante."},
+            {K::Page, "NMOS e PMOS: um o contrário do outro"},
+            {K::Text, "A NMOS conduz quando a porta está em 1 e corta com a porta em 0, parecida com o NPN. A PMOS faz o contrário: "
+             "conduz com a porta em 0 e corta com a porta em 1. No símbolo, a PMOS tem uma bolinha na porta, a mesma "
+             "bolinha de invertido das portas lógicas."},
+            {K::Mistake, "Deixar a porta solta\nUma porta que não está ligada a nada não está em 0: fica com uma tensão qualquer, e o "
+             "transistor pode ligar sozinho. Quando a chave está aberta, um resistor da porta até o terra, o resistor de "
+             "pull-down, garante o 0."},
+            {K::Page, "CMOS: os dois juntos"},
+            {K::Text, "Ponha uma PMOS entre o 5 V e a saída, e uma NMOS entre a saída e o terra, com as duas portas no mesmo sinal "
+             "A. Com A em 0, a PMOS conduz e a NMOS corta: a saída vai a 5 V. Com A em 1 é o contrário, e a saída vai ao "
+             "terra. É um inversor, e sem resistor de pull-up."},
+            {K::Figure, "O inversor CMOS: a PMOS em cima, a NMOS embaixo, as duas portas em A. Clique em A e veja S fazer o contrário.", cmosInverter, 220},
+            {K::Example, "Seguindo o inversor CMOS\nA = 0: a porta da PMOS está em 0, e ela conduz. A porta da NMOS está em 0, e ela "
+             "corta.\nA saída fica ligada ao 5 V pela PMOS: S = 1.\nA = 1: agora a NMOS conduz e a PMOS corta, e a saída "
+             "fica ligada ao terra: S = 0.\nNos dois casos, um dos transistores está cortado: não há caminho direto do 5 V "
+             "ao terra."},
+            {K::Text, "Isso faz toda a diferença. O inversor de NPN com pull-up gasta energia o tempo todo em que a saída está em 0, "
+             "porque a corrente atravessa o resistor até o terra. O CMOS quase só gasta na hora de trocar de estado. É por "
+             "isso que todo processador moderno é feito em CMOS, com bilhões de pares assim, e não esquenta como "
+             "esquentaria com resistores."},
+            {K::Question, "No inversor CMOS com A em 1, qual transistor conduz?\nA PMOS\n*A NMOS\nOs dois\n=A NMOS conduz com a porta em "
+             "1 e puxa a saída para o terra; a PMOS corta.\n?A PMOS é a que tem a bolinha: ela conduz com 0."},
+            {K::Summary, "O MOSFET é comandado por tensão: a porta é isolada e quase não puxa corrente.\nNMOS conduz com a porta em 1; "
+             "PMOS, com a porta em 0.\nUma porta solta não vale 0: use um resistor de pull-down.\nCMOS: uma PMOS em cima e "
+             "uma NMOS embaixo fazem um inversor que quase não gasta energia parado.\nTodo processador de hoje é CMOS."},
         },
-        {"inversor"},
-    });
-
-    all.push_back(Topic{
-        "nand-e-nor",
-        1,
-        "NAND e NOR de transistores",
-        "Dois transistores em série ou em paralelo",
-        {
-            {K::Page, "Em série: a NAND"},
-            {K::Text, "Ponha dois transistores em série entre S e o terra, com o pull-up em cima. S só vai a 0 quando os dois ligam "
-             "juntos, quando A E B valem 1: só então existe um caminho até o terra. Em qualquer outro caso, o pull-up mantém "
-             "S em 1."},
-            {K::Text, "É um E com a saída invertida: a porta NAND, NÃO-E. São as chaves em série do Ato 1, agora comandadas por "
-             "sinais e puxando a saída para baixo."},
-            {K::Figure, "A NAND de transistores. Clique em A e em B: só com os dois ligados S vai a 0.", nandOfTransistors, 260},
-            {K::Question, "Na NAND de transistores, com A = 1 e B = 0, quanto vale S?\n*1\n0\nDepende de qual transistor está em "
-             "cima\n=Um transistor ligado sozinho não fecha o caminho até o terra: o pull-up mantém S em 1.\n?Em série, a "
-             "corrente precisa passar pelos dois."},
-            {K::Page, "Em paralelo: a NOR"},
-            {K::Text, "Com os dois transistores em paralelo, cada um num caminho próprio até o terra, basta um ligar para puxar S "
-             "para 0. S só vale 1 quando A e B valem 0. É um OU invertido: a porta NOR, NÃO-OU."},
-            {K::Table, "A|B|NAND|NOR\n0|0|1|1\n0|1|1|0\n1|0|1|0\n1|1|0|0"},
-            {K::Example, "Lendo a linha A = 0, B = 1\nNAND, em série: o transistor de A está desligado, e o caminho até o terra se "
-             "corta. O pull-up ganha: S = 1.\nNOR, em paralelo: o transistor de B está ligado e abre um caminho até o terra. "
-             "S cai: S = 0.\nPor isso, na mesma linha, a NAND dá 1 e a NOR dá 0."},
-            {K::Question, "Em quantas linhas da tabela a NOR dá 1?\n*1\n2\n3\n=Só na primeira, com A e B em 0: qualquer transistor ligado "
-             "puxa S para 0.\n?Conte os 1 da coluna NOR."},
-            {K::Mistake, "Achar que transistores em série dão um E\nDariam, se acendessem a saída. Mas aqui eles puxam S para baixo, "
-             "contra o pull-up: em série dão NÃO-E, a NAND; em paralelo, NÃO-OU, a NOR. A inversão vem de graça."},
-            {K::Tip, "Toda a lógica de um computador pode ser montada só com NAND, ou só com NOR. O Ato 4 mostra como."},
-            {K::Summary, "Dois transistores em série puxando S para baixo: NAND, que só dá 0 com A e B em 1.\nEm paralelo: NOR, que só "
-             "dá 1 com A e B em 0.\nO pull-up dá o 1; os transistores dão o 0.\nNAND e NOR são universais: com uma delas se "
-             "faz todo o resto."},
-        },
-        {"tabelas-transistores", "nand-transistores", "nor-transistores"},
+        {"nmos-chave", "inversor-cmos"},
     });
     // Act 3: bits.
     all.push_back(Topic{
@@ -764,8 +774,8 @@ std::vector<Topic> makeTopics() {
              "Ninguém precisa saber a tensão exata: basta saber se ela está alta ou baixa. Alta vale 1, baixa vale 0. Esse "
              "valor, que só pode ser 0 ou 1, é o bit (de binary digit, dígito binário): a menor informação que existe, sim "
              "ou não."},
-            {K::Figure, "O NÃO feito com um transistor, do Ato 2. Clique em A: cada fio leva um bit, e a saída é sempre o contrário da "
-             "entrada.", notOfTransistor, 220},
+            {K::Figure, "O transistor do Ato 2, desligado à esquerda e ligado à direita. Clique nas chaves: cada ponto do circuito "
+             "fica perto de 5 V ou perto de 0 V, e só isso importa.", transistorOffAndOn, 240},
             {K::Text, "Por que só dois valores? Porque alto e baixo são fáceis de distinguir mesmo com ruído, fios compridos e peças "
              "imperfeitas: 4,6 V e 5,2 V são os dois 1, e 0,1 V e 0,4 V são os dois 0. Se o fio pudesse ter dez níveis, um "
              "desvio pequeno já trocaria um número por outro."},
@@ -792,6 +802,16 @@ std::vector<Topic> makeTopics() {
              "mais..."},
             {K::Mistake, "Achar que n bits dão n combinações, ou 2 vezes n\nCada bit a mais dobra, não soma: 3 bits dão 8, não 3 nem 6. "
              "É uma multiplicação: 2 × 2 × 2."},
+            {K::Page, "Bits, bytes e palavras"},
+            {K::Text, "Os bits andam em grupos. Oito bits formam um byte, a unidade com que se medem memórias e arquivos. Quatro "
+             "bits, meio byte, às vezes se chamam nibble. E a palavra é quantos bits o computador trata de uma vez: 16 no "
+             "computador de 16 bits deste jogo, 32 no MIPS."},
+            {K::Table, "Nome|Bits|Combinações\nbit|1|2\nnibble|4|16\nbyte|8|256\npalavra de 16 bits|16|65 536\npalavra de 32 "
+             "bits|32|mais de 4 bilhões"},
+            {K::Text, "Nas memórias, os prefixos crescem em potências de 2: um quilobyte de memória são 1024 bytes, 2 elevado a 10, "
+             "e um megabyte são 1024 quilobytes."},
+            {K::Question, "Quantos bits há em 4 bytes?\n4\n16\n*32\n=Cada byte tem 8 bits: 4 × 8 = 32, uma palavra do MIPS.\n?Um byte "
+             "são 8 bits."},
             {K::Summary, "Bit: o valor de um fio, 0 (baixo) ou 1 (alto).\nDois níveis bem separados aguentam ruído: é por isso que o "
              "computador é binário.\nNo simulador: fio âmbar claro é 1, escuro é 0; a Entrada troca com um clique; a Luz "
              "acende com 1.\nn bits dão 2 elevado a n combinações."},
@@ -838,9 +858,17 @@ std::vector<Topic> makeTopics() {
              "bit.", busToLeds, 190},
             {K::Question, "No Juntador, qual ponta recebe o bit que vale 1?\n*A de cima\nA de baixo\nA do meio\n=A ponta de cima é o bit "
              "0, o que vale 1; a de baixo é o mais significativo.\n?Bit 0 é o primeiro."},
-            {K::Table, "No simulador|O que mostra\nFio âmbar claro|um bit 1\nFio âmbar escuro|um bit 0\nFio grosso azul|um barramento, "
-             "com vários bits\nAzul-claro|algum bit do barramento é 1\nAzul-escuro|todos os bits são 0\nEntrada de vários "
-             "bits|um quadradinho por bit\nSaída|o número que chega pelo barramento\nLuz|1 acesa, 0 apagada"},
+            {K::Table, "No simulador|O que mostra\n@wire1 Fio âmbar claro|um bit 1\n@wire0 Fio âmbar escuro|um bit 0\n@bus Fio grosso azul|um barramento, "
+             "com vários bits\n@bus1 Azul-claro|algum bit do barramento é 1\n@bus0 Azul-escuro|todos os bits são 0\n@input Entrada de vários "
+             "bits|um quadradinho por bit\n@probe Saída|o número que chega pelo barramento\n@led Luz|1 acesa, 0 apagada"},
+            {K::Page, "Depois da vírgula"},
+            {K::Text, "Os pesos continuam para a direita da vírgula, sempre pela metade: depois do 1 vêm 1/2, 1/4, 1/8. Assim 10,1 "
+             "em binário é 2 + 1/2 = 2,5. É o mesmo sistema posicional do decimal, onde depois da vírgula vêm décimos e "
+             "centésimos."},
+            {K::Text, "Nem toda fração cabe certinha: 0,1 em decimal vira em binário uma dízima que nunca acaba, 0,000110011... Por "
+             "isso um computador às vezes diz que 0,1 + 0,2 não dá exatamente 0,3."},
+            {K::Question, "Quanto vale 1,11 em binário?\n1,11\n1,5\n*1,75\n=1 + 1/2 + 1/4 = 1,75.\n?Depois da vírgula, os pesos são 1/2 "
+             "e 1/4."},
             {K::Summary, "Em binário cada casa vale o dobro da da direita: 1, 2, 4, 8...\nPara ler, some os pesos das casas com 1. Para "
              "escrever, tire o maior peso que cabe, até sobrar zero.\nO barramento leva vários bits num fio azul; a Saída "
              "mostra o número.\nJuntador e Separador: a ponta de cima é o bit 0."},
@@ -887,6 +915,14 @@ std::vector<Topic> makeTopics() {
              "bits.\n?Troque cada grupo de 4 bits pelo seu dígito, da esquerda para a direita."},
             {K::Mistake, "Agrupar os bits a partir da esquerda num número que não tem múltiplo de 4 bits\nOs grupos de 4 se contam a "
              "partir da direita, do bit 0: 110101 é 11 0101, ou 0x35, e não 1101 01."},
+            {K::Page, "Do decimal para o binário, por divisões"},
+            {K::Text, "Tirar o maior peso que cabe funciona bem com números pequenos. Para números grandes há um jeito mecânico: "
+             "divida o número por 2, anote o resto, e repita com o quociente até ele chegar a 0. Os restos, lidos de baixo "
+             "para cima, são os bits, do mais significativo para o menos."},
+            {K::Example, "13 em binário, por divisões\n13 ÷ 2 = 6, resto 1.\n6 ÷ 2 = 3, resto 0.\n3 ÷ 2 = 1, resto 1.\n1 ÷ 2 = 0, resto "
+             "1.\nLendo os restos de baixo para cima: 1101. Confira: 8 + 4 + 1 = 13."},
+            {K::Question, "Por divisões, qual é o primeiro resto de 6, o do bit que vale 1?\n*0\n1\n3\n=6 ÷ 2 = 3, resto 0: o bit que "
+             "vale 1 é 0. 6 é 110.\n?Um número par dividido por 2 deixa que resto?"},
             {K::Summary, "Contar é somar 1: os 1 da direita viram 0 e o primeiro 0 vira 1.\nn bits: 2 elevado a n combinações, de 0 a 2 "
              "elevado a n menos 1. Passou disso, estouro.\nHexadecimal: base 16, dígitos 0 a F, um dígito para cada 4 "
              "bits.\nA Saída do simulador mostra os números em hexadecimal."},
@@ -901,22 +937,58 @@ std::vector<Topic> makeTopics() {
         "As portas lógicas",
         "Símbolos, tabelas-verdade, expressões e as seis portas básicas",
         {
-            {K::Page, "Do transistor ao símbolo"},
-            {K::Text, "Desenhar cada transistor de um circuito grande seria impossível. Por isso cada porta tem um símbolo próprio, e "
-             "a partir daqui as portas vêm prontas na biblioteca. Por dentro elas continuam sendo transistores e resistores, "
-             "como você montou no Ato 2."},
-            {K::Table, "Porta|A saída é 1 quando...|Expressão\nE (AND)|todas as entradas são 1|S = A · B\nOU (OR)|pelo menos uma "
-             "entrada é 1|S = A + B\nNÃO (NOT)|a entrada é 0|S = NÃO A\nNAND|nem todas as entradas são 1|S = NÃO (A · "
-             "B)\nNOR|nenhuma entrada é 1|S = NÃO (A + B)\nOU exclusivo (XOR)|as entradas são diferentes|S = A XOR B"},
-            {K::Figure, "As seis portas, com as mesmas entradas A e B. Clique em A e em B e veja quais acendem. A bolinha na saída quer "
-             "dizer: invertido.", gateSymbols, 270},
+            {K::Page, "O que é uma porta lógica"},
+            {K::Text, "Uma porta lógica é um circuito que recebe um ou mais bits e entrega um bit, seguindo uma regra simples. É o "
+             "bloco de que tudo no computador é feito: somadores, memórias e a CPU inteira são portas ligadas umas nas "
+             "outras."},
+            {K::Text, "Cada porta pode ser descrita de três jeitos, e vale saber passar de um para o outro: pelo símbolo, que é como "
+             "ela aparece no desenho do circuito; pela expressão, que é como se escreve a sua conta; e pela tabela-verdade, "
+             "que lista a saída para cada combinação das entradas."},
+            {K::Table, "Porta|A saída é 1 quando...|Expressão\n@and E (AND)|todas as entradas são 1|S = A · B\n@or OU (OR)|pelo menos "
+             "uma entrada é 1|S = A + B\n@not NÃO (NOT)|a entrada é 0|S = NÃO A\n@nand NAND|nem todas as entradas são 1|S = "
+             "NÃO (A · B)\n@nor NOR|nenhuma entrada é 1|S = NÃO (A + B)\n@xor OU exclusivo (XOR)|as entradas são "
+             "diferentes|S = A XOR B"},
+            {K::Figure, "As seis portas, com as mesmas entradas A e B. Clique em A e em B e veja quais acendem. A bolinha na saída "
+             "quer dizer: invertido.", gateSymbols, 270},
             {K::Question, "Com A = 1 e B = 1, qual destas portas dá 0?\nE (AND)\nOU (OR)\n*XOR\n=O XOR só dá 1 quando as entradas são "
              "diferentes. Iguais, dá 0.\n?Qual delas quer as entradas diferentes?"},
-            {K::Page, "A álgebra das portas"},
+            {K::Page, "Uma porta de cada vez"},
+            {K::Text, "E (AND): a saída só é 1 quando todas as entradas são 1, como as chaves em série do Ato 1. OU (OR): basta uma "
+             "entrada em 1, como as chaves em paralelo. NÃO (NOT): tem uma entrada só e entrega o contrário dela; também se "
+             "chama inversor."},
+            {K::Text, "As outras três vêm dessas. A NAND é um E com a saída invertida (NÃO-E), a NOR é um OU invertido (NÃO-OU), e o "
+             "XOR, o OU exclusivo, dá 1 só quando as entradas são diferentes. No desenho, a bolinha na ponta da saída "
+             "sempre quer dizer invertido."},
+            {K::Example, "Uma linha da tabela, seis portas\nCom A = 1 e B = 0.\nE: nem todas as entradas são 1, então dá 0. A NAND "
+             "inverte: 1.\nOU: pelo menos uma é 1, então dá 1. A NOR inverte: 0.\nXOR: as entradas são diferentes, então dá "
+             "1. E o NÃO de A dá 0."},
+            {K::Mistake, "Esquecer a bolinha\nA bolinha na saída muda tudo: sem ela a porta é um E, com ela é uma NAND, e as duas "
+             "tabelas são opostas linha a linha. Antes de ler um circuito, olhe a ponta de cada porta."},
+            {K::Tip, "Na bancada, um clique duplo numa porta mostra o que há dentro dela. Mais adiante, neste ato, você mesmo monta "
+             "as portas com transistores."},
+            {K::Summary, "Uma porta recebe bits e entrega um bit, seguindo uma regra.\nCada porta tem símbolo, expressão e "
+             "tabela-verdade.\nE: todas em 1. OU: pelo menos uma em 1. NÃO: o contrário.\nNAND e NOR são o E e o OU "
+             "invertidos; o XOR quer as entradas diferentes.\nA bolinha na saída quer dizer invertido."},
+        },
+        {"portas-perguntas", "porta-e", "porta-ou", "porta-nao", "porta-nand", "porta-nor"},
+    });
+
+    all.push_back(Topic{
+        "algebra-booleana",
+        3,
+        "A álgebra das portas",
+        "Boole e Shannon, as regras das contas com 0 e 1, e portas de várias entradas",
+        {
+            {K::Page, "Contas com verdadeiro e falso"},
             {K::Text, "Em 1854, George Boole mostrou que dá para fazer contas com verdadeiro e falso. Nessa álgebra booleana, o E se "
              "escreve como uma multiplicação (A · B), porque só dá 1 quando os dois são 1; o OU, como uma soma (A + B); e o "
              "NÃO, como NÃO A. Toda tabela-verdade pode ser escrita como uma expressão assim, e toda expressão vira um "
              "circuito de portas."},
+            {K::Text, "Em 1938, Claude Shannon, um estudante do MIT, mostrou que essa álgebra descreve circuitos de chaves. Desde "
+             "então ela serve para duas coisas: analisar um circuito, dizendo numa expressão curta o que ele faz, e "
+             "projetar um, partindo da função desejada até um circuito simples que a faça."},
+            {K::Text, "Como na aritmética, há uma ordem: sem parênteses, o E vem antes do OU, assim como a multiplicação vem antes "
+             "da soma. A + B · C quer dizer A + (B · C). E quando não há confusão, o ponto some: AB é o mesmo que A · B."},
             {K::Example, "Lendo um circuito: (A E B) OU C\nSiga da entrada para a saída. A porta E recebe A e B: o fio que sai dela é A "
              "· B.\nA porta OU recebe esse fio e C: a saída é A · B + C.\nCom A = 1, B = 0 e C = 1: A · B = 0, e 0 + 1 = 1. "
              "A saída acende.\nCom A = 1, B = 0 e C = 0: 0 + 0 = 0. Apaga."},
@@ -926,13 +998,119 @@ std::vector<Topic> makeTopics() {
              "+ é só a forma de escrever; não há vai-um."},
             {K::Tip, "Para ler um circuito de portas, siga da entrada para a saída e escreva a expressão de cada fio. Para montar "
              "um, faça o contrário: comece pela tabela-verdade."},
-            {K::Summary, "Cada porta tem um símbolo e uma regra: E, OU, NÃO, NAND, NOR e XOR.\nA bolinha na saída quer dizer "
-             "invertido.\nÁlgebra booleana: E é ·, OU é +, e 1 + 1 = 1.\nToda tabela-verdade vira uma expressão, e toda "
-             "expressão vira um circuito."},
+            {K::Page, "As regras da álgebra"},
+            {K::Text, "As regras da álgebra booleana vêm em pares: troque cada · por +, cada 0 por 1, e a regra continua valendo. "
+             "Algumas são iguais às da aritmética; outras, não. Para conferir qualquer uma, basta trocar as letras por 0 e "
+             "1 e testar todas as combinações."},
+            {K::Table, "Regra|Com E|Com OU\nComutativa|A · B = B · A|A + B = B + A\nAssociativa|A · (B · C) = (A · B) · C|A + (B + C) "
+             "= (A + B) + C\nDistributiva|A · (B + C) = AB + AC|A + BC = (A + B) · (A + C)\nElemento neutro|1 · A = A|0 + A "
+             "= A\nAnulação|0 · A = 0|1 + A = 1\nIdempotência|A · A = A|A + A = A\nComplemento|A · NÃO A = 0|A + NÃO A = 1\n"
+             "De Morgan|NÃO (A · B) = NÃO A + NÃO B|NÃO (A + B) = NÃO A · NÃO B"},
+            {K::Example, "Conferindo De Morgan com A = 1 e B = 0\nDo lado esquerdo: A · B = 1 · 0 = 0, e NÃO 0 = 1.\nDo lado direito: "
+             "NÃO A = 0 e NÃO B = 1, e 0 + 1 = 1.\nOs dois lados dão 1. Repita com as outras três combinações e eles sempre "
+             "empatam: a regra vale.\nEm palavras: uma NAND é um OU das entradas invertidas."},
+            {K::Question, "Quanto vale A + NÃO A, qualquer que seja A?\n0\n*1\nDepende de A\n=Um dos dois sempre é 1: se A é 0, NÃO A é "
+             "1. E um OU com um 1 dá 1.\n?Teste com A = 0 e depois com A = 1."},
+            {K::Mistake, "Usar a distributiva só do jeito da aritmética\nNa aritmética, A + B · C não se abre. Na álgebra booleana se "
+             "abre: A + BC = (A + B) · (A + C). É a regra que mais surpreende, e a que mais ajuda a simplificar."},
+            {K::Page, "Mais entradas, e o atraso"},
+            {K::Text, "Toda porta, menos o NÃO, pode ter mais de duas entradas. Um E de três entradas faz A · B · C de uma vez, sem "
+             "precisar de duas portas em fila. No simulador, selecione a porta e mude as Entradas no painel da direita."},
+            {K::Table, "Porta|Com várias entradas, a saída é 1 quando\n@and E|todas são 1\n@or OU|pelo menos uma é 1\n@nand NAND|pelo "
+             "menos uma é 0\n@nor NOR|todas são 0\n@xor XOR|o número de entradas em 1 é ímpar"},
+            {K::Text, "Uma porta também não responde no mesmo instante. A saída muda alguns bilionésimos de segundo depois da "
+             "entrada: é o atraso de porta. Num caminho com várias portas em fila, os atrasos se somam, e é isso que limita "
+             "a velocidade de um circuito: quanto mais portas no caminho mais longo, mais tempo até a saída ficar certa."},
+            {K::Question, "Um XOR de três entradas recebe 1, 1 e 1. Quanto dá?\n0\n*1\nNão existe XOR de três entradas\n=Três entradas "
+             "em 1 é um número ímpar de uns: o XOR dá 1.\n?Conte quantas entradas estão em 1."},
+            {K::Summary, "Boole criou a álgebra (1854); Shannon a levou aos circuitos (1938).\nO E vem antes do OU; AB é A · B.\nAs "
+             "regras vêm em pares; De Morgan troca E por OU invertendo tudo.\nA + BC = (A + B) · (A + C), ao contrário da "
+             "aritmética.\nPortas podem ter várias entradas; o XOR de várias dá 1 com um número ímpar de uns.\nCada porta "
+             "atrasa um pouco o sinal, e os atrasos se somam."},
         },
-        {"portas-perguntas", "porta-e"},
+        {"porta-tres-entradas", "expressao"},
     });
 
+    all.push_back(Topic{
+        "portas-de-transistores",
+        3,
+        "Portas de transistores: o NÃO",
+        "Por dentro de uma porta: o bit vira tensão, e um transistor faz o inversor",
+        {
+            {K::Page, "Por dentro de uma porta"},
+            {K::Text, "Até aqui as portas eram caixinhas prontas. Por dentro, cada uma é feita de transistores e resistores, como os "
+             "do Ato 2, e o bit volta a ser o que ele é de verdade: uma tensão. Perto de 0 V vale 0; perto de 5 V vale 1. "
+             "Uma porta lógica é um circuito que recebe essas tensões e entrega outra, seguindo uma regra."},
+            {K::Text, "Perto quer dizer com folga: 0,2 V ainda é 0, e 4,8 V ainda é 1. Essa folga é o que deixa o digital robusto: um "
+             "pouco de ruído no fio não muda o bit."},
+            {K::Question, "Num circuito de 5 V, uma saída mede 4,7 V. Que bit ela é?\n0\n*1\nNenhum dos dois\n=4,7 V está perto de 5 V: é "
+             "1. O digital tem folga justamente para isso.\n?De qual dos dois extremos ela está perto?"},
+            {K::Page, "O inversor: a porta NÃO"},
+            {K::Text, "Ligue a saída S no 5 V por um resistor e ponha um transistor entre S e o terra. Com a entrada A em 0, o "
+             "transistor fica desligado e o resistor puxa S para 5 V: S vale 1. Com A em 1, o transistor liga e puxa S para "
+             "perto de 0 V: S vale 0. A saída é sempre o contrário da entrada."},
+            {K::Text, "Esse resistor, que puxa para cima quando ninguém puxa para baixo, se chama resistor de pull-up."},
+            {K::Figure, "O inversor feito de um transistor. Clique na chave A e veja S fazer o contrário.", notOfTransistor, 240},
+            {K::Table, "A|S = NÃO A\n0|1\n1|0"},
+            {K::Example, "Seguindo o inversor\nA = 0: a base não recebe corrente, e o transistor fica desligado.\nSem caminho para o "
+             "terra, nenhuma corrente passa no pull-up, e ele não perde tensão: S fica com 5 V, ou seja, 1.\nA = 1: a base "
+             "recebe corrente e o transistor liga, ligando S ao terra.\nAgora a corrente passa pelo pull-up e o transistor, "
+             "e S cai para perto de 0 V: 0."},
+            {K::Question, "No inversor, com A em 1, onde está S?\nPerto de 5 V\n*Perto de 0 V\nNo meio, 2,5 V\n=Com A em 1 o transistor "
+             "liga e puxa S para o terra: S vale 0.\n?Com A em 1, o transistor está ligado ou desligado?"},
+            {K::Mistake, "Esquecer o resistor de pull-up\nSem ele, com o transistor desligado, nada liga S ao 5 V: S fica solto, sem "
+             "valor definido. O pull-up garante o 1 quando ninguém puxa para baixo."},
+            {K::Summary, "No digital, perto de 0 V é 0 e perto de 5 V é 1, com folga.\nUma porta lógica recebe bits e entrega um bit, "
+             "seguindo uma regra.\nO inversor: um transistor puxa S para o terra, e o pull-up puxa S para 5 V quando o "
+             "transistor está desligado.\nS é sempre o contrário de A: é a porta NÃO."},
+        },
+        {"inversor"},
+    });
+
+    all.push_back(Topic{
+        "nand-e-nor",
+        3,
+        "NAND, NOR, E e OU de transistores",
+        "Dois transistores em série ou em paralelo, e um inversor a mais",
+        {
+            {K::Page, "Em série: a NAND"},
+            {K::Text, "Ponha dois transistores em série entre S e o terra, com o pull-up em cima. S só vai a 0 quando os dois ligam "
+             "juntos, quando A E B valem 1: só então existe um caminho até o terra. Em qualquer outro caso, o pull-up mantém "
+             "S em 1."},
+            {K::Text, "É um E com a saída invertida: a porta NAND, NÃO-E. São as chaves em série do Ato 1, agora comandadas por "
+             "sinais e puxando a saída para baixo."},
+            {K::Figure, "A NAND de transistores. Clique em A e em B: só com os dois ligados S vai a 0.", nandOfTransistors, 260},
+            {K::Question, "Na NAND de transistores, com A = 1 e B = 0, quanto vale S?\n*1\n0\nDepende de qual transistor está em "
+             "cima\n=Um transistor ligado sozinho não fecha o caminho até o terra: o pull-up mantém S em 1.\n?Em série, a "
+             "corrente precisa passar pelos dois."},
+            {K::Page, "Em paralelo: a NOR"},
+            {K::Text, "Com os dois transistores em paralelo, cada um num caminho próprio até o terra, basta um ligar para puxar S "
+             "para 0. S só vale 1 quando A e B valem 0. É um OU invertido: a porta NOR, NÃO-OU."},
+            {K::Table, "A|B|NAND|NOR\n0|0|1|1\n0|1|1|0\n1|0|1|0\n1|1|0|0"},
+            {K::Example, "Lendo a linha A = 0, B = 1\nNAND, em série: o transistor de A está desligado, e o caminho até o terra se "
+             "corta. O pull-up ganha: S = 1.\nNOR, em paralelo: o transistor de B está ligado e abre um caminho até o terra. "
+             "S cai: S = 0.\nPor isso, na mesma linha, a NAND dá 1 e a NOR dá 0."},
+            {K::Question, "Em quantas linhas da tabela a NOR dá 1?\n*1\n2\n3\n=Só na primeira, com A e B em 0: qualquer transistor ligado "
+             "puxa S para 0.\n?Conte os 1 da coluna NOR."},
+            {K::Page, "E e OU: inverter outra vez"},
+            {K::Text, "Com transistores, a NAND e a NOR saem direto, e o E e o OU não: a inversão vem de graça, e para desfazê-la é "
+             "preciso mais um inversor na saída. O E de transistores é uma NAND seguida de um NÃO, três transistores ao "
+             "todo; o OU é uma NOR seguida de um NÃO."},
+            {K::Figure, "O E de transistores: a NAND de dois transistores, e um terceiro que inverte a saída. Clique em A e em B.", andOfTransistors, 260},
+            {K::Figure, "O OU de transistores: a NOR, e o inversor depois dela. Clique em A e em B.", orOfTransistors, 260},
+            {K::Question, "Quantos transistores tem o E feito de transistores?\n2\n*3\n4\n=Dois em série para a NAND e um terceiro para "
+             "inverter a saída.\n?É uma NAND e mais um NÃO."},
+            {K::Text, "É por isso que os chips são feitos de NAND e NOR: são as portas mais baratas, com menos transistores. Um E ou "
+             "um OU custa um inversor a mais."},
+            {K::Mistake, "Achar que transistores em série dão um E\nDariam, se acendessem a saída. Mas aqui eles puxam S para baixo, "
+             "contra o pull-up: em série dão NÃO-E, a NAND; em paralelo, NÃO-OU, a NOR. A inversão vem de graça."},
+            {K::Tip, "Toda a lógica de um computador pode ser montada só com NAND, ou só com NOR. A próxima aula mostra como."},
+            {K::Summary, "Dois transistores em série puxando S para baixo: NAND, que só dá 0 com A e B em 1.\nEm paralelo: NOR, que só "
+             "dá 1 com A e B em 0.\nO pull-up dá o 1; os transistores dão o 0.\nE e OU de transistores: a NAND ou a NOR, e "
+             "mais um inversor.\nNAND e NOR são universais: com uma delas se faz todo o resto."},
+        },
+        {"tabelas-transistores", "nand-transistores", "nor-transistores"},
+    });
     all.push_back(Topic{
         "nand-universal",
         3,
@@ -963,6 +1141,15 @@ std::vector<Topic> makeTopics() {
             {K::Table, "A|B|A OU B|A XOR B\n0|0|0|0\n0|1|1|1\n1|0|1|1\n1|1|1|0"},
             {K::Mistake, "Achar que XOR e OU são a mesma coisa\nSó diferem numa linha, mas ela importa: com as duas entradas em 1, o OU "
              "dá 1 e o XOR dá 0. É essa linha que faz do XOR o bit da soma: 1 + 1 = 10, e o bit da direita é 0."},
+            {K::Page, "Só com NOR também"},
+            {K::Text, "A NOR é universal como a NAND. Uma NOR com as duas entradas juntas é um NÃO; uma NOR seguida desse NÃO é um "
+             "OU; e, pela lei de De Morgan, uma NOR das entradas invertidas é um E. Um conjunto de portas que faz qualquer "
+             "função se diz funcionalmente completo."},
+            {K::Table, "Conjunto|Por que basta\nE, OU, NÃO|são as três operações da álgebra booleana\nE, NÃO|o OU sai de De Morgan: "
+             "NÃO (NÃO A E NÃO B)\nOU, NÃO|o E sai de De Morgan: NÃO (NÃO A OU NÃO B)\nsó NAND|faz o NÃO, o E e o OU\nsó "
+             "NOR|faz o NÃO, o OU e o E"},
+            {K::Question, "Quantas NOR são precisas para fazer um E?\n1\n2\n*3\n=Duas para inverter A e B, e uma terceira juntando: NOR "
+             "(NÃO A, NÃO B) = A E B.\n?É o mesmo truque do OU de NAND, com as portas trocadas."},
             {K::Summary, "NAND é universal: NÃO, E, OU e todas as outras saem só dela.\nNÃO: uma NAND com as entradas juntas. E: NAND e "
              "mais uma NAND. OU: três NAND, pela lei de De Morgan.\nXOR dá 1 quando as entradas são diferentes: (A OU B) E "
              "NÃO (A E B)."},
@@ -998,6 +1185,16 @@ std::vector<Topic> makeTopics() {
              "outro, de onde."},
             {K::Tip, "A CPU do Ato 7 está cheia dos dois: no Raio-X, cada MUX é um multiplexador, e o banco de registradores tem um "
              "decodificador por dentro."},
+            {K::Page, "Onde eles aparecem"},
+            {K::Text, "Uma memória grande é feita de vários chips menores. Os bits mais altos do endereço entram num decodificador, "
+             "e cada saída dele liga um chip só: com 2 bits, um decodificador 2 para 4 escolhe entre quatro chips, e os "
+             "bits de baixo escolhem a palavra dentro do chip escolhido."},
+            {K::Text, "O multiplexador aparece sempre que um lugar pode receber de várias fontes: o próximo valor do PC vem da soma "
+             "de 1, do desvio ou do salto; o que se grava num registrador vem da ULA, da memória ou do imediato. Um MUX por "
+             "escolha, e o controle da CPU manda na seleção."},
+            {K::Question, "Uma memória de quatro chips usa os 2 bits mais altos do endereço para escolher o chip. Com esses bits em 10, "
+             "qual chip responde?\nO chip 1\n*O chip 2\nOs chips 1 e 0\n=10 em binário é 2: o decodificador liga só a saída "
+             "2.\n?Que número é 10 em binário?"},
             {K::Summary, "Decodificador: um número acende uma saída. Cada saída é uma E que reconhece uma combinação.\nMultiplexador: um "
              "número escolhe qual entrada passa para a saída.\nPor dentro do MUX: um decodificador, uma E por entrada e uma "
              "OU.\nOs dois estão em toda a CPU."},
@@ -1043,6 +1240,16 @@ std::vector<Topic> makeTopics() {
              "ele não tem valor definido, e a soma pode sair errada."},
             {K::Mistake, "Achar que a soma sempre cabe\n1111 + 0001 dá 10000, que tem 5 bits. Com 4, sobra 0000 e o vai-um sai pelo "
              "último Cs: é o estouro. Quem soma tem que olhar esse Cs."},
+            {K::Page, "O vai-um que atravessa"},
+            {K::Text, "No somador em fila, cada somador completo espera o vai-um do vizinho da direita. Num somador de 32 bits, o "
+             "vai-um pode ter de atravessar os 32, um depois do outro, e cada passagem custa o atraso de algumas portas. É "
+             "o somador com propagação do vai-um (ripple carry): simples, mas lento."},
+            {K::Text, "Os processadores usam o vai-um antecipado (carry lookahead). Cada casa diz, só com os seus A e B, se gera um "
+             "vai-um (A E B) ou se deixa passar um que chegue (A OU B). Com essas duas informações de todas as casas, um "
+             "circuito calcula todos os vai-uns de uma vez, sem esperar a fila: mais portas, muito menos tempo."},
+            {K::Question, "Num somador de 4 bits em fila, quantas vezes o vai-um pode ter de passar de uma casa para a seguinte?\n1\n*3\n"
+             "8\n=Da casa 0 para a 1, da 1 para a 2 e da 2 para a 3: três passagens, uma depois da outra.\n?Conte as "
+             "fronteiras entre quatro casas."},
             {K::Summary, "Em binário, 1 + 1 = 10: fica 0 e vai 1.\nMeio somador: S é um XOR, o vai-um é um E.\nSomador completo: soma A, "
              "B e o vai-um de entrada; dois meios somadores e um OU.\nLado a lado, com o Cs de cada um no Ce do seguinte, "
              "somam números inteiros."},
@@ -1082,6 +1289,19 @@ std::vector<Topic> makeTopics() {
              "1 é parte da regra."},
             {K::Mistake, "Achar que 1111 é sempre 15\nOs bits são os mesmos; quem diz o que eles valem é a forma de ler. Sem sinal, 1111 "
              "é 15; com sinal, é -1. A CPU soma do mesmo jeito, e o programa decide como ler."},
+            {K::Page, "Quando o resultado não cabe: o estouro"},
+            {K::Text, "Com 4 bits em complemento de dois cabem os números de -8 a 7. Em geral, com n bits, vão de -2 elevado a n-1 "
+             "até 2 elevado a n-1, menos 1. Uma conta cujo resultado sai dessa faixa dá estouro (overflow): os bits que "
+             "sobram dizem outro número."},
+            {K::Text, "A regra para perceber: se os dois números somados têm o mesmo sinal e o resultado tem o sinal oposto, houve "
+             "estouro. Somando um positivo com um negativo, nunca há."},
+            {K::Example, "5 + 4 com 4 bits\n5 = 0101 e 4 = 0100, os dois positivos.\n0101 + 0100 = 1001.\n1001 começa com 1: lido com "
+             "sinal, é -7.\nDois positivos deram um negativo: estouro. O 9 não cabe em 4 bits com sinal."},
+            {K::Text, "Por que não guardar só um bit de sinal e o tamanho, como no papel? Porque aí existem dois zeros, +0 e -0, e "
+             "somar exige olhar os sinais antes. No complemento de dois há um zero só, e o mesmo somador serve para tudo."},
+            {K::Question, "Com 4 bits em complemento de dois, -6 + (-5) dá estouro?\n*Sim\nNão\nSó se o vai-um for 1\n=-11 não cabe "
+             "entre -8 e 7. E a regra mostra: dois negativos dão 0101, um positivo.\n?Qual é o menor número de 4 bits com "
+             "sinal?"},
             {K::Summary, "Subtrair é como somar, com empréstimo: D = A XOR B XOR Ve.\nComplemento de dois: -N é NÃO N mais 1. -1 é "
              "1111.\nA - B = A + (NÃO B) + 1: o mesmo somador faz as duas contas.\nOs mesmos bits podem ser lidos com ou sem "
              "sinal."},
@@ -1116,11 +1336,20 @@ std::vector<Topic> makeTopics() {
              "0.\n?Primeiro veja na tabela qual operação o Op escolhe."},
             {K::Mistake, "Achar que a ULA calcula só a operação escolhida\nEla calcula todas ao mesmo tempo, o tempo todo; o Op só diz "
              "ao multiplexador qual resultado deixar passar. Escolher é mais rápido que calcular sob encomenda."},
+            {K::Page, "O que a ULA conta além do resultado"},
+            {K::Text, "Além do resultado, a ULA entrega alguns bits sobre ele. Zero (Z): o resultado é 0. Vai-um (C): sobrou um bit "
+             "na soma. Sinal (N): o resultado é negativo, com o bit mais alto em 1. Estouro (V): o resultado não coube, com "
+             "sinal. A ULA da biblioteca tem a saída Z, e o vai-um sai em Cs."},
+            {K::Text, "Muitos processadores guardam esses bits num registrador de sinalizadores (flags), e os desvios olham para "
+             "eles: comparar é subtrair e ver se deu zero ou negativo. O computador deste jogo e o MIPS fazem diferente: o "
+             "desvio compara dois registradores direto, sem guardar sinalizadores."},
+            {K::Question, "A ULA fez A − B e a saída Z acendeu. O que se sabe?\nA é maior que B\n*A é igual a B\nA é zero\n=Z quer dizer "
+             "resultado zero: A − B = 0, então A = B.\n?Quando uma subtração dá 0?"},
             {K::Summary, "Comparador de 1 bit: A > B é A E NÃO B; A < B é NÃO A E B; A = B é um XNOR.\nPara vários bits, o primeiro bit "
              "diferente, a partir do mais alto, decide.\nA ULA calcula várias operações ao mesmo tempo, e um MUX escolhe uma "
              "pelo Op.\nFatias de 1 bit lado a lado formam a ULA da CPU."},
         },
-        {"comparador", "ula-1-bit"},
+        {"comparador", "ula-1-bit", "calculadora-bits"},
     });
     // Act 6: memory.
     all.push_back(Topic{
@@ -1168,6 +1397,15 @@ std::vector<Topic> makeTopics() {
              "resolve isso com o latch D."},
             {K::Mistake, "Achar que o latch guarda o bit com o computador desligado\nEle guarda enquanto houver energia: é a corrente "
              "nas portas que mantém o estado. Desligou, perdeu. A memória RAM do computador funciona assim também."},
+            {K::Page, "O mesmo latch, feito de NAND"},
+            {K::Text, "O latch também pode ser feito com duas NAND cruzadas, em vez de duas NOR. A ideia é a mesma, com tudo "
+             "invertido: as entradas agem quando vão a 0, não a 1. Em repouso as duas ficam em 1, um 0 em S liga, um 0 em R "
+             "desliga, e os dois em 0 ao mesmo tempo é o caso proibido. Por isso, nos desenhos, essas entradas levam uma "
+             "barra por cima ou uma bolinha."},
+            {K::Table, "Feito de|Em repouso|Liga com|Desliga com|Proibido\nNOR|S = 0, R = 0|S = 1|R = 1|S = R = 1\nNAND|S = 1, R = "
+             "1|S = 0|R = 0|S = R = 0"},
+            {K::Question, "Num latch de NAND, as duas entradas estão em 1. O que acontece com Q?\nVai a 1\nVai a 0\n*Guarda o que tinha\n"
+             "=Em 1, as entradas de um latch de NAND estão em repouso: ele guarda.\n?No latch de NAND, quem age é o 0."},
             {K::Summary, "Combinacional: a saída depende só das entradas de agora. Sequencial: depende também do que veio "
              "antes.\nRealimentação, a saída voltando para a entrada, é o que faz um circuito lembrar.\nO latch SR, duas NOR "
              "cruzadas, guarda um bit: S liga, R desliga, com os dois em 0 ele guarda.\nS e R juntos em 1 é proibido."},
@@ -1237,6 +1475,18 @@ std::vector<Topic> makeTopics() {
             {K::Mistake, "Achar que dá para acelerar o clock à vontade\nEntre duas bordas, o sinal mais lento do circuito precisa chegar "
              "ao fim do seu caminho de portas. Se o clock for mais rápido que isso, a borda guarda um valor ainda pela "
              "metade da conta. Esse caminho mais lento, o caminho crítico, é que limita a frequência."},
+            {K::Page, "Quão rápido pode ser o clock"},
+            {K::Text, "Entre uma borda e a seguinte, o sinal sai de um registrador, atravessa portas e chega ao próximo registrador. "
+             "Cada porta tem o seu atraso, e eles se somam. O caminho com mais atraso, o caminho crítico, decide tudo: se a "
+             "borda chegar antes de o sinal terminar de atravessá-lo, o registrador guarda um valor pela metade."},
+            {K::Example, "O clock máximo de um circuito\nO caminho mais lento passa por 10 portas, e cada uma atrasa 1 nanossegundo.\nO "
+             "sinal leva 10 ns para atravessá-lo: o período tem de ser de pelo menos 10 ns.\nFrequência = 1 ÷ período = 1 ÷ "
+             "0,000 000 01 s = 100 milhões de vezes por segundo.\nO clock pode ir até 100 MHz, e não mais."},
+            {K::Text, "Por isso quem projeta processadores corta o caminho crítico: usa portas mais rápidas, menos portas em fila e "
+             "divide o trabalho em etapas, cada uma com o seu registrador."},
+            {K::Question, "Se o caminho crítico de um circuito cai pela metade, o que acontece com o clock máximo?\nCai pela metade\n"
+             "Fica igual\n*Dobra\n=O período mínimo cai pela metade, e a frequência é 1 dividido pelo período: dobra.\n"
+             "?Frequência é o inverso do período."},
             {K::Summary, "O clock alterna entre 0 e 1 e marca quando tudo é guardado ao mesmo tempo.\nBorda de subida: de 0 para 1. É "
              "nela que os circuitos do jogo guardam.\nFrequência: ciclos por segundo (Hz). Período: 1 ÷ frequência.\nO "
              "caminho mais lento entre duas bordas limita a frequência."},
@@ -1278,6 +1528,15 @@ std::vector<Topic> makeTopics() {
             {K::Mistake, "Mudar D bem na hora da borda\nNum circuito de verdade, D precisa estar parado um pouquinho antes da borda e um "
              "pouquinho depois. Se mudar bem em cima, o flip-flop pode guardar qualquer um dos dois. Por isso o clock dá "
              "tempo para os sinais se acomodarem antes de subir."},
+            {K::Page, "Outro flip-flop: o J-K"},
+            {K::Text, "Além do D, os livros mostram o flip-flop J-K. Na borda do clock, J = 1 liga, K = 1 desliga, os dois em 0 "
+             "mantêm, e os dois em 1, que no latch SR era proibido, aqui têm uso: a saída troca, vira o contrário do que "
+             "era."},
+            {K::Table, "J|K|Q depois da borda\n0|0|o mesmo: guarda\n0|1|0\n1|0|1\n1|1|o contrário: troca"},
+            {K::Text, "Um J-K com J e K presos em 1 troca a cada borda: a saída faz um pulso a cada dois do clock. É um divisor de "
+             "frequência, e uma fila deles conta em binário."},
+            {K::Question, "Um J-K com J = 1 e K = 1 está com Q = 0. Depois de três bordas de subida, quanto vale Q?\n0\n*1\nDepende de "
+             "D\n=Cada borda troca: 0, 1, 0, 1. Depois de três, Q = 1.\n?Com J e K em 1, cada borda troca a saída."},
             {K::Summary, "O flip-flop D copia D na borda de subida do clock, e só nela.\nPor dentro: dois latches D, o mestre (clock "
              "invertido) e o escravo (clock direto).\nOs dois nunca ficam abertos juntos, e nada atravessa o flip-flop fora "
              "da borda.\nLatch: guarda pelo nível. Flip-flop: guarda pela borda."},
@@ -1313,6 +1572,15 @@ std::vector<Topic> makeTopics() {
              "R3."},
             {K::Mistake, "Mudar o Dado com Grava ligado e esperar que Q mude na hora\nNão muda: o registrador só olha o Dado na borda de "
              "subida. Até lá, Q mostra o valor antigo, mexa o Dado como mexer."},
+            {K::Page, "O registrador de deslocamento"},
+            {K::Text, "Há registradores que, em vez de gravar todos os bits de uma vez, empurram os bits uma casa a cada borda: a "
+             "saída de cada flip-flop é a entrada do vizinho. Um bit que entra por uma ponta sai pela outra depois de "
+             "tantas bordas quantos forem os flip-flops."},
+            {K::Text, "É assim que um número viaja por um fio só, um bit de cada vez, numa porta serial ou num cabo USB: de um lado "
+             "um registrador de deslocamento põe os bits no fio, do outro outro registrador os junta de volta."},
+            {K::Question, "Um registrador de deslocamento de 4 bits começa com 0000 e recebe 1, 0, 1, 1, um bit por borda, pela "
+             "esquerda. O que ele guarda no fim?\n1011\n*1101\n0000\n=O último a entrar fica na ponta esquerda: 1, depois "
+             "01, 101, 1101.\n?Cada bit novo entra na ponta e empurra os outros."},
             {K::Summary, "Registrador: um flip-flop por bit, todos no mesmo clock.\nA entrada Grava (En) decide: guardar o Dado novo ou "
              "manter o valor.\nPor dentro, um multiplexador na frente de cada flip-flop faz essa escolha.\nOs registradores "
              "R0 a R7 da CPU são assim, com 16 bits cada."},
@@ -1343,6 +1611,15 @@ std::vector<Topic> makeTopics() {
              "recomeça."},
             {K::Mistake, "Achar que o contador conta sozinho, o tempo todo\nEle só muda na borda do clock, e só com Conta ligado. Parado "
              "o clock, parado o contador: é por isso que o computador do jogo só anda quando você aperta Rodar ou Passo."},
+            {K::Page, "Contadores com e sem compasso"},
+            {K::Text, "O contador que você montou é síncrono: todos os flip-flops recebem o mesmo clock e mudam juntos. Há também o "
+             "contador assíncrono, ou em cascata: cada flip-flop troca quando o anterior cai de 1 para 0, como dominós. Ele "
+             "é mais simples, mas a mudança se espalha aos poucos, e por um instante a contagem passa por valores errados."},
+            {K::Text, "Por isso a CPU usa contadores síncronos: no fim de cada ciclo todos os bits estão certos ao mesmo tempo, e o "
+             "PC nunca aponta, nem por um instante, para um endereço que não devia."},
+            {K::Question, "Num contador assíncrono de 3 bits que vai de 011 para 100, o que pode aparecer por um instante?\nSó 011 e "
+             "100\n*Valores como 010 ou 000 no meio do caminho\nNada: ele muda tudo junto\n=Os bits trocam um depois do "
+             "outro: 011, 010, 000 e só então 100.\n?No assíncrono, cada bit espera o anterior cair."},
             {K::Summary, "Contador: registrador + somador de 1, com a saída voltando para a entrada.\nSoma 1 a cada borda de subida, se "
              "Conta (En) estiver ligado.\nCom n bits, conta de 0 até 2^n - 1 e dá a volta.\nO PC da CPU é um contador que "
              "também pode receber o endereço de um desvio."},
@@ -1382,6 +1659,20 @@ std::vector<Topic> makeTopics() {
             {K::Text, "A ROM (memória só de leitura) tem o conteúdo gravado quando é construída, e depois só lê. É onde fica o "
              "programa do computador do jogo: cada endereço guarda uma instrução, e o PC é o endereço que se lê."},
             {K::Table, "Memória|Lê|Grava|Desligou, perdeu?\nRAM|sim|sim|perde\nROM|sim|não|guarda"},
+            {K::Page, "SRAM, DRAM e as ROMs"},
+            {K::Text, "Há dois jeitos de fazer RAM. A SRAM guarda cada bit num flip-flop, como os que você montou: é rápida e não "
+             "precisa de cuidado, mas cada bit gasta vários transistores. A DRAM guarda cada bit como carga num capacitor "
+             "minúsculo, com um transistor só: cabe muito mais num chip, mas a carga escapa, e a memória precisa ser relida "
+             "e regravada, renovada, milhares de vezes por segundo."},
+            {K::Table, "Tipo|Como guarda|Onde se usa\nSRAM|um flip-flop por bit|o cache, perto da CPU\nDRAM|carga num capacitor, "
+             "renovada|a memória principal\nROM|gravada na fábrica|programas fixos\nPROM, EPROM|gravada uma vez, ou apagada "
+             "com luz UV|aparelhos antigos\nEEPROM, flash|apagada e regravada eletricamente|pen drives, SSDs, celulares"},
+            {K::Text, "RAM e ROM também diferem no que acontece ao desligar: a RAM é volátil e perde tudo; as ROMs, inclusive a "
+             "flash, guardam."},
+            {K::Question, "Por que a memória principal de um computador é DRAM, e não SRAM?\nPorque a DRAM é mais rápida\n*Porque cabem "
+             "muito mais bits por chip, a um preço menor\nPorque a DRAM não perde nada ao desligar\n=Um transistor e um "
+             "capacitor por bit contra vários transistores: a DRAM é densa e barata. A SRAM, mais rápida, fica para o "
+             "cache.\n?Compare quantos transistores cada uma gasta por bit."},
             {K::Summary, "Memória: muitas palavras, cada uma num endereço.\nn bits de endereço: 2^n palavras.\nUm decodificador escolhe "
              "quem grava; um multiplexador escolhe o que se lê.\nRAM lê na hora e grava na borda, com We em 1. ROM só lê, e "
              "guarda o programa."},
@@ -1413,6 +1704,15 @@ std::vector<Topic> makeTopics() {
              "os valores para a ULA."},
             {K::Mistake, "Achar que dá para gravar dois registradores numa instrução\nO banco tem só uma entrada de gravação: Rw, D e "
              "We. Por isso cada instrução da CPU muda no máximo um registrador."},
+            {K::Page, "Registradores que o programa não vê"},
+            {K::Text, "Os registradores do banco, R0 a R7, são os que o programa usa pelo nome: registradores visíveis. A CPU tem "
+             "outros que nenhuma instrução cita, mas sem os quais nada anda. São os registradores de controle."},
+            {K::Table, "Registrador|Guarda\nPC, contador de programa|o endereço da próxima instrução\nIR, registrador de instrução|a "
+             "instrução que está sendo executada\nMAR, endereço de memória|o endereço que vai para a memória\nMBR, dado de "
+             "memória|a palavra que vem da memória ou vai para ela"},
+            {K::Question, "Na busca, a CPU lê a palavra da ROM. Onde ela fica enquanto a instrução é executada?\nNo PC\n*No IR, o "
+             "registrador de instrução\nEm R1\n=O IR guarda a instrução atual, para o decodificador ler os seus campos.\n?O "
+             "PC guarda o endereço, não a instrução."},
             {K::Summary, "Banco de registradores: vários registradores numa peça, com duas leituras e uma gravação.\nRa e Rb leem na "
              "hora; Rw, D e We gravam na borda de subida.\nNuma instrução, os dois lidos e o gravado podem até ser o mesmo: "
              "a leitura vê o valor antigo.\nNo computador do jogo, R0 vale sempre 0."},
@@ -1473,6 +1773,19 @@ std::vector<Topic> makeTopics() {
              "número e procure na tabela."},
             {K::Tip, "Linguagem de máquina são os números que a CPU executa. Assembly é a mesma coisa escrita com nomes, para "
              "pessoas lerem; o montador traduz um no outro."},
+            {K::Page, "A ideia de von Neumann"},
+            {K::Text, "Os primeiros computadores eram programados mudando fios de lugar. Em 1945, John von Neumann descreveu o "
+             "programa armazenado: as instruções ficam na memória, como números, ao lado dos dados, e a CPU as busca uma a "
+             "uma. Mudar o programa passou a ser só gravar outros números. Quase todo computador desde então segue essa "
+             "arquitetura."},
+            {K::Text, "Ela tem três partes: a CPU, que faz as contas e comanda; a memória, que guarda instruções e dados; e a "
+             "entrada e saída, que conversa com o mundo. Ligando tudo, os barramentos: fios que levam endereços, dados e "
+             "sinais de controle."},
+            {K::Text, "O computador deste jogo guarda o programa numa ROM e os dados numa RAM, separadas: é a variante de Harvard, "
+             "comum em microcontroladores. A ideia do programa armazenado é a mesma."},
+            {K::Question, "O que o programa armazenado mudou?\nAs contas ficaram mais rápidas\n*Trocar de programa passou a ser gravar "
+             "outros números na memória, sem mexer em fios\nA CPU passou a ter registradores\n=As instruções viraram dados "
+             "na memória: um programa novo é só uma sequência nova de números.\n?Como se programava antes dele?"},
             {K::Summary, "Programa armazenado: as instruções são números de 16 bits na ROM.\nA CPU junta as peças dos atos anteriores: "
              "PC, decodificador, controle, registradores, ULA, MUX e memórias.\nCada instrução passa por seis etapas: busca, "
              "decodifica, executa, memória, escreve e próximo PC.\nOs 4 bits de cima são o op, que diz qual instrução é."},
@@ -1524,6 +1837,19 @@ std::vector<Topic> makeTopics() {
              "binário: 0x2207 e 0b0010_001_000000111 são o mesmo número, e o _ só separa os campos para ler melhor."},
             {K::Question, "Em 0x127F, qual é a instrução?\n*ADDI: o primeiro dígito, 1, é o op\nLI: o 2 é o op\nHLT: o F é o op\n=O "
              "primeiro dígito hexadecimal são os 4 bits de cima, o op: 1 é ADDI.\n?O op são os 4 bits de cima: um dígito só."},
+            {K::Page, "Onde a instrução busca os valores"},
+            {K::Text, "Toda instrução diz o que fazer (o op), onde estão os valores de entrada, onde pôr o resultado e, às vezes, "
+             "qual é a próxima instrução. O jeito de dizer onde está um valor se chama modo de endereçamento, e cada um tem "
+             "o seu uso."},
+            {K::Table, "Modo|O valor está...|Neste computador\nImediato|dentro da própria instrução|LI R1, 5\nRegistrador|num "
+             "registrador|ADD R1, R2, R3\nDeslocamento|na memória, em registrador mais n|LD R1, 4(R2)\nIndireto por "
+             "registrador|no endereço que o registrador guarda|JR R7\nRelativo ao PC|a uma distância da instrução atual|BEQ "
+             "R1, R2, laço"},
+            {K::Text, "O imediato é o mais rápido, mas o número tem de caber na instrução. O registrador também é rápido e o campo é "
+             "curto. O deslocamento alcança a memória toda, ao custo de uma ida até ela. Por isso os processadores oferecem "
+             "vários modos."},
+            {K::Question, "Em LD R1, 4(R2), com R2 = 10, de qual endereço da RAM vem o valor?\n4\n10\n*14\n=Deslocamento: o endereço é "
+             "R2 + 4 = 14.\n?Some o n ao registrador entre parênteses."},
             {K::Summary, "Quatro formatos: R (três registradores e func), I6, I9 e J.\nrd é o destino, rs e rt as fontes; 3 bits "
              "escolhem um de 8 registradores.\nO func diz qual conta a ULA faz nas instruções com op 0.\nO imm6 tem sinal; o "
              "extensor repete o bit de sinal até 16 bits.\nEm hexadecimal, um dígito para cada 4 bits: o primeiro dígito é o "
@@ -1626,6 +1952,15 @@ std::vector<Topic> makeTopics() {
              "estiver lá. Todo programa termina com HLT, ou com um laço que não acaba de propósito."},
             {K::Tip, "Quando um programa não faz o que você quer, rode uma instrução por vez e olhe os registradores. O erro está "
              "no primeiro número diferente do que você esperava."},
+            {K::Page, "Do texto ao programa rodando"},
+            {K::Text, "Num computador grande, o caminho do texto até a execução tem mais etapas. O montador traduz cada arquivo para "
+             "linguagem de máquina. O ligador junta os pedaços de vários arquivos e bibliotecas, acertando os endereços de "
+             "um que o outro usa. E o carregador põe o programa pronto na memória e manda a CPU começar."},
+            {K::Text, "Aqui o programa é um arquivo só e vai direto para a ROM, então o botão Montar e gravar faz o trabalho dos "
+             "três de uma vez."},
+            {K::Question, "Seu programa chama uma sub-rotina escrita em outro arquivo. Quem descobre o endereço dela?\nO montador\n*O "
+             "ligador\nO carregador\n=O montador vê um arquivo de cada vez; é o ligador que junta os arquivos e acerta os "
+             "endereços entre eles.\n?Qual deles junta vários arquivos?"},
             {K::Summary, "Assembly: um nome para cada instrução; cada linha vira uma palavra na ROM.\nAs contas são feitas nos "
              "registradores R1 a R7; R0 vale sempre 0.\nLI vai até 511; números maiores se montam com somas ou com LUI.\n"
              "Ctrl+Enter monta; o depurador roda uma instrução por vez."},
@@ -1676,6 +2011,15 @@ std::vector<Topic> makeTopics() {
              "2 = 12.\n?Endereço = Rs + n."},
             {K::Tip, "Registradores são rápidos e poucos; a memória é maior e precisa de LD e ST. Programas de verdade carregam da "
              "memória, calculam nos registradores e guardam de volta."},
+            {K::Page, "Vetores: uma base e um índice"},
+            {K::Text, "Um vetor, ou array, é uma fila de valores guardados em endereços seguidos. Para chegar ao elemento i, basta "
+             "somar i ao endereço do primeiro, a base. É exatamente o que LD Rd, n(Rs) faz: com a base em n e o índice em "
+             "Rs, ou o contrário."},
+            {K::Example, "Somar o vetor que começa no endereço 20\nR1 é o índice, de 0 em diante, e R2 a soma.\nLD R3, 20(R1) lê o "
+             "elemento R1: no endereço 20 + R1.\nADD R2, R2, R3 soma, e ADDI R1, R1, 1 passa ao próximo.\nO laço para "
+             "quando R1 chega ao tamanho do vetor."},
+            {K::Question, "Um vetor começa no endereço 30. Em que endereço está o elemento 4?\n4\n30\n*34\n=Base mais índice: 30 + 4 = "
+             "34. O elemento 0 está no 30.\n?O primeiro elemento é o de índice 0."},
             {K::Summary, "Rótulos marcam endereços; BEQ, BNE e JMP desviam para eles.\nLaço: contador, corpo, avança, e um desvio que "
              "volta enquanto não acabou.\nDecisão: um desvio pula o trecho que não deve rodar, e um JMP pula o outro caso.\n"
              "LD e ST leem e gravam a RAM no endereço base + deslocamento."},
@@ -1716,6 +2060,14 @@ std::vector<Topic> makeTopics() {
              "A, normalmente\n*Volta para dentro de A, logo depois do CALL B, e fica presa\nO computador para\n=O CALL B "
              "trocou o R7 pelo endereço de volta dentro de A. O JR R7 de A volta para ali, e não para quem chamou A.\n?O "
              "que o CALL B escreve em R7?"},
+            {K::Page, "O quadro de cada chamada"},
+            {K::Text, "Cada chamada de sub-rotina precisa de um pouco de memória só sua: o endereço de volta, os registradores que "
+             "ela vai usar e precisa devolver como estavam, e as variáveis locais. Esse pedaço da pilha é o quadro da "
+             "chamada (stack frame). Ao entrar, a sub-rotina o cria; ao sair, o desfaz, e a pilha volta a ser o que era."},
+            {K::Text, "É por isso que uma sub-rotina pode chamar outra, e até a si mesma: cada chamada tem o seu quadro, empilhado "
+             "sobre o anterior. Uma sub-rotina que chama a si mesma é recursiva."},
+            {K::Question, "Uma sub-rotina A chama B, que chama C. Na hora em que C está rodando, quantos quadros há na pilha?\n1\n2\n*3\n"
+             "=Um para cada chamada ainda aberta: A, B e C.\n?Nenhuma das três terminou ainda."},
             {K::Summary, "Sub-rotina: um trecho com rótulo, chamado de onde for preciso.\nCALL guarda em R7 o endereço da instrução "
              "seguinte e pula; JR R7 (RET) volta.\nCombine onde vão os argumentos e o resultado, como R1 e R2.\nAntes de "
              "chamar outra sub-rotina, guarde R7: é o começo da pilha.\nO HLT vai antes das sub-rotinas."},
@@ -1756,6 +2108,17 @@ std::vector<Topic> makeTopics() {
              "fazer outra coisa até o dispositivo avisar\nO dispositivo fica mais rápido\n=Com a interrupção, quem avisa é "
              "o dispositivo; a CPU não gasta tempo perguntando.\n?Quem pergunta, e quem avisa?"},
             {K::Tip, "Espera ocupada: a CPU pergunta o tempo todo. Interrupção: o dispositivo avisa quando precisa."},
+            {K::Page, "Três jeitos de fazer entrada e saída"},
+            {K::Text, "Na E/S programada, a CPU pergunta ao dispositivo de novo e de novo se ele está pronto: é a espera ocupada, "
+             "simples e cara. Na E/S por interrupção, a CPU segue trabalhando e o dispositivo avisa quando precisa dela. E "
+             "no acesso direto à memória (DMA), um circuito à parte copia blocos inteiros entre o dispositivo e a memória, "
+             "e a CPU só fica sabendo no fim."},
+            {K::Table, "Jeito|Quem fica esperando|Bom para\nProgramada|a CPU, perguntando sem parar|coisas raras e simples\nPor "
+             "interrupção|ninguém: o dispositivo avisa|teclado, mouse, rede\nDMA|ninguém: um circuito copia o bloco|disco, "
+             "vídeo, blocos grandes"},
+            {K::Question, "Para ler um arquivo grande do disco, qual jeito deixa a CPU mais livre?\nE/S programada\nPor interrupção, um "
+             "byte de cada vez\n*DMA\n=Com DMA o bloco inteiro vai para a memória sem a CPU copiar byte a byte; ela recebe "
+             "um aviso só, no fim.\n?Qual deles copia sem a CPU?"},
             {K::Summary, "IN lê as chaves; OUT mostra na saída: as portas ligam a CPU ao mundo.\nEspera ocupada: um laço que lê a "
              "entrada até ela mudar. O IN fica dentro do laço.\nInterrupção: o dispositivo avisa, e a CPU não precisa ficar "
              "olhando."},
@@ -1809,6 +2172,15 @@ std::vector<Topic> makeTopics() {
              "nasceu, o que o torna difícil de achar."},
             {K::Tip, "Trocar de tarefa é guardar o contexto da que sai e restaurar o da que entra. Assim, cada tarefa continua "
              "exatamente de onde parou."},
+            {K::Page, "Os estados de uma tarefa"},
+            {K::Text, "Para revezar a CPU, o sistema operacional sabe em que estado está cada tarefa, ou processo. Pronta: podia "
+             "rodar, e espera a vez. Rodando: está na CPU agora. Bloqueada: espera algo de fora, uma tecla ou um disco, e "
+             "não adianta dar-lhe a CPU. Uma tarefa nova entra como pronta, e uma que terminou sai da lista."},
+            {K::Table, "De|Para|Quando\nPronta|Rodando|o sistema escolhe a tarefa\nRodando|Pronta|a vez dela acaba\n"
+             "Rodando|Bloqueada|ela pede E/S e precisa esperar\nBloqueada|Pronta|o que ela esperava chega"},
+            {K::Question, "Uma tarefa pediu uma tecla e ninguém apertou nada ainda. Em que estado ela está?\nRodando\nPronta\n"
+             "*Bloqueada\n=Ela espera algo de fora: até a tecla chegar, dar-lhe a CPU seria desperdício.\n?Adianta dar a "
+             "CPU a quem espera uma tecla?"},
             {K::Summary, "O sistema operacional é o programa que organiza a máquina e atende os outros.\nChamada de sistema: serviço em "
              "R1, dado em R2, CALL sistema; o sistema volta com JR R7.\nTarefas se revezam na CPU; trocar é guardar e "
              "restaurar o contexto: o PC e os registradores.\nCooperativa: a tarefa pede a troca. Preemptiva: um relógio "
@@ -1825,16 +2197,19 @@ std::vector<Topic> makeTopics() {
         {
             {K::Page, "Paridade: um bit que vigia os outros"},
             {K::Text, "Quando dados viajam por um fio ou ficam guardados muito tempo, um bit pode virar. A paridade detecta isso: "
-             "junto com os dados vai um bit a mais, P, que vale 1 quando a quantidade de 1 é ímpar. Na chegada, conta-se de "
-             "novo; se não bater com P, houve erro."},
-            {K::Text, "O circuito é uma fila de XOR, porque o XOR de vários bits dá 1 exatamente quando há uma quantidade ímpar de 1."},
-            {K::Figure, "A paridade ímpar de 4 bits, feita com portas XOR em fila. Clique nos bits de D: o LED S acende quando a "
-             "quantidade de 1 é ímpar.", parityGates, 220},
-            {K::Example, "Mandando 1011 e um bit virando no caminho\nHá três 1 em 1011: ímpar, então P = 1. Vão 1011 e P = 1.\nNo "
-             "caminho, o terceiro bit vira: chega 1001.\nNa chegada, 1001 tem dois 1: par, daria P = 0.\nO P que chegou é "
-             "1. Não bate: o receptor sabe que algo veio errado."},
-            {K::Question, "Chegam os dados 0110 com P = 1. Houve erro?\n*Sim\nNão\nNão dá para saber\n=0110 tem dois 1, quantidade par: "
-             "o P certo seria 0. Como chegou 1, algum bit virou.\n?Conte os 1 de 0110 e compare com o P."},
+             "junto com os dados vai um bit a mais, P, escolhido para que o total de 1s, contando o próprio P, seja par. É "
+             "a paridade par, e com ela P vale 1 quando os dados têm uma quantidade ímpar de 1s. Na paridade ímpar, o total "
+             "fica ímpar e P é o contrário. Na chegada, conta-se de novo: se o total não bater, houve erro."},
+            {K::Text, "O circuito é uma fila de XOR, porque o XOR de vários bits dá 1 exatamente quando há uma quantidade ímpar de "
+             "1: é o P da paridade par."},
+            {K::Figure, "O bit da paridade par de 4 bits, feito com portas XOR em fila. Clique nos bits de D: o LED S acende quando a "
+             "quantidade de 1 é ímpar, e D com S fica sempre com uma quantidade par.", parityGates, 220},
+            {K::Example, "Mandando 1011 com paridade par\nHá três 1 em 1011: ímpar, então P = 1, e o total fica quatro, par. Vão 1011 e "
+             "P = 1.\nNo caminho, o terceiro bit vira: chega 1001.\nNa chegada, 1001 e P = 1 têm três 1 ao todo: ímpar.\nO "
+             "total devia ser par. Não bate: o receptor sabe que algo veio errado."},
+            {K::Question, "Com paridade par, chegam os dados 0110 com P = 1. Houve erro?\n*Sim\nNão\nNão dá para saber\n=0110 e P = 1 "
+             "têm três 1 ao todo, uma quantidade ímpar: na paridade par o total tinha de ser par. Algum bit virou.\n?Conte "
+             "os 1 dos dados e do P juntos."},
             {K::Mistake, "Achar que a paridade pega qualquer erro\nSe dois bits viram, a quantidade de 1 muda duas vezes e volta a ter "
              "a mesma paridade: o erro passa sem ser notado. A paridade só garante pegar um bit trocado. Para mais, usam-se "
              "códigos maiores, com vários bits de verificação."},
@@ -1858,9 +2233,21 @@ std::vector<Topic> makeTopics() {
              "3, que é 11.\n?Vence a de número mais alto."},
             {K::Mistake, "Esquecer o V\nSó com D0 ligada, a saída é 00. Sem nada ligado, a saída também é 00. Sem o V, as duas "
              "situações ficam iguais: é ele que diz que há mesmo um pedido."},
-            {K::Summary, "Paridade: um bit a mais que diz se a quantidade de 1 é ímpar. Pega um bit trocado, não dois.\nMUX 2:1: S = 0 "
-             "passa A, S = 1 passa B. Para N bits, N MUX com o mesmo S.\nCodificador de prioridade: o número da entrada "
-             "ligada mais alta, e V avisa que alguma pediu."},
+            {K::Page, "Além de achar o erro: corrigi-lo"},
+            {K::Text, "O bit de paridade avisa que um bit mudou, mas não diz qual, e não percebe quando dois mudam juntos. Memórias "
+             "que não podem errar usam um código de Hamming: vários bits de verificação, cada um vigiando um grupo "
+             "diferente de bits de dados. Os grupos se cruzam de modo que o padrão de verificações que falham aponta o bit "
+             "errado, e basta invertê-lo."},
+            {K::Table, "Bits de dados|Bits de verificação para corrigir 1 erro\n4|3\n8|4\n16|5\n32|6\n64|7"},
+            {K::Text, "Com um bit de paridade a mais sobre tudo, o código também percebe dois erros, mesmo sem corrigi-los. É o que "
+             "fazem as memórias ECC dos servidores."},
+            {K::Question, "Com um bit de paridade, chegam dados com dois bits trocados. O que acontece?\nA paridade aponta os dois bits\n"
+             "A paridade corrige os dois\n*A paridade não percebe nada\n=Dois bits trocados mantêm a quantidade de 1s par "
+             "(ou ímpar): o erro passa despercebido.\n?Trocar dois bits muda a contagem de 1s em quanto?"},
+            {K::Summary, "Paridade par: um bit a mais que deixa o total de 1s par; vale 1 quando os dados têm uma quantidade ímpar de "
+             "1s. Na paridade ímpar, o total fica ímpar. Pega um bit trocado, não dois.\nMUX 2:1: S = 0 passa A, S = 1 "
+             "passa B. Para N bits, N MUX com o mesmo S.\nCodificador de prioridade: o número da entrada ligada mais alta, "
+             "e V avisa que alguma pediu."},
         },
         {"paridade-perguntas", "paridade", "multiplexador", "prioridade"},
     });
@@ -1897,6 +2284,16 @@ std::vector<Topic> makeTopics() {
              "as parcelas, e somadores juntam tudo.", multiplierGates, 220},
             {K::Tip, "A CPU deste jogo não tem instrução de multiplicar: um programa multiplica com SHL, ADD e um laço, do mesmo "
              "jeito que o circuito."},
+            {K::Page, "O tamanho do produto, e o sinal"},
+            {K::Text, "Multiplicar dois números de n bits pode dar um resultado de até 2n bits: 15 × 15 = 225 precisa de 8 bits, não "
+             "de 4. Por isso os processadores guardam o produto em dois registradores, ou num registrador do dobro do "
+             "tamanho."},
+            {K::Text, "Com sinal, o somar e deslocar simples erra: ele trata o bit de sinal como um peso positivo. Um jeito é "
+             "multiplicar os valores sem sinal e acertar o sinal no fim. Outro é o algoritmo de Booth, que olha os bits do "
+             "multiplicador em pares e soma ou subtrai o multiplicando, funcionando direto em complemento de dois. O "
+             "computador deste jogo não tem multiplicador: lá se multiplica somando num laço."},
+            {K::Question, "Quantos bits podem ser precisos para o produto de dois números de 8 bits?\n8\n9\n*16\n=Até o dobro: 255 × 255 "
+             "= 65 025, que precisa de 16 bits.\n?O maior produto é 255 × 255."},
             {K::Summary, "−N é NÃO N + 1: inverta e some 1. Sem o + 1, fica um a menos.\nMultiplicar: para cada bit 1 de B, some A "
              "deslocado até a casa daquele bit.\nDeslocar para a esquerda multiplica por 2; para a direita, divide."},
         },
@@ -1950,6 +2347,17 @@ std::vector<Topic> makeTopics() {
              "sinal é 1, e ele se repete nos quatro bits novos: 11111010, que é −6 em 8 bits.\n?Repita o bit de cima."},
             {K::Mistake, "Encher de 0 um número negativo\n1101 (−3) com zeros em cima vira 00001101, que é 13: o sinal se perdeu. Por "
              "isso o extensor tem Sinal. Para números que nunca são negativos, como endereços, ele fica desligado."},
+            {K::Page, "Deslocamento lógico, aritmético e rotação"},
+            {K::Text, "Deslocar para a direita abre uma casa à esquerda. O deslocamento lógico a preenche com 0: certo para números "
+             "sem sinal. O deslocamento aritmético copia o bit de sinal: assim um número negativo continua negativo, e "
+             "deslocar uma casa divide por 2 também com sinal. Na rotação, o bit que sai de um lado entra pelo outro, e "
+             "nada se perde."},
+            {K::Example, "-8 deslocado uma casa para a direita, com 4 bits\n-8 é 1000.\nLógico: entra 0 à esquerda, 0100, que é 4. O "
+             "sinal se perdeu.\nAritmético: entra uma cópia do bit de sinal, 1100, que é -4.\n-8 ÷ 2 = -4: o aritmético "
+             "acertou."},
+            {K::Question, "No MIPS, qual instrução divide um número com sinal por 2?\nsrl, deslocamento lógico\n*sra, deslocamento "
+             "aritmético\nsll, para a esquerda\n=sra copia o bit de sinal ao deslocar para a direita: -6 vira -3.\n?Qual "
+             "delas mantém o sinal?"},
             {K::Summary, "Deslocar para a esquerda multiplica por 2; para a direita, divide e joga fora o resto. Uma casa é só fio.\nO "
              "Deslocador faz N casas de uma vez, com um estágio de MUX por bit de N: 1, 2, 4 casas.\nEstender com sinal "
              "repete o bit de cima; sem sinal, enche de 0."},
@@ -1987,6 +2395,15 @@ std::vector<Topic> makeTopics() {
              "e 8.\n?Procure o e em cada linha da tabela."},
             {K::Tip, "Um decodificador para 7 segmentos é só um conjunto de tabelas-verdade. Montar cada segmento é o mesmo "
              "trabalho do Ato das portas lógicas: achar quando ele vale 1 e juntar com E, OU e NÃO."},
+            {K::Page, "Uma tabela vira uma ROM"},
+            {K::Text, "O decodificador de 7 segmentos é só uma tabela: para cada número de 4 bits, quais segmentos acendem. Toda "
+             "tabela assim pode ser feita com portas, mas também com uma ROM: o número entra como endereço, e a palavra "
+             "guardada nele é a linha da tabela, um bit por segmento."},
+            {K::Text, "A ROM troca o projeto de portas por uma lista de palavras: mudar o desenho de um dígito é só regravar uma "
+             "palavra. Circuitos programáveis, como as PLAs e os FPGAs, levam essa ideia adiante."},
+            {K::Question, "Uma ROM faz o decodificador de 7 segmentos para números de 4 bits. Quantas palavras ela precisa, e de quantos "
+             "bits?\n4 palavras de 7 bits\n*16 palavras de 7 bits\n7 palavras de 16 bits\n=Uma palavra por número de "
+             "entrada, 2 elevado a 4 = 16, e um bit por segmento, 7.\n?Quantos endereços 4 bits formam?"},
             {K::Summary, "Sete barras, a até g: a em cima, b e c à direita, d embaixo, e e f à esquerda, g no meio.\nCada algarismo "
              "acende um conjunto de segmentos.\nO decodificador tem uma tabela-verdade por segmento, feita de portas."},
         },
@@ -2025,6 +2442,16 @@ std::vector<Topic> makeTopics() {
              "para sempre. Por isso o LFSR de 4 bits passa por 15 valores, e não 16: o 1111 fica de fora."},
             {K::Tip, "Pseudoaleatório: parece sorteado, mas é uma sequência fixa. Começando do mesmo valor, ela se repete "
              "igualzinha."},
+            {K::Page, "O repique do botão"},
+            {K::Text, "Um botão de verdade não fecha de uma vez. Os contatos de metal batem e voltam várias vezes em poucos "
+             "milissegundos, e o circuito vê uma rajada de pulsos em vez de um só. Um contador ligado direto num botão "
+             "assim conta três ou quatro apertos a cada toque."},
+            {K::Text, "A solução, o debounce, é esperar o sinal se acalmar: um capacitor e um resistor que alisam a rajada, um latch "
+             "que guarda o primeiro contato, ou um programa que só aceita o botão depois de ele ficar parado alguns "
+             "milissegundos. O Botão do simulador já vem sem repique."},
+            {K::Question, "Um contador ligado direto num botão de verdade sobe 3 a cada aperto. Por quê?\nO contador está errado\n*Os "
+             "contatos repicam e fazem vários pulsos\nO botão está sem resistor\n=O metal bate e volta: cada aperto vira "
+             "uma rajada de pulsos.\n?Um contato de metal fecha de uma vez só?"},
             {K::Summary, "Um botão no clock de um contador soma 1 por aperto: conta a borda de subida.\nBotões de verdade trepidam; o "
              "debounce filtra os quiques.\nLFSR: os bits sobem e entra um bit calculado dos próprios bits. Parece ao acaso, "
              "mas se repete."},
@@ -2061,6 +2488,15 @@ std::vector<Topic> makeTopics() {
              "guardado\nAparece o código em vez da letra\n=Sem Write, o terminal ignora o pulso: não guarda o caractere e "
              "não avança.\n?Write é a ordem de guardar."},
             {K::Tip, "Teclado, código, memória e tela: é o caminho de cada letra que você digita num computador de verdade."},
+            {K::Page, "Quando o ASCII não basta"},
+            {K::Text, "O ASCII tem 7 bits e 128 códigos: letras sem acento, algarismos, sinais e alguns comandos. Não tem ç, ã nem "
+             "é. Durante anos cada país usou o oitavo bit do seu jeito, e um texto escrito num lugar aparecia trocado em "
+             "outro."},
+            {K::Text, "O Unicode resolveu isso dando um número a cada caractere de todas as línguas, mais de cem mil. O UTF-8, o "
+             "jeito mais usado de guardá-lo, escreve os caracteres do ASCII num byte só, igual ao ASCII, e os outros em "
+             "dois a quatro bytes. O ç, por exemplo, ocupa dois."},
+            {K::Question, "Quantos caracteres diferentes cabem no ASCII de 7 bits?\n7\n*128\n256\n=2 elevado a 7 = 128 códigos.\n"
+             "?Quantas combinações têm 7 bits?"},
             {K::Summary, "Cada caractere é um número, o código ASCII: A é 65, a é 97, 0 é 48, espaço é 32.\nMaiúscula e minúscula "
              "diferem em 32; o algarismo vira número subtraindo 48.\nO teclado dá o código e o sinal Tecla; o terminal "
              "guarda um caractere por pulso, com Write ligado."},
@@ -2122,6 +2558,19 @@ std::vector<Topic> makeTopics() {
             {K::Mistake, "Somar 1 para ir à próxima palavra\naddi $t0, $t0, 1 aponta para o meio da palavra, não para a próxima. Para "
              "andar uma palavra, some 4. Para achar a palavra de número i, desloque i duas casas para a esquerda: é "
              "multiplicar por 4."},
+            {K::Page, "RISC: poucas instruções, simples e rápidas"},
+            {K::Text, "O MIPS é o exemplo clássico de RISC, computador de conjunto reduzido de instruções. A ideia, dos anos 1980, "
+             "era o contrário do que se fazia: em vez de muitas instruções complexas, poucas e simples, todas do mesmo "
+             "tamanho, cada uma rápida o bastante para terminar num ciclo."},
+            {K::Table, "RISC, como o MIPS|CISC, como o x86\ninstruções de um tamanho só, 32 bits|instruções de 1 a 15 bytes\nsó lw e "
+             "sw vão à memória|contas podem usar a memória direto\nmuitos registradores, 32|poucos registradores\npoucos "
+             "modos de endereçamento|muitos modos"},
+            {K::Text, "Instruções simples e iguais são fáceis de decodificar e de pôr em linha de montagem, o pipeline. Os celulares "
+             "usam ARM, outro RISC; e até os processadores x86 de hoje traduzem as suas instruções complexas, por dentro, "
+             "em operações simples como as do RISC."},
+            {K::Question, "No MIPS, uma conta como add pode pegar um valor direto da memória?\nSim, como qualquer instrução\n*Não: só lw "
+             "e sw falam com a memória\nSó se o endereço for pequeno\n=No RISC, as contas usam só registradores; trazer da "
+             "memória é trabalho do lw.\n?Qual é a ideia de load e store?"},
             {K::Summary, "32 registradores de 32 bits; $zero vale sempre 0.\nsyscall pede um serviço pelo número em $v0: 1 mostra $a0, "
              "10 termina.\nOs endereços contam bytes: as palavras ficam de 4 em 4.\nlw e sw leem e gravam no endereço "
              "registrador + número."},
@@ -2172,6 +2621,18 @@ std::vector<Topic> makeTopics() {
              "$t2 = 0x5, os de cima\n        sll  $t3, $t2, 2    # $t3 = 20, 5 vezes 4"},
             {K::Question, "Com $t0 = 0xC3, quanto vale $t2 depois de srl $t2, $t0, 4?\n*0xC\n0x3\n0xC30\n=Cada dígito hexadecimal são 4 "
              "bits: deslocar 4 para a direita joga fora o 3 e desce o C.\n?srl 4 desce um dígito hexadecimal."},
+            {K::Page, "A ordem dos bytes numa palavra"},
+            {K::Text, "Uma palavra de 32 bits ocupa 4 bytes, em 4 endereços seguidos. Mas qual byte vai no primeiro? No big-endian, "
+             "o byte mais significativo vem primeiro, como se escreve um número. No little-endian, o menos significativo "
+             "vem primeiro. O MIPS pode funcionar dos dois jeitos; os processadores x86 e quase todos os ARM usam "
+             "little-endian."},
+            {K::Table, "Endereço|Big-endian|Little-endian\n100|12|78\n101|34|56\n102|56|34\n103|78|12"},
+            {K::Text, "A tabela mostra a palavra 0x12345678 guardada a partir do endereço 100. O computador deste jogo só lê e grava "
+             "palavras inteiras, então a ordem não aparece aqui; ela importa quando dois computadores trocam dados por um "
+             "arquivo ou pela rede."},
+            {K::Question, "Num computador little-endian, a palavra 0x0A0B0C0D está no endereço 200. Que byte está no endereço 200?\n0A\n"
+             "*0D\n0C\n=No little-endian o byte menos significativo vem primeiro: 0D.\n?Little-endian começa pela ponta "
+             "pequena."},
             {K::Summary, "R: três registradores, o shamt e o funct, com op 0. I: dois registradores e um imediato de 16 bits. J: 26 "
              "bits de endereço.\nNa palavra, o destino de uma instrução R é rd, o terceiro campo de registrador.\naddi, lw, "
              "sw e beq estendem o sinal do imediato; andi, ori e xori completam com zeros.\nandi recorta bits, srl os traz "
@@ -2222,6 +2683,18 @@ std::vector<Topic> makeTopics() {
              "palavras, 8 bytes, e a pilha cresce para baixo: −8.\n?Cada palavra são 4 bytes, e a pilha desce."},
             {K::Mistake, "Desequilibrar a pilha\nCada addi $sp, $sp, -4 precisa do seu addi $sp, $sp, 4 antes do jr. Se faltar um, quem "
              "chamou a função encontra $sp no lugar errado e lê o valor de outro."},
+            {K::Page, "Sem sinalizadores"},
+            {K::Text, "Muitos processadores comparam numa instrução e desviam em outra, com os sinalizadores da ULA no meio: "
+             "compara, e depois salta se deu menor. O MIPS não tem sinalizadores. O beq e o bne comparam dois registradores "
+             "dentro da própria instrução, e para saber se um é menor que o outro existe o slt, que põe 1 ou 0 num "
+             "registrador."},
+            {K::Text, "Sem sinalizadores, nenhuma instrução muda escondido um estado que a próxima vai ler. Isso simplifica o "
+             "pipeline: cada instrução depende só dos registradores que cita."},
+            {K::Example, "Desviar se $t0 < $t1\nslt $t2, $t0, $t1 põe 1 em $t2 se $t0 for menor que $t1, e 0 se não for.\nbne $t2, "
+             "$zero, menor salta se $t2 não for 0, ou seja, se $t0 < $t1.\nÉ o que a pseudoinstrução blt $t0, $t1, menor "
+             "faz: o montador a escreve com essas duas."},
+            {K::Question, "Depois de slt $t2, $t0, $t1 com $t0 = 7 e $t1 = 3, quanto vale $t2?\n*0\n1\n4\n=7 não é menor que 3: slt põe "
+             "0.\n?slt pergunta: o primeiro é menor que o segundo?"},
             {K::Summary, "beq e bne desviam para PC + 4 + imediato × 4.\nj e jal levam 26 bits do endereço; jal guarda a volta em $ra.\n"
              "jr $ra volta de uma função; o argumento vai em $a0 e a resposta em $v0.\nUma função que chama outra guarda "
              "$ra na pilha, descendo $sp."},

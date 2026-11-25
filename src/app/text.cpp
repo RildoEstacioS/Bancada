@@ -51,13 +51,22 @@ TextRenderer::~TextRenderer() {
 
 float TextRenderer::lineHeight(Face face, float size) const { return font(face).lineHeight(static_cast<float>(wholeSize(size))); }
 
+// How many real pixels a point is: more than 1 only where the renderer is scaled, as on a phone.
+float TextRenderer::pixelScale() const {
+    float sx = 1.0f;
+    float sy = 1.0f;
+    SDL_GetRenderScale(renderer_, &sx, &sy);
+    return sx > 1.0f ? sx : 1.0f;
+}
+
 float TextRenderer::measure(Face face, float size, std::string_view text) const {
     const text::Font& f = font(face);
-    const auto pixels = static_cast<float>(wholeSize(size));
+    const float scale = pixelScale();
+    const auto pixels = static_cast<float>(wholeSize(size * scale));
     float total = 0.0f;
     std::size_t at = 0;
     while (at < text.size()) total += f.advance(f.glyphFor(text::nextCharacter(text, at)), pixels);
-    return total;
+    return total / scale;
 }
 
 void TextRenderer::clearAtlas() {
@@ -107,9 +116,10 @@ const TextRenderer::Glyph& TextRenderer::glyph(Face face, int size, std::uint16_
 
 float TextRenderer::draw(Face face, float size, float x, float y, std::string_view text, SDL_FColor color) {
     const text::Font& f = font(face);
-    const int whole = wholeSize(size);
+    const float scale = pixelScale();
+    const int whole = wholeSize(size * scale);
     const auto pixels = static_cast<float>(whole);
-    const float baseline = std::round(y);
+    const float baseline = std::round(y * scale) / scale;
     vertices_.clear();
     indices_.clear();
     const auto atlasSize = static_cast<float>(kAtlasSize);
@@ -120,14 +130,14 @@ float TextRenderer::draw(Face face, float size, float x, float y, std::string_vi
         const std::uint16_t index = f.glyphFor(text::nextCharacter(text, at));
         const Glyph& g = glyph(face, whole, index);
         if (g.width > 0 && g.height > 0) {
-            const float left = std::round(pen) + static_cast<float>(g.left);
-            const float top = baseline - static_cast<float>(g.top);
-            const auto w = static_cast<float>(g.width);
-            const auto h = static_cast<float>(g.height);
+            const float left = (std::round(pen * scale) + static_cast<float>(g.left)) / scale;
+            const float top = baseline - static_cast<float>(g.top) / scale;
+            const float w = static_cast<float>(g.width) / scale;
+            const float h = static_cast<float>(g.height) / scale;
             const float u0 = static_cast<float>(g.x) / atlasSize;
             const float v0 = static_cast<float>(g.y) / atlasSize;
-            const float u1 = (static_cast<float>(g.x) + w) / atlasSize;
-            const float v1 = (static_cast<float>(g.y) + h) / atlasSize;
+            const float u1 = (static_cast<float>(g.x) + static_cast<float>(g.width)) / atlasSize;
+            const float v1 = (static_cast<float>(g.y) + static_cast<float>(g.height)) / atlasSize;
             const int start = static_cast<int>(vertices_.size());
             vertices_.push_back({{left, top}, color, {u0, v0}});
             vertices_.push_back({{left + w, top}, color, {u1, v0}});
@@ -135,7 +145,7 @@ float TextRenderer::draw(Face face, float size, float x, float y, std::string_vi
             vertices_.push_back({{left, top + h}, color, {u0, v1}});
             for (int offset : {0, 1, 2, 0, 2, 3}) indices_.push_back(start + offset);
         }
-        pen += f.advance(index, pixels);
+        pen += f.advance(index, pixels) / scale;
     }
     if (!indices_.empty()) {
         SDL_RenderGeometry(renderer_, atlas_, vertices_.data(), static_cast<int>(vertices_.size()), indices_.data(), static_cast<int>(indices_.size()));

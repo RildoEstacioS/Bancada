@@ -25,6 +25,7 @@ public:
     TextRenderer& operator=(const TextRenderer&) = delete;
 
     float measure(Face face, float size, std::string_view text) const;
+    float pixelScale() const;  // real pixels per point: above 1 only on a scaled renderer
     float lineHeight(Face face, float size) const;
 
     // y is the baseline. Returns where the pen ended up.

@@ -1,0 +1,188 @@
+k/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/identity.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/clamp.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/copy.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/copy_move_common.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/unwrap_iter.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/unwrap_range.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/pair.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/common_comparison_category.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/ordering.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/synth_three_way.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/three_way_comparable.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__concepts/different_from.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__fwd/array.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__fwd/subrange.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/pair_like.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_like.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__fwd/complex.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_size.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_types.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/sfinae_helpers.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/make_tuple_types.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_element.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_indices.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/integer_sequence.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/tuple_like_ext.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/piecewise_construct.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__string/constexpr_c_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__memory/construct_at.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/access.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__memory/voidify.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/new \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__exception/exception.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cstdlib \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/stdlib.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/stdlib.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/alloca.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/wait.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/wait.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/malloc.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/fortify/stdlib.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/android/legacy_stdlib_inlines.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/bits/stdlib_inlines.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__type_traits/datasizeof.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__type_traits/is_always_bitcastable.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__type_traits/is_equality_comparable.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__type_traits/is_trivially_lexicographically_comparable.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/is_pointer_in_range.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/for_each_segment.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/segmented_iterator.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/min.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/min_element.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/copy_backward.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/copy_if.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/copy_n.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/count.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__bit/invert_if.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__bit/popcount.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__bit/rotate.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__fwd/bit_reference.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/count_if.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/equal.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/equal_range.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/upper_bound.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/fill.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/fill_n.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find_segment_if.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__bit/countr.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cwchar \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cwctype \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cctype \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/ctype.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/ctype.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/wctype.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/wctype.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find_end.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/search.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/reverse_iterator.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/compare_three_way_result.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/iterator.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__ranges/subrange.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__ranges/dangling.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__ranges/view_interface.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__ranges/empty.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find_first_of.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find_if.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/find_if_not.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/fold.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/reference_wrapper.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/weak_result_type.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/binary_function.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/unary_function.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__algorithm/for_each.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__ranges/movable_box.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/optional \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/hash.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cstring \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/in_place.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/compare \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/compare_partial_order_fallback.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/partial_order.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/compare_three_way.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/weak_order.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/strong_order.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__bit/bit_cast.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/exponential_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__type_traits/promote.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/traits.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/priority_tag.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/compare_strong_order_fallback.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/compare_weak_order_fallback.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__compare/is_eq.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/cmath \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/math.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/math.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/abs.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/copysign.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/error_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/fdim.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/fma.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/gamma.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/hyperbolic_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/hypot.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/inverse_hyperbolic_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/inverse_trigonometric_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/logarithms.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/min_max.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/modulo.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/remainder.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/roots.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/rounding_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__math/trigonometric_functions.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/atomic \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/aliases.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic_base.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic_sync.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/contention_t.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/cxx_atomic_impl.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/memory_order.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/duration.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/ratio \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/climits \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__thread/poll_with_backoff.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/high_resolution_clock.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/steady_clock.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/time_point.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/system_clock.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/ctime \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__thread/support.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__chrono/convert_to_timespec.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/errno.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/errno.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/errno.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/aarch64-linux-android/asm/errno.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/errno.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/asm-generic/errno-base.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/pthread.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/sched.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/sched.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/linux/sched/types.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/check_memory_order.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/is_always_lock_free.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__functional/operations.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic_lock_free.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic_flag.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/atomic_init.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/fence.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__atomic/kill_dependency.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/concepts \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__concepts/common_with.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/iterator \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/back_insert_iterator.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/bounded_iter.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__iterator/common_iterator.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/variant \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__tuple/find_index.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__utility/forward_like.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__variant/monostate.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/exception \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__exception/exception_ptr.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__exception/operations.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/typeinfo \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__exception/nested_exception.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__exception/terminate.h \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/tuple \
+  D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/include/c++/v1/__memory/allocator_arg_t.ELF          >                    X          @     @    Android (13624864, based on r530567e) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project 97a699bf4812a18fb657c2779f5296a4ab2694d2)                               ñÿ                 .text .comment .note.GNU-stack SDL_render_psp.c .strtab .symtab                                                                        1                            A                                                   @                                            0               @       Ÿ                                                   ß                                      9                      à       0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   INDX( 	 §UGt           (   ˆ  è         .                   ¶2    € l     ½1    ¦pöœª{İ±$$ª{İè$ª{İ±$$ª{İ À     (±              S D L _ b l e n d f i l l r e c t . c . o . d »2    x d     ½1    mEøœª{İ[Bª{İ“Cª{İ[Bª{İ ğ     `í              S D L _ b l e n d l i n e . c . o . d Ñ2    x f     ½1    Ğ ûœª{İ¾4ª{İæ‚ª{İ¾4ª{İ       ¨ù               S D L _ b l e n d p o i n t . c . o . Î2    x b     ½1    †¿ÿœª{İCTª{İX{ª{İCTª{İ                      S D L _ d r a w l i n e . c . o . d d Ó2    x d     ½1    Û© ª{İÄª{İÊBª{İÄª{İ P      8F               S D L _ d r a w p o i n t . c . o . d Ğ2    x d     ½1    ßdª{İÀøª{İ¼ª{İÀøª{İ À     Ğ°              S D L _ r e n d e r _ s w . c . o . d Ô2    x b     ½1    ª{İ¸Ñª{İÉª{İ¸Ñª{İ       x              S D L _ t r i a n g l e . c . o . d t               ½1    ª{İ¸Ñª{İÉª{İ¸Ñª{İ       x              S D L _ t r i a n g l e . c  o . d t               o . d t                     o . d t               Éª{İÉª{İÉª{İÉª{İ p      ‚e               S D L _ t r i a n g l e . c . o . d t               o . d t               4 1 d 6 4 8 8 d . o . t m p                   m p                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             ELF          ·                    p•          @     @ !  9R¢Fß‘?ÿƒÑı{©üË ùı‘¨ƒ Ñ¨øHĞ;Õ@ù¨ƒø C¸¡¸ ƒü¢ø£ƒø¤ø¥ƒø ƒZü  @ı a ü Wü   ” ƒü Wü   ” ü¢ƒVü£Vü Zøl¡ƒü¡C Ñ¢Ã Ñ @`   ”¡ƒTü¨C[¸ b 8a¢ƒVü£Vü Zø¡c Ñ¢ã Ñ   ” ƒTü¨[¸b!8`¢ƒVü£Vü Zø¡ƒ Ñ¢Ñ   ”¢ƒTü¨C[¸ b 8b¨[¸b!8b¢ƒVü£Vü Zø¡£ Ñ¢#Ñ   ”¨Uø 	@ı@ı  aÅ  T  ¨Uø 	@ıàc ı  ¨Uø @ıàc ı  ¨Uøàc@ıà_ ı @ı¡ƒ]ü  aÅ  T  ¨Uø @ıà[ ı   ƒ]üà[ ı  à_@ıá[@ı  ae T  ¨Uø 	@ı@ı  aÅ  T  ¨Uø 	@ıàW ı  ¨Uø @ıàW ı  àW@ıàS ı  ¨Uø @ı¡ƒ]ü  aÅ  T  ¨Uø @ıàO ı   ƒ]üàO ı  àO@ıàS ı  àS@ı   ”¨Uø	 x©C¸ 	@ı@ı  aÍ  T  ¨Uø 	@ıàK ı  ¨Uø @ıàK ı  ¨UøàK@ıàG ı @ı¡ƒ]ü  aÍ  T  ¨Uø @ıàC ı   ƒ]üàC ı  àG@ıáC@ı  am T  ¨Uø 	@ı@ı  aÍ  T  ¨Uø 	@ıà? ı  ¨Uø @ıà? ı  à?@ıà; ı  ¨Uø @ı¡ƒ]ü  aÍ  T  ¨Uø @ıà7 ı   ƒ]üà7 ı  à7@ıà

@@ -57,4 +57,13 @@ const std::vector<GalleryItem>& galleryItems();
 // The example in one of its versions; a version past the last is the first.
 GalleryProject buildGalleryItem(const GalleryItem& item, std::size_t version = 0);
 
+// How a part is made, from the gallery: the example whose first version is that part alone (a gate, or a
+// ready box), and the version after it, which builds the same thing from smaller parts (a box from gates, a
+// gate from transistors). No item if the gallery doesn't show this part.
+struct PartInside {
+    const GalleryItem* item = nullptr;
+    std::size_t version = 0;
+};
+PartInside galleryInsideOf(const Part& part);
+
 }  // namespace bancada::editor

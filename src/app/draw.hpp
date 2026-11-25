@@ -114,10 +114,10 @@ float paletteContentHeight(const std::vector<PaletteGroup>& groups, const Palett
 
 // The buttons along the top, so that nothing depends on a key the keyboard might not have.
 // Home isn't about the simulation: it's the way back to the first screen.
-enum class SimButton : std::uint8_t { None, RunPause, Step, Reset, Slower, Faster, SpeedLabel, Home };
+enum class SimButton : std::uint8_t { None, RunPause, Step, Reset, Slower, Faster, SpeedLabel, Home, Save, Open };
 
 enum class Icon : std::uint8_t {
-    None, Trash, Copy, Cut, Paste, Rotate, Undo, Redo, Play, Pause, Step, Reset, Minus, Plus, ChevronRight, ChevronDown, Search, Home
+    None, Trash, Copy, Cut, Paste, Rotate, Undo, Redo, Play, Pause, Step, Reset, Minus, Plus, ChevronRight, ChevronDown, Search, Home, Save, Folder
 };
 
 struct ToolButton {
@@ -130,7 +130,9 @@ struct ToolButton {
 };
 
 inline constexpr ToolButton kToolbar[] = {
-    {"Tela inicial", editor::Key::Escape, 34, SimButton::Home, Icon::Home, 18.0f},
+    {"Tela inicial", editor::Key::Escape, 34, SimButton::Home, Icon::Home},
+    {"Salvar o projeto (Ctrl+S)", editor::Key::Escape, 34, SimButton::Save, Icon::Save},
+    {"Abrir um projeto (Ctrl+O)", editor::Key::Escape, 34, SimButton::Open, Icon::Folder, 18.0f},
     {"Apagar (Del)", editor::Key::Delete, 34, SimButton::None, Icon::Trash},
     {"Copiar (Ctrl+C)", editor::Key::Copy, 34, SimButton::None, Icon::Copy},
     {"Recortar (Ctrl+X)", editor::Key::Cut, 34, SimButton::None, Icon::Cut},
@@ -379,6 +381,27 @@ bool pressReadingFigure(SDL_Renderer* renderer, float x, float y, int width, con
 float readingMaxScroll(SDL_Renderer* renderer, int width, int height, const ReadingView& view);
 void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const ReadingView& view);
 
+// A part seen from the inside: how it is made, the way the gallery builds it, on a board that can be looked
+// at, moved and zoomed, with switches that can be clicked, but that can't be changed. A double click on a
+// gate or a ready part opens it; a double click on a part inside goes one level deeper.
+struct PeekView {
+    const editor::Session* session = nullptr;
+    Camera camera;                      // in the board area's own pixels
+    std::vector<std::string> trail;     // the parts opened, outermost first
+    std::vector<std::string> versions;  // the ways it's built, on their buttons
+    int version = 0;                    // the one on show
+    std::string how;                    // how that one does it
+};
+enum class PeekChoice : std::uint8_t { None, Back, Version, Board };
+struct PeekHit {
+    PeekChoice choice = PeekChoice::None;
+    int version = -1;
+};
+SDL_FRect peekBoardArea(int width, int height);
+Camera peekFit(const editor::Session& session, int width, int height);
+void drawPeek(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const PeekView& view);
+PeekHit peekAt(SDL_Renderer* renderer, float x, float y, int width, int height, const PeekView& view);
+
 // The strip over the board during a lesson: what it's about, the steps, and its buttons.
 constexpr float kLessonStripHeight = 236.0f;
 enum class LessonButton : std::uint8_t { None, Check, Hint, Restart, List, Next, Program, Reading };
@@ -456,6 +479,8 @@ struct CodeLayout {
     SDL_FRect problems;
     SDL_FRect assemble;
     SDL_FRect close;
+    SDL_FRect open;  // a text file into the editor
+    SDL_FRect save;  // the editor's text into a file
     int lines = 1;  // how many fit
     int columns = 1;
 };

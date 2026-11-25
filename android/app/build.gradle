@@ -1,0 +1,73 @@
+// The game for Android: the same C++ as the desktop, built by CMake from the project's root CMakeLists.txt as
+// libbancada.so, with SDL inside it, and loaded by BancadaActivity, which is SDL's own activity.
+//
+// Where the tools are on this machine goes in local.properties, which stays out of git:
+//   sdk.dir           the Android SDK
+//   cmake.dir         a CMake 3.31 (on a path with no accents: Ninja and CMake prefer that on Windows)
+//   bancada.ndkPath   the NDK 28.2.13676358
+//   bancada.sdl3Dir   SDL 3.4.20's source; without it, CMake downloads it from GitHub
+//   bancada.zstdDir   zstd 1.5.7's source
+//   bancada.includeDir a folder with xxhash.h and nlohmann/json.hpp
+plugins {
+    id 'com.android.application'
+}
+
+def localProps = new Properties()
+def localFile = rootProject.file('local.properties')
+if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
+
+def cmakeArguments = ["-DANDROID_PLATFORM=android-24", "-DANDROID_STL=c++_static", "-DBANCADA_APP=ON"]
+if (localProps.getProperty('bancada.sdl3Dir')) cmakeArguments << "-DFETCHCONTENT_SOURCE_DIR_SDL3=${localProps.getProperty('bancada.sdl3Dir')}"
+// zstd is built from its source; xxhash and nlohmann/json are only headers.
+if (localProps.getProperty('bancada.zstdDir')) cmakeArguments << "-DBANCADA_ZSTD_SOURCE=${localProps.getProperty('bancada.zstdDir')}"
+if (localProps.getProperty('bancada.includeDir')) {
+    cmakeArguments << "-DXXHASH_INCLUDE_DIR=${localProps.getProperty('bancada.includeDir')}"
+    cmakeArguments << "-DJSON_INCLUDE_DIR=${localProps.getProperty('bancada.includeDir')}"
+}
+
+android {
+    namespace = "org.bancada.app"
+    compileSdk = 35
+    ndkVersion = "28.2.13676358"
+    if (localProps.getProperty('bancada.ndkPath')) ndkPath = localProps.getProperty('bancada.ndkPath')
+    defaultConfig {
+        applicationId = "org.bancada.app"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.1.0"
+        externalNativeBuild {
+            cmake {
+                arguments(*cmakeArguments)
+                targets 'bancada'
+                // Phones and tablets are arm64; x86_64 is for the emulator on a PC.
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path '../../CMakeLists.txt'
+            version '3.31.6'
+        }
+    }
+    lint {
+        abortOnError = false
+    }
+}
+
+// The APK also goes to jogar/android/bancada.apk, next to the Windows and Linux builds, after every build.
+def copyApk = tasks.register('copyApkToJogar', Copy) {
+    from(layout.buildDirectory.dir('outputs/apk/debug')) { include 'app-debug.apk' }
+    into(rootProject.file('../jogar/android'))
+    rename { 'bancada.apk' }
+}
+afterEvaluate {
+    tasks.named('assembleDebug') { finalizedBy copyApk }
+}

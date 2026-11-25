@@ -1,0 +1,442 @@
+lchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_FSEEKO64"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-x3q426'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_7f099
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_7f099.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_7f099.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_7f099.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-x3q426/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_7f099.dir/CheckSymbolExists.c.o -o cmTC_7f099  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for getenv"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wcxseo"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wcxseo"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_GETENV"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wcxseo'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_1c260
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_1c260.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_1c260.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_1c260.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wcxseo/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_1c260.dir/CheckSymbolExists.c.o -o cmTC_1c260  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for _i64toa"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS__I64TOA"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_67c6c
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_67c6c.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_67c6c.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_67c6c.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5/CheckSymbolExists.c
+        FAILED: CMakeFiles/cmTC_67c6c.dir/CheckSymbolExists.c.o 
+        D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_67c6c.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_67c6c.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_67c6c.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5/CheckSymbolExists.c
+        D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-52pvz5/CheckSymbolExists.c:26:19: error: use of undeclared identifier '_i64toa'\x0d
+           26 |   return ((int*)(&_i64toa))[argc];\x0d
+              |                   ^\x0d
+        1 error generated.\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for index"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_INDEX"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_17eab
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_17eab.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_17eab.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_17eab.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91/CheckSymbolExists.c
+        FAILED: CMakeFiles/cmTC_17eab.dir/CheckSymbolExists.c.o 
+        D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_17eab.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_17eab.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_17eab.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91/CheckSymbolExists.c
+        D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91/CheckSymbolExists.c:26:19: error: call to undeclared library function 'index' with type 'char *(const char *, int)'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]\x0d
+           26 |   return ((int*)(&index))[argc];\x0d
+              |                   ^\x0d
+        D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-8pvg91/CheckSymbolExists.c:26:19: note: include the header <strings.h> or explicitly provide a declaration for 'index'\x0d
+        1 error generated.\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for itoa"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_ITOA"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_3ec6c
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_3ec6c.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_3ec6c.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_3ec6c.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh/CheckSymbolExists.c
+        FAILED: CMakeFiles/cmTC_3ec6c.dir/CheckSymbolExists.c.o 
+        D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_3ec6c.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_3ec6c.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_3ec6c.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh/CheckSymbolExists.c
+        D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-itdgwh/CheckSymbolExists.c:26:19: error: use of undeclared identifier 'itoa'\x0d
+           26 |   return ((int*)(&itoa))[argc];\x0d
+              |                   ^\x0d
+        1 error generated.\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for log"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ovoxwf"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ovoxwf"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LOG"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ovoxwf'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_8795f
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_8795f.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_8795f.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_8795f.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ovoxwf/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_8795f.dir/CheckSymbolExists.c.o -o cmTC_8795f  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for log10"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wu7dbu"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wu7dbu"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LOG10"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wu7dbu'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_992f6
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_992f6.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_992f6.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_992f6.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-wu7dbu/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_992f6.dir/CheckSymbolExists.c.o -o cmTC_992f6  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for log10f"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-s63xm0"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-s63xm0"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LOG10F"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-s63xm0'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_f9e79
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_f9e79.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_f9e79.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_f9e79.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-s63xm0/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_f9e79.dir/CheckSymbolExists.c.o -o cmTC_f9e79  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for logf"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-eywxvm"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-eywxvm"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LOGF"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-eywxvm'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_7474e
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_7474e.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_7474e.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_7474e.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-eywxvm/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_7474e.dir/CheckSymbolExists.c.o -o cmTC_7474e  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for lround"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ko5gry"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ko5gry"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LROUND"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ko5gry'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_a82b9
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_a82b9.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_a82b9.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_a82b9.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-ko5gry/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_a82b9.dir/CheckSymbolExists.c.o -o cmTC_a82b9  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for lroundf"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-t4hktk"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-t4hktk"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-info "
+      CMAKE_EXE_LINKER_FLAGS: "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  "
+      CMAKE_MODULE_PATH: "D:/AndroidTools/SDL3/cmake"
+      CMAKE_POSITION_INDEPENDENT_CODE: "TRUE"
+      CMAKE_SYSROOT: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    buildResult:
+      variable: "LIBC_HAS_LROUNDF"
+      cached: true
+      stdout: |
+        Change Dir: 'D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-t4hktk'
+        
+        Run Build Command(s): D:\\AndroidTools\\cmake\\3.31.6\\bin\\ninja.exe -v cmTC_e4136
+        [1/2] D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot   -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -fPIE -MD -MT CMakeFiles/cmTC_e4136.dir/CheckSymbolExists.c.o -MF CMakeFiles\\cmTC_e4136.dir\\CheckSymbolExists.c.o.d -o CMakeFiles/cmTC_e4136.dir/CheckSymbolExists.c.o -c D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-t4hktk/CheckSymbolExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && D:\\AndroidTools\\sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=x86_64-none-linux-android24 --sysroot=D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat   -D_GNU_SOURCE=1 -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_e4136.dir/CheckSymbolExists.c.o -o cmTC_e4136  -lm  -latomic -lm && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:163 (try_compile)"
+      - "D:/AndroidTools/cmake/3.31.6/share/cmake-3.31/Modules/CheckSymbolExists.cmake:68 (__CHECK_SYMBOL_EXISTS_IMPL)"
+      - "D:/AndroidTools/SDL3/CMakeLists.txt:1116 (check_symbol_exists)"
+    checks:
+      - "Looking for _ltoa"
+    directories:
+      source: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-fiuzew"
+      binary: "D:/Bancada/android/app/.cxx/Debug/1c5i6j35/x86_64/CMakeFiles/CMakeScratch/TryCompile-fiuzew"
+    cmakeVariables:
+      ANDROID_ABI: "x86_64"
+      ANDROID_ARM_MODE: "thumb"
+      ANDROID_PIE: "TRUE"
+      ANDROID_PLATFORM: "android-24"
+      ANDROID_STL: "c++_static"
+      ANDROID_TOOLCHAIN: "clang"
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "D:/AndroidTools/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang-scan-deps.exe"
+      CMAKE_CXX_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_COMPILER_TARGET: "x86_64-none-linux-android24"
+      CMAKE_C_FLAGS: "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat "
+      CMAKE_C_FLAGS_DEBUG: "-fno-limit-debug-inf

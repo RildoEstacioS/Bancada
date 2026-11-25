@@ -995,6 +995,14 @@ void addIcon(Mesh& mesh, Icon icon, Vec2 centre, float size, Color color) {
             path({{6.5f, 9.5f}, {6.5f, 20}, {17.5f, 20}, {17.5f, 9.5f}});
             path({{10.5f, 20}, {10.5f, 15}, {13.5f, 15}, {13.5f, 20}});
             break;
+        case Icon::Save:  // a floppy disk: what "save" has looked like for forty years
+            path({{4.5f, 4.5f}, {16.5f, 4.5f}, {19.5f, 7.5f}, {19.5f, 19.5f}, {4.5f, 19.5f}, {4.5f, 4.5f}});
+            path({{8, 4.5f}, {8, 9}, {15, 9}, {15, 4.5f}});
+            path({{8, 19.5f}, {8, 14}, {16, 14}, {16, 19.5f}});
+            break;
+        case Icon::Folder:
+            path({{3.5f, 7}, {3.5f, 19}, {20.5f, 19}, {20.5f, 9}, {11.5f, 9}, {9.5f, 6}, {3.5f, 6}, {3.5f, 7}});
+            break;
         case Icon::None: break;
     }
 }
@@ -1882,7 +1890,7 @@ const char* boxMark(BoxId box) {
         {"demux2", "DEMUX"},      {"decoder2", "DEC"},      {"encoder4", "COD"},       {"register", "REG"},      {"counter", "CONT"},
         {"shift_register", "DESL"}, {"ram", "RAM"},         {"rom", "ROM"},            {"regfile", "R0–R7"},     {"extender", "EXT"},
         {"shifter", "<< >>"},     {"sr_latch", "SR"},       {"d_latch", "LATCH D"},    {"d_flip_flop", "FF D"},  {"t_flip_flop", "FF T"},
-        {"jk_flip_flop", "FF JK"}, {"buffer", "BUF"},        {"parity_odd", "ÍMPAR"},     {"parity_even", "PAR"},  {"bit_select", "SEL BIT"},
+        {"jk_flip_flop", "FF JK"}, {"buffer", "BUF"},        {"parity_odd", "PAR"},       {"parity_even", "ÍMPAR"},  {"bit_select", "SEL BIT"},
         {"priority4", "PRIO"},    {"multiplier", "MUL N"}, {"divider", "DIV N"},      {"negator", "NEG N"},    {"bit_count", "CONTA 1"},
         {"bit_find", "ACHA 1"},   {"decoder7", "7 SEG"},    {"random", "ACASO"},    {"led_matrix", "MATRIZ"}, {"terminal", "TERMINAL"},
     };
@@ -2142,7 +2150,8 @@ void drawToolbar(SDL_Renderer* renderer, const Session& session, int width, floa
             }
         } else {
             enabled = session.hasClock() || button.sim == SimButton::Slower || button.sim == SimButton::Faster ||
-                      button.sim == SimButton::SpeedLabel || button.sim == SimButton::Reset || button.sim == SimButton::Home;
+                      button.sim == SimButton::SpeedLabel || button.sim == SimButton::Reset || button.sim == SimButton::Home ||
+                      button.sim == SimButton::Save || button.sim == SimButton::Open;
             if (button.sim == SimButton::RunPause && session.running()) icon = Icon::Pause;
             if (button.sim == SimButton::SpeedLabel) {
                 const std::uint64_t hz = session.speed();
@@ -4086,148 +4095,51 @@ void drawCodeHelp(SDL_Renderer* renderer, int width, int height, float scroll, b
             for (std::size_t w = 0; w < words.size() && w < 2; ++w) {
                 const std::string real = mips ? mips::disassemble(words[w], mips::kTextBase + static_cast<std::uint32_t>(4 * w))
                                               : assembly::disassemble(static_cast<std::uint16_t>(words[w]), w);
-                write(renderer, Face::Mono, 13.0f, bitsX, y + 42.0f + 18.0f * static_cast<float>(w), real, kText);
-            }
-        } else if (helpPseudo(row)) {
-            write(renderer, Face::Regular, 12.5f, bitsX, y + 24.0f, "pseudo-instrução", kTextDim);
-        } else if (!words.empty()) {
-            drawHelpBits(renderer, words[0], mips, row, bitsX, y + 12.0f);
-        }
-        fillRect(renderer, {left, y + rowHeight - 1.0f, static_cast<float>(width) - 48.0f, 1.0f}, Color{30, 40, 44});
+                write(renderer, Face::Mono, 13.0f, b<?xml version="1.0" encoding="utf-8"?>
+<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="D:\Bancada\android\app\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="D:\Bancada\android\app\src\main\res"><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-hdpi\ic_launcher.png" qualifiers="hdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-mdpi\ic_launcher.png" qualifiers="mdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xhdpi\ic_launcher.png" qualifiers="xhdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xxhdpi\ic_launcher.png" qualifiers="xxhdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xxxhdpi\ic_launcher.png" qualifiers="xxxhdpi-v4" type="mipmap"/><file path="D:\Bancada\android\app\src\main\res\values\colors.xml" qualifiers=""><color name="colorPrimary">#3F51B5</color><color name="colorPrimaryDark">#303F9F</color><color name="colorAccent">#FF4081</color></file><file path="D:\Bancada\android\app\src\main\res\values\strings.xml" qualifiers=""><string name="app_name">Bancada</string></file><file path="D:\Bancada\android\app\src\main\res\values\styles.xml" qualifiers=""><style name="AppTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+        
+    </style></file></source></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="D:\Bancada\android\app\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="D:\Bancada\android\app\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"/><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"/><mergedItems/></merger>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    [
+    {
+        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-mdpi_ic_launcher.png.flat",
+        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-mdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xxhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-hdpi_ic_launcher.png.flat",
+        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-hdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "org.bancada.app-debug-3:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "org.bancada.app-main-5:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "org.bancada.app-debug-3:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "org.bancada.app-main-5:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "org.bancada.app-debug-3:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "org.bancada.app-main-5:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "org.bancada.app-debug-3:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "org.bancada.app-main-5:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "org.bancada.app-debug-3:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "org.bancada.app-main-5:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xxxhdpi\\ic_launcher.png"
     }
-    SDL_SetRenderClipRect(renderer, nullptr);
-
-    // The header: what the help is, and the groups to jump to, the one in view lit.
-    fillRect(renderer, {0.0f, area.y, static_cast<float>(width), kHelpHeader}, kBackground);
-    write(renderer, Face::Medium, 22.0f, left, area.y + 36.0f, mips ? "Todas as instruções do MIPS" : "Todas as instruções", kText);
-    const char* intro = mips ? "Cada instrução vira uma palavra de 32 bits. À direita, os bits do exemplo, campo por campo, nas cores do Raio-X."
-                             : "Cada instrução vira uma palavra de 16 bits. À direita, os bits do exemplo, campo por campo, nas cores do Raio-X.";
-    write(renderer, Face::Regular, 14.0f, left, area.y + 60.0f, fitted(renderer, Face::Regular, 14.0f, intro, static_cast<float>(width) - 48.0f), kTextDim);
-    const std::vector<SDL_FRect> chips = helpChips(renderer, mips);
-    const std::size_t current = helpCurrentGroup(layout, scroll);
-    for (std::size_t g = 0; g < chips.size() && g < layout.groups.size(); ++g) {
-        const InstructionHelp& group = rows[layout.groups[g]];
-        const bool lit = g == current;
-        fillRound(renderer, chips[g], 14, lit ? mixed(kBackground, group.tone, 0.3f) : kPanelButton);
-        if (lit) frameRound(renderer, chips[g], 14, 1.2f, group.tone);
-        write(renderer, Face::Medium, 12.5f, chips[g].x + 13.0f, chips[g].y + 18.5f, group.syntax, lit ? kText : group.tone);
-    }
-    fillRect(renderer, {0.0f, area.y + kHelpHeader - 1.0f, static_cast<float>(width), 1.0f}, kRule);
-}
-
-}  // namespace
-
-float codeHelpMaxScroll(SDL_Renderer* renderer, int width, int height, bool mips) {
-    const HelpLayout layout = helpLayout(renderer, width, mips);
-    return std::max(0.0f, layout.height - (static_cast<float>(height) - kCodeBarHeight - kHelpHeader));
-}
-
-float codeHelpGroupAt(SDL_Renderer* renderer, int width, int height, bool mips, float x, float y) {
-    const std::vector<SDL_FRect> chips = helpChips(renderer, mips);
-    const HelpLayout layout = helpLayout(renderer, width, mips);
-    for (std::size_t g = 0; g < chips.size() && g < layout.groups.size(); ++g) {
-        if (inside(chips[g], x, y)) return std::min(layout.tops[layout.groups[g]], codeHelpMaxScroll(renderer, width, height, mips));
-    }
-    return -1.0f;
-}
-
-namespace {
-
-void drawCodeBlocks32(SDL_Renderer* renderer, const CodeView& view, const SDL_FRect& area);  // with the 32-bit computer
-
-constexpr float kBlock16 = 56.0f;
-constexpr float kBlock32 = 60.0f;
-constexpr float kBlockGap = 6.0f;
-
-// The blocks' place under the tabs.
-SDL_FRect codeBlocksArea(int width, int height) {
-    const CodeLayout layout = codeLayout(width, height);
-    const float referenceLeft = layout.problems.w;
-    const float y = kCodeBarHeight + 62.0f;
-    return {referenceLeft + 12.0f, y - 14.0f, static_cast<float>(width) - referenceLeft - 24.0f, static_cast<float>(height) - y};
-}
-
-int blocksThatFit(const SDL_FRect& area, bool mips) {
-    return std::max(1, static_cast<int>((area.h - 8.0f) / ((mips ? kBlock32 : kBlock16) + kBlockGap)));
-}
-
-// When there are more blocks than room, a thin bar on the right says where the list is.
-void drawBlocksBar(SDL_Renderer* renderer, const SDL_FRect& area, int first, int fit, int count) {
-    if (count <= fit) return;
-    const SDL_FRect track{area.x + area.w - 4.0f, area.y, 4.0f, area.h - 8.0f};
-    fillRound(renderer, track, 2, kRule);
-    const float h = std::max(24.0f, track.h * static_cast<float>(fit) / static_cast<float>(count));
-    const float y = track.y + (track.h - h) * static_cast<float>(first) / static_cast<float>(count - fit);
-    fillRound(renderer, {track.x, y, track.w, h}, 2, kTextDim);
-}
-
-// A bit in a field: a 1 bright and bold, a 0 faint, so the ones stand out at a glance.
-void writeBit(SDL_Renderer* renderer, bool one, float cx, float baseline, float size) {
-    const char* digit = one ? "1" : "0";
-    const Face face = one ? Face::Medium : Face::Mono;
-    write(renderer, face, size, cx - textWidth(renderer, face, size, digit) / 2.0f, baseline, digit, one ? kText : Color{112, 128, 132});
-}
-
-std::vector<int> codeTabs(const CodeView& view) {
-    if (view.lesson >= 0) return {kCodeTabTask, kCodeTabCommands, kCodeTabBlocks};
-    return {kCodeTabCommands, kCodeTabBlocks};
-}
-
-SDL_FRect codeTabRect(int width, int height, int index, int count) {
-    const CodeLayout layout = codeLayout(width, height);
-    const float left = layout.problems.w + 12.0f;
-    const float room = static_cast<float>(width) - layout.problems.w - 24.0f;
-    const float w = (room - 6.0f * static_cast<float>(count - 1)) / static_cast<float>(count);
-    return {left + static_cast<float>(index) * (w + 6.0f), kCodeBarHeight + 10.0f, w, 30.0f};
-}
-
-// The program as blocks, one per word, in the order they sit in the ROM: each one's 16 bits by field, in
-// the X-ray's colours, and the instruction they make. The one the computer is on is lit, and kept in view.
-void drawCodeBlocks(SDL_Renderer* renderer, const CodeView& view, const SDL_FRect& area) {
-    if (view.program.empty()) {
-        for (const std::string& line : wrapped(renderer, Face::Regular, 13.0f, "Monte o programa com Ctrl+Enter: cada instrução aparece aqui como um bloco.",
-                                               area.w)) {
-            write(renderer, Face::Regular, 13.0f, area.x, area.y + 20.0f, line, kTextDim);
-        }
-        return;
-    }
-    constexpr float kBlock = kBlock16;
-    const int count = static_cast<int>(view.program.size());
-    const int fit = std::min(count, blocksThatFit(area, false));
-    const int first = std::clamp(view.blocksFirst, 0, std::max(0, count - fit));
-    drawBlocksBar(renderer, area, first, fit, count);
-    const float blockW = count > fit ? area.w - 10.0f : area.w;
-    float y = area.y;
-    for (int i = first; i < count && i < first + fit; ++i) {
-        const bool running = i == view.runningAddress;
-        const SDL_FRect r{area.x, y, blockW, kBlock};
-        fillRound(renderer, r, 8, running ? mixed(kPanelRaised, kToneProgram, 0.28f) : kPanelRaised);
-        frameRound(renderer, r, 8, running ? 1.8f : 1.0f, running ? kToneProgram : kBodyEdge);
-        ComputerState state;
-        state.instruction = view.program[static_cast<std::size_t>(i)];
-        state.pc = static_cast<std::uint16_t>(i);
-        const InstructionTrace trace = traceInstruction(state);
-        // The address, and the instruction in the colours of its fields.
-        const std::string address = std::to_string(i);
-        write(renderer, Face::Mono, 12.0f, r.x + 10.0f, r.y + 20.0f, address, running ? kToneProgram : kTextOff);
-        float x = r.x + 40.0f;
-        for (const AsmToken& token : asmTokens(trace)) {
-            write(renderer, Face::Mono, 13.5f, x, r.y + 20.0f, token.text, token.color);
-            x += textWidth(renderer, Face::Mono, 13.5f, token.text);
-        }
-        if (i < static_cast<int>(view.lines.size())) {
-            const std::string line = i18n::format("linha {}", {std::to_string(view.lines[static_cast<std::size_t>(i)])});
-            const float w = textWidth(renderer, Face::Regular, 11.0f, line);
-            write(renderer, Face::Regular, 11.0f, r.x + r.w - 10.0f - w, r.y + 19.0f, line, kTextOff);
-        }
-        // The bits, field by field.
-        const float cell = (r.w - 50.0f) / 16.0f;
-        float bx = r.x + 40.0f;
-        for (const WordField& field : wordFields(trace)) {
-            const int bits = field.high - field.low + 1;
-            const SDL_FRect box{bx, r.y + 29.0f, cell * static_cast<float>(bits) - 2.0f, 18.0f};
-            fillRound(renderer, box, 3, mixed(kBackground, field.color, field.name[0] == '\0' ? 0.12f : 0.2f));
-            frameRound(renderer, box, 3, 1.0f, field.color);
+]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   or);
             for (int bit = field.high; bit >= field.low; --bit) {
                 const float cx = bx + cell * static_cast<float>(field.high - bit) + cell / 2.0f - 1.0f;
                 writeBit(renderer, ((trace.word >> bit) & 1u) != 0, cx, box.y + 13.5f, 11.5f);
@@ -4274,6 +4186,8 @@ CodeLayout codeLayout(int width, int height) {
     layout.assemble = {w - 282.0f, 5.0f, 176.0f, 28.0f};
     layout.help = {w - 470.0f, 5.0f, 178.0f, 28.0f};
     layout.close = {w - 96.0f, 5.0f, 84.0f, 28.0f};
+    layout.save = {w - 562.0f, 5.0f, 84.0f, 28.0f};
+    layout.open = {w - 654.0f, 5.0f, 84.0f, 28.0f};
     layout.lines = std::max(1, static_cast<int>(layout.text.h / kCodeLineHeight));
     layout.columns = std::max(1, static_cast<int>(layout.text.w / kCodeCharWidth));
     return layout;
@@ -4478,6 +4392,8 @@ void drawCode(SDL_Renderer* renderer, const CodeView& view, int width, int heigh
           "Ctrl+Enter monta e grava  ·  Esc fecha", kTextDim);
     drawButton(renderer, layout.assemble, "Montar e gravar", problems == 0 ? kPanelActive : kPanelButton);
     drawButton(renderer, layout.close, "Fechar", kPanelButton);
+    drawButton(renderer, layout.open, "Abrir", kPanelButton);
+    drawButton(renderer, layout.save, "Salvar", kPanelButton);
     {
         const SDL_FRect r = layout.help;
         fillRound(renderer, r, 7, view.help ? kPanelActive : mixed(kPanel, kWirePreview, 0.16f));
@@ -5039,6 +4955,12 @@ void drawHome(SDL_Renderer* renderer, int width, int height, float mouseX, float
     const float keysY = std::min(static_cast<float>(height) - 12.0f, home.panel.y + home.panel.h + 26.0f);
     fillRound(renderer, {home.panel.x, keysY - 17.0f, textWidth(renderer, Face::Regular, 12, keys) + 20.0f, 24.0f}, 8, kBackground, 0.9f);
     write(renderer, Face::Regular, 12, home.panel.x + 10.0f, keysY, keys, kTextDim);
+    // Who made it, on the right of the same line.
+    const std::string author = i18n::format("Feito por {}  ·  {}  ·  {}", {"Rildo de Cássio Estácio da Silva", "rces.ecomp@poli.br", "github.com/RildoEstacioS"});
+    const float authorWidth = textWidth(renderer, Face::Regular, 12, author);
+    const float authorX = home.panel.x + home.panel.w - authorWidth - 10.0f;
+    fillRound(renderer, {authorX - 10.0f, keysY - 17.0f, authorWidth + 20.0f, 24.0f}, 8, kBackground, 0.9f);
+    write(renderer, Face::Regular, 12, authorX, keysY, author, kTextDim);
     drawHomeLanguages(renderer, width, mouseX, mouseY);
 }
 
@@ -5181,7 +5103,7 @@ void drawHomeCards(SDL_Renderer* renderer, int width, int height, float mouseX, 
     drawHomeTile(renderer, home.tiles[1], HomeIcon::New, kBusOn, "Novo circuito", "Uma bancada vazia", mouseX, mouseY);
     drawHomeTile(renderer, home.tiles[2], HomeIcon::Examples, Color{176, 150, 255}, "Exemplos", "Circuitos e programas", mouseX, mouseY);
     drawHomeTile(renderer, home.tiles[3], HomeIcon::Open, Color{150, 182, 206}, "Abrir arquivo", "Um projeto salvo", mouseX, mouseY);
-    drawHomeTile(renderer, home.tiles[4], HomeIcon::Computers, kToneProgram, "Computadores", "Programe, depure e veja no Raio-X", mouseX, mouseY);
+    drawHomeTile(renderer, home.tiles[4], HomeIcon::Computers, kToneProgram, "Editor de código", "Escreva, salve, abra e rode programas", mouseX, mouseY);
     // The two computers, as badges on the right of their tile.
     const SDL_FRect wide = home.tiles[4];
     float bx = wide.x + wide.w - 44.0f;
@@ -5563,6 +5485,9 @@ constexpr Color kReadingBody{214, 224, 232};
 constexpr Color kReadingRight{86, 226, 150};
 constexpr Color kReadingWrong{240, 120, 110};
 constexpr Color kReadingExample{120, 190, 255};
+// A block set apart from the text: its LED and trace, and where its text starts.
+constexpr float kMarkTrace = 9.0f;     // from the column's left to the LED's centre and the trace
+constexpr float kMarkIndent = 32.0f;   // from the column's left to the block's text
 
 SDL_FRect readingBackRect() { return {24.0f, 15.0f, 160.0f, 34.0f}; }
 SDL_FRect readingExercisesRect(int width) { return {static_cast<float>(width) - 24.0f - 230.0f, 15.0f, 230.0f, 34.0f}; }
@@ -5590,6 +5515,95 @@ std::vector<std::vector<std::string>> tableCells(const char* text) {
         start = end + 1;
     }
     return rows;
+}
+
+// A table row may start with a picture of what it names: "@npn:B Base (B)" is the NPN with its pin B
+// marked, then the text "Base (B)". Parts are drawn the way the library draws them; wires as a short run.
+struct CellPicture {
+    std::string name;  // "" for none
+    std::string pin;
+};
+
+CellPicture takePicture(std::string& cell) {
+    CellPicture picture;
+    if (cell.empty() || cell[0] != '@') return picture;
+    const std::size_t space = cell.find(' ');
+    const std::string tag = cell.substr(1, space == std::string::npos ? std::string::npos : space - 1);
+    cell = space == std::string::npos ? std::string() : cell.substr(space + 1);
+    const std::size_t colon = tag.find(':');
+    picture.name = tag.substr(0, colon);
+    if (colon != std::string::npos) picture.pin = tag.substr(colon + 1);
+    return picture;
+}
+
+constexpr float kTableRow = 32.0f;
+constexpr float kPictureRow = 54.0f;
+constexpr float kPictureSlot = 64.0f;
+
+struct TableShape {
+    std::vector<std::vector<std::string>> rows;
+    std::vector<CellPicture> pictures;  // one per row
+    std::vector<float> heights;         // one per row
+    bool pictured = false;
+    float height = 0.0f;
+};
+
+TableShape tableShape(const char* text) {
+    TableShape table;
+    table.rows = tableCells(text);
+    for (std::vector<std::string>& row : table.rows) {
+        table.pictures.push_back(row.empty() ? CellPicture{} : takePicture(row[0]));
+        if (!table.pictures.back().name.empty()) table.pictured = true;
+    }
+    for (const CellPicture& picture : table.pictures) {
+        table.heights.push_back(picture.name.empty() ? kTableRow : kPictureRow);
+        table.height += table.heights.back();
+    }
+    return table;
+}
+
+void drawCellPicture(SDL_Renderer* renderer, const CellPicture& picture, Vec2 centre) {
+    struct Run {
+        const char* name;
+        Color color;
+        float thickness;
+    };
+    static constexpr Run kRuns[] = {{"wire1", kWireOn, 3.0f}, {"wire0", kWireOff, 3.0f}, {"bus", kBusOn, 6.0f},
+                                    {"bus1", kBusOn, 6.0f},   {"bus0", kBusOff, 6.0f}};
+    for (const Run& run : kRuns) {
+        if (picture.name != run.name) continue;
+        Mesh mesh;
+        mesh.addLine({centre.x - 20.0f, centre.y}, {centre.x + 20.0f, centre.y}, run.thickness, run.color);
+        mesh.flush(renderer);
+        return;
+    }
+    static const std::pair<const char*, PartKind> kParts[] = {
+        {"and", PartKind::And}, {"or", PartKind::Or},   {"not", PartKind::Not},     {"nand", PartKind::Nand},
+        {"nor", PartKind::Nor}, {"xor", PartKind::Xor}, {"xnor", PartKind::Xnor},   {"npn", PartKind::Npn},
+        {"pnp", PartKind::Pnp}, {"nmos", PartKind::Nmos}, {"pmos", PartKind::Pmos}, {"led", PartKind::Led}, {"probe", PartKind::Probe}, {"input", PartKind::Toggle}};
+    const auto found = std::find_if(std::begin(kParts), std::end(kParts), [&](const auto& p) { return picture.name == p.first; });
+    if (found == std::end(kParts)) return;
+    PaletteItem item;
+    item.kind = found->second;
+    Mesh icons;
+    drawTileGlyph(renderer, icons, item, centre, false);
+    icons.flush(renderer);
+    if (picture.pin.empty()) return;
+    // The pin the row is about, lit on the drawing, where the tile drew it.
+    const Part part = makePart(item.kind, {}, 0, 0, 1, item.box);
+    const float w = static_cast<float>(baseWidth(part));
+    const float h = static_cast<float>(baseHeight(part));
+    const float cell = std::min(44.0f / w, 32.0f / h);
+    const Frame frame = frameOf(part, {centre.x - w * cell / 2.0f, centre.y - h * cell / 2.0f}, cell);
+    for (unsigned pin = 0; pin < pinCount(part); ++pin) {
+        if (picture.pin != pinName(part, pin)) continue;
+        const Point at = pinPosition(part, pin);
+        const Vec2 dot = frame.place(Vec2{static_cast<float>(at.x), static_cast<float>(at.y)});
+        Mesh mark;
+        mark.addFan(circlePoints(dot, 11.0f, 24), dot, kWirePreview, 0.45f, 0.0f);
+        mark.addDisc(dot, 4.0f, kWirePreview);
+        mark.flush(renderer);
+    }
 }
 
 std::vector<std::string> readingLines(const char* text) {
@@ -5625,10 +5639,10 @@ struct QuestionShape {
 QuestionShape questionShape(SDL_Renderer* renderer, const TheoryBlock& block, int chosen, float column) {
     QuestionShape q;
     q.parts = questionParts(i18n::tr(block.text));
-    q.prompt = wrapped(renderer, Face::Medium, 16.0f, q.parts.prompt, column - 48.0f);
+    q.prompt = wrapped(renderer, Face::Medium, 16.0f, q.parts.prompt, column - kMarkIndent);
     float y = 46.0f + static_cast<float>(q.prompt.size()) * 24.0f + 10.0f;
     for (const std::string& option : q.parts.options) {
-        q.options.push_back(wrapped(renderer, Face::Regular, 15.0f, option, column - 100.0f));
+        q.options.push_back(wrapped(renderer, Face::Regular, 15.0f, option, column - kMarkIndent - 60.0f));
         const float h = std::max(40.0f, static_cast<float>(q.options.back().size()) * 22.0f + 18.0f);
         q.optionTops.push_back(y);
         q.optionHeights.push_back(h);
@@ -5639,14 +5653,47 @@ QuestionShape questionShape(SDL_Renderer* renderer, const TheoryBlock& block, in
     if (chosen >= 0) {
         const std::string said = q.right ? q.parts.explain
                                          : (q.parts.hint.empty() ? std::string(i18n::tr("Não é essa. Pense de novo e tente outra.")) : q.parts.hint);
-        q.feedback = wrapped(renderer, Face::Regular, 14.5f, said, column - 48.0f);
+        q.feedback = wrapped(renderer, Face::Regular, 14.5f, said, column - kMarkIndent);
         y += 6.0f + static_cast<float>(q.feedback.size()) * 22.0f + 8.0f;
     }
-    q.height = y + 14.0f;
+    q.height = y + 4.0f;
     return q;
 }
 
-// The boxes set apart from the text: a worked example, a common mistake, a summary. Measured or drawn.
+// Where an option of a question is, the question's top at y.
+SDL_FRect questionOption(const QuestionShape& q, std::size_t option, float left, float y, float column) {
+    return {left + kMarkIndent, y + q.optionTops[option], column - kMarkIndent, q.optionHeights[option]};
+}
+
+// A block set apart from the text is marked the way the board marks things: a small lit LED in the block's
+// colour beside its label, and a trace from it down the side of what the block holds, ending in a joint.
+
+void drawLitLed(SDL_Renderer* renderer, float cx, float cy, Color tone) {
+    Mesh mesh;
+    const Vec2 at{cx, cy};
+    mesh.addFan(circlePoints(at, 19.0f, 32), at, tone, 0.38f, 0.0f);
+    mesh.addFan(circlePoints(at, 7.0f, 24), at, tone);
+    addLoop(mesh, circlePoints(at, 7.0f, 24), 1.2f, mixed(tone, kLedShine, 0.55f));
+    const Vec2 shine{cx - 2.3f, cy - 2.3f};
+    mesh.addFan(circlePoints(shine, 2.8f, 12), shine, Color{255, 255, 255}, 0.9f, 0.0f);
+    mesh.flush(renderer);
+}
+
+// The LED, the label beside it and the trace down to `bottom`, for a block whose top is at y.
+void drawBlockMark(SDL_Renderer* renderer, float left, float y, float bottom, const char* label, Color tone) {
+    const float x = left + kMarkTrace;
+    fillRect(renderer, {x - 1.0f, y + 30.0f, 2.0f, std::max(0.0f, bottom - y - 30.0f)}, mixed(kBackground, tone, 0.4f));
+    fillRound(renderer, {x - 3.0f, bottom - 3.0f, 6.0f, 6.0f}, 3.0f, mixed(kBackground, tone, 0.6f));
+    drawLitLed(renderer, x, y + 21.0f, tone);
+    write(renderer, Face::Medium, 13.5f, left + kMarkIndent, y + 26.0f, label, tone);
+}
+
+// A rule worth remembering: its label, then its lines.
+float tipHeight(SDL_Renderer* renderer, const TheoryBlock& block, float column) {
+    return 46.0f + static_cast<float>(wrapped(renderer, Face::Regular, 15.5f, block.text, column - kMarkIndent).size()) * 24.0f + 4.0f;
+}
+
+// The blocks set apart from the text: a worked example, a common mistake, a summary. Measured or drawn.
 float boxedBlock(SDL_Renderer* renderer, const TheoryBlock& block, float left, float y, float column, bool draw) {
     const std::vector<std::string> items = readingLines(block.text);
     const char* label = "";
@@ -5657,7 +5704,7 @@ float boxedBlock(SDL_Renderer* renderer, const TheoryBlock& block, float left, f
         case TheoryBlockKind::Summary: label = "Resumo"; tone = kReadingRight; break;
         default: break;
     }
-    const float inner = column - 64.0f;
+    const float inner = column - kMarkIndent;
     float h = 46.0f;
     struct Line {
         std::string text;
@@ -5671,8 +5718,7 @@ float boxedBlock(SDL_Renderer* renderer, const TheoryBlock& block, float left, f
         const bool title = i == 0 && block.kind != TheoryBlockKind::Summary;
         const Face face = title ? Face::Medium : Face::Regular;
         const float size = title ? 16.0f : 15.0f;
-        const bool marked = block.kind == TheoryBlockKind::Example || block.kind == TheoryBlockKind::Summary;
-        const float indent = title || !marked ? 0.0f : 34.0f;
+        const float indent = 0.0f;  // a step's number or a point's dot sits on the trace, not in the text
         if (!title) {
             if (block.kind == TheoryBlockKind::Example) marks.push_back({h, std::to_string(i)});
             if (block.kind == TheoryBlockKind::Summary) marks.push_back({h, ""});
@@ -5683,24 +5729,22 @@ float boxedBlock(SDL_Renderer* renderer, const TheoryBlock& block, float left, f
         }
         h += title ? 8.0f : 6.0f;
     }
-    h += 2.0f;  // as much room under the last line as over the label
     if (!draw) return h;
-    const SDL_FRect box{left, y, column, h};
-    fillRound(renderer, box, 10, mixed(kPanel, tone, 0.08f));
-    frameRound(renderer, box, 10, 1.2f, mixed(kPanel, tone, 0.6f));
-    fillRound(renderer, {box.x, box.y, 5.0f, box.h}, 2, tone);
-    write(renderer, Face::Medium, 12.5f, left + 24.0f, y + 26.0f, label, tone);
+    drawBlockMark(renderer, left, y, y + h - 4.0f, label, tone);
+    const float x = left + kMarkTrace;
     for (const auto& [at, mark] : marks) {
         if (mark.empty()) {
-            fillRound(renderer, {left + 30.0f, y + at + 3.0f, 7.0f, 7.0f}, 3.5f, tone);
+            fillRound(renderer, {x - 4.0f, y + at + 3.0f, 8.0f, 8.0f}, 4.0f, tone);
         } else {
-            const SDL_FRect badge{left + 24.0f, y + at - 9.0f, 22.0f, 22.0f};
-            fillRound(renderer, badge, 11, mixed(kPanel, tone, 0.35f));
-            const float w = textWidth(renderer, Face::Medium, 12.5f, mark);
-            write(renderer, Face::Medium, 12.5f, badge.x + (badge.w - w) / 2.0f, badge.y + 16.0f, mark, kText);
+            // A step's number in a ring on the trace, like a joint with a name.
+            const SDL_FRect badge{x - 11.0f, y + at - 8.0f, 22.0f, 22.0f};
+            fillRound(renderer, badge, 11, kBackground);
+            frameRound(renderer, badge, 11, 1.4f, tone);
+            const float w = textWidth(renderer, Face::Medium, 12.0f, mark);
+            write(renderer, Face::Medium, 12.0f, badge.x + (badge.w - w) / 2.0f, badge.y + 15.5f, mark, tone);
         }
     }
-    for (const Line& line : lines) write(renderer, line.face, line.face == Face::Medium ? 16.0f : 15.0f, left + 24.0f + line.x, y + line.y + 7.0f, line.text, line.face == Face::Medium ? kText : kReadingBody);
+    for (const Line& line : lines) write(renderer, line.face, line.face == Face::Medium ? 16.0f : 15.0f, left + kMarkIndent + line.x, y + line.y + 7.0f, line.text, line.face == Face::Medium ? kText : kReadingBody);
     return h;
 }
 
@@ -5743,12 +5787,12 @@ ReadingLayout readingLayout(SDL_Renderer* renderer, int width, const ReadingView
             case TheoryBlockKind::Tip:
                 y += 6.0f;
                 layout.tops.push_back(y);
-                y += static_cast<float>(wrapped(renderer, Face::Regular, 15.5f, block.text, column - 44.0f).size()) * 24.0f + 30.0f + 18.0f;
+                y += tipHeight(renderer, block, column) + 18.0f;
                 break;
             case TheoryBlockKind::Table:
                 y += 4.0f;
                 layout.tops.push_back(y);
-                y += static_cast<float>(tableCells(block.text).size()) * 32.0f + 22.0f;
+                y += tableShape(block.text).height + 22.0f;
                 break;
             case TheoryBlockKind::Code: {
                 y += 6.0f;
@@ -5872,6 +5916,112 @@ void drawFigure(SDL_Renderer* renderer, TheoryFigure (*make)(), const SDL_FRect&
 
 }  // namespace
 
+namespace {
+
+// --- A part from the inside ------------------------------------------------------------------------------
+
+constexpr float kPeekBar = 64.0f;
+constexpr float kPeekNote = 80.0f;  // under the bar: how this version is built, and what can be done here
+
+SDL_FRect peekBackRect() { return {24.0f, 15.0f, 120.0f, 34.0f}; }
+
+// The version buttons, right to left from the bar's right edge.
+std::vector<SDL_FRect> peekVersionRects(SDL_Renderer* renderer, int width, const PeekView& view) {
+    std::vector<SDL_FRect> rects(view.versions.size());
+    float right = static_cast<float>(width) - 24.0f;
+    for (std::size_t i = view.versions.size(); i-- > 0;) {
+        const float w = textWidth(renderer, Face::Medium, kUiText, view.versions[i]) + 32.0f;
+        rects[i] = {right - w, 15.0f, w, 34.0f};
+        right -= w + 8.0f;
+    }
+    return rects;
+}
+
+}  // namespace
+
+SDL_FRect peekBoardArea(int width, int height) {
+    return {16.0f, kPeekBar + kPeekNote, static_cast<float>(width) - 32.0f, static_cast<float>(height) - kPeekBar - kPeekNote - 16.0f};
+}
+
+Camera peekFit(const Session& session, int width, int height) {
+    const SDL_FRect area = peekBoardArea(width, height);
+    Camera camera = figureCamera(session, static_cast<int>(area.w), static_cast<int>(area.h));
+    // A small part would fill the screen at the figures' largest size: keep it at a size a board would show.
+    if (camera.cellPixels > 14.0f) camera.zoomAt(area.w / 2.0f, area.h / 2.0f, 14.0f / camera.cellPixels);
+    return camera;
+}
+
+void drawPeek(SDL_Renderer* renderer, int width, int height, float mouseX, float mouseY, const PeekView& view) {
+    setColor(renderer, kBackground);
+    SDL_RenderClear(renderer);
+    const SDL_FRect area = peekBoardArea(width, height);
+    if (view.session != nullptr && area.w > 1.0f && area.h > 1.0f) {
+        static SDL_Texture* texture = nullptr;
+        static int tw = 0, th = 0;
+        const int w = static_cast<int>(area.w);
+        const int h = static_cast<int>(area.h);
+        if (texture == nullptr || tw != w || th != h) {
+            if (texture != nullptr) SDL_DestroyTexture(texture);
+            texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+            tw = w;
+            th = h;
+        }
+        if (texture != nullptr) {
+            SDL_Texture* screen = SDL_GetRenderTarget(renderer);
+            SDL_SetRenderTarget(renderer, texture);
+            drawBoard(renderer, *view.session, view.camera, w, h);
+            SDL_SetRenderTarget(renderer, screen);
+            const SDL_FRect at{area.x, area.y, static_cast<float>(w), static_cast<float>(h)};
+            SDL_RenderTexture(renderer, texture, nullptr, &at);
+        }
+    }
+    frameRound(renderer, area, 10, 1.2f, kBodyEdge);
+    // Not a board to change: say so in its corner.
+    const char* tag = "Só para ver";
+    const float tagW = textWidth(renderer, Face::Medium, 12.0f, tag) + 20.0f;
+    const SDL_FRect pill{area.x + area.w - tagW - 10.0f, area.y + 10.0f, tagW, 24.0f};
+    fillRound(renderer, pill, 12, mixed(kPanel, kWirePreview, 0.25f));
+    write(renderer, Face::Medium, 12.0f, pill.x + 10.0f, pill.y + 16.5f, tag, kWirePreview);
+
+    // Under the bar: how it's built, and what can be done.
+    const std::vector<std::string> how = wrapped(renderer, Face::Regular, 14.0f, view.how, static_cast<float>(width) - 48.0f);
+    for (std::size_t l = 0; l < how.size() && l < 2; ++l) {
+        const std::string line = l == 1 && how.size() > 2 ? how[l] + "…" : how[l];
+        write(renderer, Face::Regular, 14.0f, 24.0f, kPeekBar + 22.0f + 21.0f * static_cast<float>(l), fitted(renderer, Face::Regular, 14.0f, line, static_cast<float>(width) - 48.0f), kReadingBody);
+    }
+    write(renderer, Face::Regular, 13.0f, 24.0f, kPeekBar + 66.0f,
+          "Clique nas chaves para ver funcionar. Clique duplo numa peça para ver por dentro dela. Esc volta.", kTextDim);
+
+    // The bar.
+    fillRect(renderer, {0.0f, 0.0f, static_cast<float>(width), kPeekBar}, kPanel);
+    fillRect(renderer, {0.0f, kPeekBar - 1.0f, static_cast<float>(width), 1.0f}, kRule);
+    const SDL_FRect back = peekBackRect();
+    fillRound(renderer, back, 8, inside(back, mouseX, mouseY) ? kPanelHover : kPanelButton);
+    write(renderer, Face::Medium, kUiText, back.x + 18.0f, back.y + 22.0f, "Voltar", kText);
+    const std::vector<SDL_FRect> versions = peekVersionRects(renderer, width, view);
+    for (std::size_t i = 0; i < versions.size(); ++i) {
+        const bool on = static_cast<int>(i) == view.version;
+        fillRound(renderer, versions[i], 8, on ? kPanelActive : inside(versions[i], mouseX, mouseY) ? kPanelHover : kPanelButton);
+        write(renderer, Face::Medium, kUiText, versions[i].x + 16.0f, versions[i].y + 22.0f, view.versions[i], on ? kText : kTextDim);
+    }
+    // Where it is: the parts opened, one inside the other.
+    std::string where = i18n::tr("Por dentro");
+    for (const std::string& name : view.trail) where += "  ›  " + name;
+    const float left = back.x + back.w + 24.0f;
+    const float right = versions.empty() ? static_cast<float>(width) - 24.0f : versions.front().x - 24.0f;
+    write(renderer, Face::Medium, 15.0f, left, 37.0f, fitted(renderer, Face::Medium, 15.0f, where, right - left), kText);
+}
+
+PeekHit peekAt(SDL_Renderer* renderer, float x, float y, int width, int height, const PeekView& view) {
+    if (inside(peekBackRect(), x, y)) return {PeekChoice::Back};
+    const std::vector<SDL_FRect> versions = peekVersionRects(renderer, width, view);
+    for (std::size_t i = 0; i < versions.size(); ++i) {
+        if (inside(versions[i], x, y)) return {PeekChoice::Version, static_cast<int>(i)};
+    }
+    if (inside(peekBoardArea(width, height), x, y)) return {PeekChoice::Board};
+    return {};
+}
+
 ReadingHit readingAt(SDL_Renderer* renderer, float x, float y, int width, int, const ReadingView& view) {
     if (inside(readingBackRect(), x, y)) return {ReadingButton::Back};
     if (inside(readingExercisesRect(width), x, y)) return {ReadingButton::Exercises};
@@ -5888,7 +6038,7 @@ ReadingHit readingAt(SDL_Renderer* renderer, float x, float y, int width, int, c
             const QuestionShape q = questionShape(renderer, block, chosenAt(view, b), column);
             if (q.right) continue;  // answered: it stays as it is
             for (std::size_t o = 0; o < q.optionTops.size(); ++o) {
-                if (inside({left + 24.0f, blockY + q.optionTops[o], column - 48.0f, q.optionHeights[o]}, x, y)) {
+                if (inside(questionOption(q, o, left, blockY, column), x, y)) {
                     return {ReadingButton::Option, static_cast<int>(b), static_cast<int>(o)};
                 }
             }
@@ -5924,17 +6074,8 @@ bool pressReadingFigure(SDL_Renderer* renderer, float x, float y, int width, con
     FigureCache& entry = figureEntry(figure.figure);
     const Camera camera = figureCamera(*entry.session, static_cast<int>(column), figure.height);
     const Vec2 at = camera.toBoard(x - left, y - top);
-    const Part* part = entry.session->board().partAtCell({static_cast<int>(std::floor(at.x)), static_cast<int>(std::floor(at.y))});
-    if (part == nullptr || (part->kind != PartKind::Toggle && part->kind != PartKind::Switch)) return false;
-    // As on the board: press and let go over the switch.
-    entry.session->mouseMove(at.x, at.y);
-    entry.session->leftDown();
-    entry.session->leftUp();
-    // And a click on empty board, far from everything, so the switch isn't left looking selected.
-    const Rect extent = entry.session->board().extent();
-    entry.session->mouseMove(static_cast<float>(extent.left) - 40.0f, static_cast<float>(extent.top) - 40.0f);
-    entry.session->leftDown();
-    entry.session->leftUp();
+    // Only the switch flips: a tap near one of its pins must not start a wire on the figure.
+    if (!entry.session->flipToggleAt(at.x, at.y)) return false;
     return true;
 }
 
@@ -5989,23 +6130,23 @@ void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, fl
                 break;
             }
             case TheoryBlockKind::Tip: {
-                const std::vector<std::string> lines = wrapped(renderer, Face::Regular, 15.5f, block.text, column - 44.0f);
-                const SDL_FRect box{left, y, column, static_cast<float>(lines.size()) * 24.0f + 30.0f};
-                fillRound(renderer, box, 10, kPanelRaised);
-                fillRound(renderer, {box.x, box.y, 5.0f, box.h}, 2, kWirePreview);
+                const std::vector<std::string> lines = wrapped(renderer, Face::Regular, 15.5f, block.text, column - kMarkIndent);
+                drawBlockMark(renderer, left, y, y + tipHeight(renderer, block, column) - 4.0f, "Para lembrar", kWirePreview);
                 for (std::size_t l = 0; l < lines.size(); ++l) {
-                    write(renderer, Face::Regular, 15.5f, left + 24.0f, y + 26.0f + 24.0f * static_cast<float>(l), lines[l], kText);
+                    write(renderer, Face::Regular, 15.5f, left + kMarkIndent, y + 53.0f + 24.0f * static_cast<float>(l), lines[l], kText);
                 }
                 break;
             }
             case TheoryBlockKind::Table: {
-                const std::vector<std::vector<std::string>> rows = tableCells(block.text);
+                const TableShape table = tableShape(block.text);
+                const std::vector<std::vector<std::string>>& rows = table.rows;
+                const float slot = table.pictured ? kPictureSlot : 0.0f;  // the pictures' room, before the first column's text
                 std::vector<float> widths;
                 for (std::size_t r = 0; r < rows.size(); ++r) {
                     const std::vector<std::string>& row = rows[r];
                     for (std::size_t c = 0; c < row.size(); ++c) {
                         if (widths.size() <= c) widths.push_back(0.0f);
-                        widths[c] = std::max(widths[c], textWidth(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, row[c]) + 28.0f);
+                        widths[c] = std::max(widths[c], textWidth(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, row[c]) + 28.0f + (c == 0 ? slot : 0.0f));
                     }
                 }
                 float total = 0.0f;
@@ -6013,15 +6154,19 @@ void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, fl
                 const float stretch = total < column ? 1.0f : column / total;
                 float tableWidth = 0.0f;
                 for (float& w : widths) tableWidth += (w *= stretch);
+                float rowY = y;
                 for (std::size_t r = 0; r < rows.size(); ++r) {
-                    const float rowY = y + 32.0f * static_cast<float>(r);
-                    fillRect(renderer, {left, rowY, tableWidth, 32.0f}, r == 0 ? kPanelActive : r % 2 == 0 ? kPanelRaised : kPanel);
+                    const float rowH = table.heights[r];
+                    fillRect(renderer, {left, rowY, tableWidth, rowH}, r == 0 ? kPanelActive : r % 2 == 0 ? kPanelRaised : kPanel);
+                    if (!table.pictures[r].name.empty()) drawCellPicture(renderer, table.pictures[r], {left + 8.0f + slot / 2.0f, rowY + rowH / 2.0f});
                     float x = left;
                     for (std::size_t c = 0; c < rows[r].size() && c < widths.size(); ++c) {
-                        write(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, x + 14.0f, rowY + 21.0f,
-                              fitted(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, rows[r][c], widths[c] - 20.0f), r == 0 ? kText : kReadingBody);
+                        const float pad = c == 0 ? slot : 0.0f;
+                        write(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, x + 14.0f + pad, rowY + rowH / 2.0f + 5.0f,
+                              fitted(renderer, r == 0 ? Face::Medium : Face::Regular, 14.5f, rows[r][c], widths[c] - 20.0f - pad), r == 0 ? kText : kReadingBody);
                         x += widths[c];
                     }
+                    rowY += rowH;
                 }
                 break;
             }
@@ -6075,13 +6220,10 @@ void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, fl
             case TheoryBlockKind::Question: {
                 const QuestionShape q = questionShape(renderer, block, chosenAt(view, b), column);
                 const Color tone = q.right ? kReadingRight : kWarning;
-                const SDL_FRect box{left, y, column, q.height};
-                fillRound(renderer, box, 10, mixed(kPanel, tone, 0.07f));
-                frameRound(renderer, box, 10, 1.2f, mixed(kPanel, tone, 0.6f));
-                write(renderer, Face::Medium, 12.5f, left + 24.0f, y + 26.0f, q.right ? "Pergunta: certo!" : "Pergunta", tone);
-                for (std::size_t l = 0; l < q.prompt.size(); ++l) write(renderer, Face::Medium, 16.0f, left + 24.0f, y + 56.0f + 24.0f * static_cast<float>(l), q.prompt[l], kText);
+                drawBlockMark(renderer, left, y, y + q.height - 4.0f, q.right ? "Pergunta: certo!" : "Pergunta", tone);
+                for (std::size_t l = 0; l < q.prompt.size(); ++l) write(renderer, Face::Medium, 16.0f, left + kMarkIndent, y + 56.0f + 24.0f * static_cast<float>(l), q.prompt[l], kText);
                 for (std::size_t o = 0; o < q.options.size(); ++o) {
-                    const SDL_FRect r{left + 24.0f, y + q.optionTops[o], column - 48.0f, q.optionHeights[o]};
+                    const SDL_FRect r = questionOption(q, o, left, y, column);
                     const bool picked = static_cast<int>(o) == q.chosen;
                     const bool good = picked && q.right;
                     const bool bad = picked && !q.right;
@@ -6100,7 +6242,7 @@ void drawReading(SDL_Renderer* renderer, int width, int height, float mouseX, fl
                 if (!q.feedback.empty()) {
                     const float fy = y + q.optionTops.back() + q.optionHeights.back() + 8.0f;
                     for (std::size_t l = 0; l < q.feedback.size(); ++l) {
-                        write(renderer, Face::Regular, 14.5f, left + 24.0f, fy + 20.0f + 22.0f * static_cast<float>(l), q.feedback[l], q.right ? kReadingRight : kReadingWrong);
+                        write(renderer, Face::Regular, 14.5f, left + kMarkIndent, fy + 20.0f + 22.0f * static_cast<float>(l), q.feedback[l], q.right ? kReadingRight : kReadingWrong);
                     }
                 }
                 break;

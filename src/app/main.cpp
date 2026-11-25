@@ -26,6 +26,7 @@
 #include <cstring>
 #include <filesystem>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -107,8 +108,10 @@ class App {
 public:
     App(SDL_Window* window, SDL_Renderer* renderer, fs::path dataDirectory)
         : window_(window), renderer_(renderer), profiles_(std::move(dataDirectory)) {
-        openEvent_ = SDL_RegisterEvents(2);
+        openEvent_ = SDL_RegisterEvents(4);
         saveEvent_ = openEvent_ + 1;
+        codeOpenEvent_ = openEvent_ + 2;
+        codeSaveEvent_ = openEvent_ + 3;
         chooseStartingLanguage();
         session_.watchClock([this] { watchPrints(); });
         syncPalette();
@@ -130,10 +133,114 @@ public:
     int codeHeight() const { return height_ - static_cast<int>(app::kToolbarHeight); }
     std::size_t codeProblems() const { return code_ ? code_->problems.size() : 0; }
 
-    void updateSize() { SDL_GetCurrentRenderOutputSize(renderer_, &width_, &height_); }
+    // The size the screens are laid out in. A phone or a tablet has many pixels to a point: there everything is
+    // drawn scaled by the screen's density, kept to at least 720 points of height, the size it was all drawn for.
+    // Two fingers move the view and pinch it closer or farther, as on any phone: on the board and inside a part.
+    // One finger is the mouse, which SDL makes of it; when a second one lands, what the first had started is let go.
+    void touch(const SDL_TouchFingerEvent& finger) {
+        const auto at = std::find_if(fingers_.begin(), fingers_.end(), [&](const auto& f) { return f.first == finger.fingerID; });
+        if (finger.type == SDL_EVENT_FINGER_DOWN) {
+            if (at == fingers_.end()) fingers_.push_back({finger.fingerID, {finger.x, finger.y}});
+            touchScroll_ = 0.0f;
+        } else if (finger.type == SDL_EVENT_FINGER_MOTION) {
+            if (at != fingers_.end()) {
+                if (fingers_.size() == 1) scrollWithFinger(finger.y - at->second.y);
+                at->second = {finger.x, finger.y};
+            }
+        } else if (at != fingers_.end()) {
+            fingers_.erase(at);
+        }
+        if (fingers_.size() != 2) {
+            pinching_ = false;
+            return;
+        }
+        const SDL_FPoint a = fingers_[0].second;
+        const SDL_FPoint b = fingers_[1].second;
+        const float centerX = (a.x + b.x) / 2.0f;
+        const float centerY = (a.y + b.y) / 2.0f;
+        const float distance = std::max(1.0f, std::hypot(a.x - b.x, a.y - b.y));
+        if (!pinching_) {
+            pinching_ = true;
+            panning_ = false;
+            if (session_.mode() != editor::Mode::Idle) session_.key(editor::Key::Escape);
+        } else if (!peeks_.empty()) {
+            const SDL_FRect area = app::peekBoardArea(width_, height_);
+            peeks_.back().camera.pan(centerX - pinchX_, centerY - pinchY_);
+            peeks_.back().camera.zoomAt(centerX - area.x, centerY - area.y, distance / pinchDistance_);
+        } else if (insidePlan_ != nullptr) {
+            insideView_.originX += centerX - pinchX_;
+            insideView_.originY += centerY - pinchY_;
+            zoomInside(centerX, centerY, distance / pinchDistance_);
+        } else if (!modal() && view_ == app::kViewBoard) {
+            camera_.pan(centerX - pinchX_, centerY - pinchY_);
+            camera_.zoomAt(centerX, centerY, distance / pinchDistance_);
+        }
+        pinchX_ = centerX;
+        pinchY_ = centerY;
+        pinchDistance_ = distance;
+    }
+
+    // One finger up or down on a long screen scrolls it, the content following the finger. How many pixels make
+    // one turn of the mouse wheel there decides how far each move goes; where the wheel moves in whole steps
+    // (lines of code, rows of the table) the finger's moves add up to a step first.
+    void scrollWithFinger(float dy) {
+        float unit = 0.0f;
+        bool whole = false;
+        if (insidePlan_ != nullptr || bundle_ != 0 || !peeks_.empty()) return;
+        if (codeVisible()) {
+            unit = code_->help ? 60.0f : 24.0f;
+            whole = !code_->help;
+        } else if (lessonsOpen_) {
+            unit = 60.0f;
+        } else if (topic_ >= 0) {
+            unit = 70.0f;
+        } else if (!modal() && mouseX_ < app::kPanelWidth) {
+            unit = 40.0f;
+            // Scrolling the library is not picking a part up.
+            if (draggingFromPalette_) {
+                draggingFromPalette_ = false;
+                session_.key(editor::Key::Escape);
+            }
+        } else if (!modal() && overRightPanel(mouseX_)) {
+            unit = 54.0f;
+            whole = true;
+        }
+        if (unit <= 0.0f) return;
+        touchScroll_ += dy;
+        const float turns = touchScroll_ / unit;
+        if (!whole) {
+            wheel(turns);
+            touchScroll_ = 0.0f;
+        } else if (std::abs(turns) >= 1.0f) {
+            const float step = std::trunc(turns);
+            wheel(step);
+            touchScroll_ -= step * unit;
+        }
+    }
+
+    void updateSize() {
+        int w = 0;
+        int h = 0;
+        SDL_GetCurrentRenderOutputSize(renderer_, &w, &h);
+#ifdef SDL_PLATFORM_ANDROID
+        // Only where nothing of the system sits: not under the camera's notch or a bar that's still showing.
+        SDL_Rect safe{0, 0, w, h};
+        if (!SDL_GetWindowSafeArea(window_, &safe) || safe.w <= 0 || safe.h <= 0) safe = {0, 0, w, h};
+        const float density = SDL_GetWindowDisplayScale(window_);
+        const float scale = std::max(1.0f, std::min(density, static_cast<float>(std::min(safe.w, safe.h)) / 720.0f));
+        SDL_SetRenderScale(renderer_, scale, scale);
+        const SDL_Rect view{static_cast<int>(static_cast<float>(safe.x) / scale), static_cast<int>(static_cast<float>(safe.y) / scale),
+                            static_cast<int>(static_cast<float>(safe.w) / scale), static_cast<int>(static_cast<float>(safe.h) / scale)};
+        SDL_SetRenderViewport(renderer_, &view);
+        w = view.w;
+        h = view.h;
+#endif
+        width_ = w;
+        height_ = h;
+    }
 
     void handle(SDL_Event event) {
-        if (event.type == openEvent_ || event.type == saveEvent_) {
+        if (event.type == openEvent_ || event.type == saveEvent_ || event.type == codeOpenEvent_ || event.type == codeSaveEvent_) {
             finishDialog(event);
             return;
         }
@@ -142,22 +249,39 @@ public:
             case SDL_EVENT_QUIT:
                 quitting_ = true;
                 break;
+            // A phone sends the game away without asking and may close it there: what's on the bench is saved first.
+            case SDL_EVENT_WILL_ENTER_BACKGROUND:
+            case SDL_EVENT_TERMINATING:
+                autosave();
+                break;
             case SDL_EVENT_WINDOW_RESIZED:
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+            case SDL_EVENT_WINDOW_SAFE_AREA_CHANGED:
                 updateSize();
                 break;
+            case SDL_EVENT_FINGER_DOWN:
+            case SDL_EVENT_FINGER_MOTION:
+            case SDL_EVENT_FINGER_UP:
+            case SDL_EVENT_FINGER_CANCELED:
+                touch(event.tfinger);
+                break;
             case SDL_EVENT_MOUSE_MOTION:
+                if (pinching_ && event.motion.which == SDL_TOUCH_MOUSEID) break;  // the fingers move the view, not the cursor
                 mouseMoved(event.motion.x, event.motion.y);
                 break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 mouseDown(event.button.button, event.button.x, event.button.y);
-                if (event.button.button == SDL_BUTTON_LEFT && event.button.clicks == 2 && overBoard(mouseX_, mouseY_) && !modal()) {
+                if (event.button.button == SDL_BUTTON_LEFT && event.button.clicks == 2 && !peeks_.empty()) {
+                    peekDeeper(event.button.x, event.button.y);
+                } else if (event.button.button == SDL_BUTTON_LEFT && event.button.clicks == 2 && overBoard(mouseX_, mouseY_) && !modal()) {
                     session_.leftUp();
                     const editor::Part* part = session_.partUnderCursor();
                     if (part != nullptr && part->kind == editor::PartKind::Chip) {
                         session_.openChipUnderCursor();
-                    } else if (part != nullptr && app::canLookInside(*part)) {
-                        lookInside(part->id);
+                    } else if (part != nullptr && openPeek(*part)) {
+                        // how the part is made, from the gallery
+                    } else if (part != nullptr && !editor::isGate(part->kind) && app::canLookInside(*part)) {
+                        lookInside(part->id);  // a big part the gallery doesn't build: where it sits in the whole
                     }
                 }
                 break;
@@ -168,7 +292,8 @@ public:
                 wheel(event.wheel.y);
                 break;
             case SDL_EVENT_KEY_DOWN:
-                keyDown(event.key.key, event.key.mod);
+                // Android's Back button does what Esc does: closes, cancels, goes back a level.
+                keyDown(event.key.key == SDLK_AC_BACK ? SDLK_ESCAPE : event.key.key, event.key.mod);
                 break;
             case SDL_EVENT_KEY_UP:
                 typeOnKeyboard(event.key.key, event.key.mod, false);
@@ -774,6 +899,7 @@ public:
         if (galleryOpen_) app::drawGallery(renderer_, width_, height_, mouseX_, mouseY_, galleryGroup_);
         refreshInside();
         if (insidePlan_ != nullptr) app::drawInside(renderer_, width_, height_, mouseX_, mouseY_, insideView_);
+        if (!peeks_.empty()) app::drawPeek(renderer_, width_, height_, mouseX_, mouseY_, peekView());
         if (bundle_ != 0 && insidePlan_ == nullptr) {
             app::BundleView view;
             view.part = session_.board().part(bundle_);
@@ -884,6 +1010,67 @@ public:
             case app::InsideChoice::None: break;
         }
         if (y >= area.y && y < area.y + area.h) insideDragging_ = true;
+    }
+
+    // A part from the inside: how the gallery builds it, on a board to look at. False if the gallery doesn't.
+    bool openPeek(const editor::Part& part) {
+        const editor::PartInside inside = editor::galleryInsideOf(part);
+        if (inside.item == nullptr) return false;
+        Peek peek;
+        peek.title = i18n::tr(inside.item->title);
+        peek.item = inside.item;
+        peeks_.push_back(std::move(peek));
+        showPeekVersion(static_cast<int>(inside.version));
+        return true;
+    }
+    void showPeekVersion(int version) {
+        Peek& peek = peeks_.back();
+        peek.version = std::clamp(version, 1, static_cast<int>(peek.item->versions.size()) - 1);
+        editor::GalleryProject project = editor::buildGalleryItem(*peek.item, static_cast<std::size_t>(peek.version));
+        peek.session = std::make_unique<editor::Session>();
+        peek.session->adoptProjectChips(std::move(project.chips));
+        peek.session->adopt(std::move(project.board));
+        if (!project.toggles.empty()) peek.session->setToggleValues(project.toggles);
+        peek.camera = app::peekFit(*peek.session, width_, height_);
+    }
+    app::PeekView peekView() const {
+        app::PeekView view;
+        const Peek& peek = peeks_.back();
+        view.session = peek.session.get();
+        view.camera = peek.camera;
+        for (const Peek& p : peeks_) view.trail.push_back(p.title);
+        for (std::size_t i = 1; i < peek.item->versions.size(); ++i) view.versions.push_back(i18n::tr(peek.item->versions[i].name));
+        view.version = peek.version - 1;
+        view.how = i18n::tr(peek.item->versions[static_cast<std::size_t>(peek.version)].how);
+        return view;
+    }
+    void pressPeek(Uint8 button, float x, float y) {
+        if (button != SDL_BUTTON_LEFT) return;
+        const app::PeekHit hit = app::peekAt(renderer_, x, y, width_, height_, peekView());
+        switch (hit.choice) {
+            case app::PeekChoice::Back: peeks_.pop_back(); return;
+            case app::PeekChoice::Version: showPeekVersion(hit.version + 1); return;
+            case app::PeekChoice::Board: {
+                // A switch flips; anywhere else the board is dragged around.
+                const SDL_FRect area = app::peekBoardArea(width_, height_);
+                const Vec2 at = peeks_.back().camera.toBoard(x - area.x, y - area.y);
+                if (!peeks_.back().session->flipToggleAt(at.x, at.y)) peekDragging_ = true;
+                return;
+            }
+            case app::PeekChoice::None: return;
+        }
+    }
+    // A double click inside: the part under it, from the inside too.
+    void peekDeeper(float x, float y) {
+        const SDL_FRect area = app::peekBoardArea(width_, height_);
+        if (x < area.x || y < area.y || x >= area.x + area.w || y >= area.y + area.h) return;
+        const Vec2 at = peeks_.back().camera.toBoard(x - area.x, y - area.y);
+        const editor::Part* part =
+            peeks_.back().session->board().partAtCell({static_cast<int>(std::floor(at.x)), static_cast<int>(std::floor(at.y))});
+        if (part == nullptr) return;
+        const editor::Part copy = *part;
+        peekDragging_ = false;
+        openPeek(copy);
     }
 
     void showHome() {
@@ -1503,8 +1690,68 @@ private:
     static void SDLCALL onSaveChosen(void* self, const char* const* files, int) {
         postChoice(static_cast<App*>(self)->saveEvent_, files);
     }
+    static void SDLCALL onCodeOpenChosen(void* self, const char* const* files, int) {
+        postChoice(static_cast<App*>(self)->codeOpenEvent_, files);
+    }
+    static void SDLCALL onCodeSaveChosen(void* self, const char* const* files, int) {
+        postChoice(static_cast<App*>(self)->codeSaveEvent_, files);
+    }
+
+    // The program as a text file, to keep, send or open in another editor, and back. SDL reads and writes it,
+    // so that on Android the file the system's picker gives back can be used too.
+    void chooseCodeFile(bool saving) {
+        if (!code_) return;
+        static constexpr SDL_DialogFileFilter kAssembly[] = {{"Assembly", "asm;txt"}};
+        static constexpr SDL_DialogFileFilter kMips[] = {{"Assembly MIPS", "s;asm;txt"}};
+        const SDL_DialogFileFilter* filters = code_->mips ? kMips : kAssembly;
+        dialogFolder_ = io::pathToUtf8(profiles_.projectsFolder());
+        if (saving) {
+            SDL_ShowSaveFileDialog(onCodeSaveChosen, this, window_, filters, 1, dialogFolder_.c_str());
+        } else {
+            SDL_ShowOpenFileDialog(onCodeOpenChosen, this, window_, filters, 1, dialogFolder_.c_str(), false);
+        }
+    }
+    void openCodeFile(const std::string& path) {
+        if (!code_) return;
+        std::size_t size = 0;
+        void* data = SDL_LoadFile(path.c_str(), &size);
+        if (data == nullptr) {
+            code_->warning = "Não deu para abrir esse arquivo.";
+            return;
+        }
+        std::string text(static_cast<const char*>(data), size);
+        SDL_free(data);
+        if (text.rfind("\xEF\xBB\xBF", 0) == 0) text.erase(0, 3);  // the mark some editors put first
+        std::erase(text, '\r');
+        code_->text.selectAll();
+        if (!code_->text.insert(text)) code_->warning = kCodeTooBig;
+        codeEdited();
+    }
+    void saveCodeFile(std::string path) {
+        if (!code_) return;
+        const std::string ending = code_->mips ? ".s" : ".asm";
+        const std::size_t slash = path.find_last_of("/\\");
+        if (path.find('.', slash == std::string::npos ? 0 : slash + 1) == std::string::npos) path += ending;
+        const std::string text = code_->text.text();
+        if (SDL_SaveFile(path.c_str(), text.data(), text.size())) {
+            showNote("Programa salvo.", false);
+        } else {
+            code_->warning = "Não deu para salvar o arquivo.";
+        }
+    }
 
     void finishDialog(const SDL_Event& event) {
+        if (event.type == codeOpenEvent_ || event.type == codeSaveEvent_) {
+            auto* chosen = static_cast<char*>(event.user.data1);
+            const std::string path(chosen);
+            SDL_free(chosen);
+            if (event.type == codeOpenEvent_) {
+                openCodeFile(path);
+            } else {
+                saveCodeFile(path);
+            }
+            return;
+        }
         auto* text = static_cast<char*>(event.user.data1);
         fs::path path = io::pathFromUtf8(text);
         SDL_free(text);
@@ -1645,6 +1892,12 @@ private:
     }
 
     void mouseMoved(float x, float y) {
+        if (!peeks_.empty()) {
+            if (peekDragging_) peeks_.back().camera.pan(x - mouseX_, y - mouseY_);
+            mouseX_ = x;
+            mouseY_ = y;
+            return;
+        }
         if (insidePlan_ != nullptr) {
             if (insideDragging_) {
                 insideView_.originX += x - mouseX_;
@@ -1695,7 +1948,7 @@ private:
 
     bool modal() const {
         return profilesOpen_ || helpOpen_ || prompt_ != Prompt::None || codeVisible() || homeOpen_ || lessonsOpen_ || galleryOpen_ ||
-               topic_ >= 0 || insidePlan_ != nullptr;
+               topic_ >= 0 || insidePlan_ != nullptr || !peeks_.empty();
     }
 
     app::CodeView codeView() const {
@@ -1900,6 +2153,10 @@ private:
         }
         if (inside(layout.assemble, x, y)) {
             assembleCode();
+        } else if (inside(layout.open, x, y)) {
+            chooseCodeFile(false);
+        } else if (inside(layout.save, x, y)) {
+            chooseCodeFile(true);
         } else if (inside(layout.close, x, y)) {
             cancelCode();
         } else if (inside(layout.text, x, y)) {
@@ -2025,6 +2282,11 @@ private:
     }
 
     void wheel(float amount) {
+        if (!peeks_.empty()) {
+            const SDL_FRect area = app::peekBoardArea(width_, height_);
+            peeks_.back().camera.zoomAt(mouseX_ - area.x, mouseY_ - area.y, std::pow(1.25f, amount));
+            return;
+        }
         if (insidePlan_ != nullptr) {
             zoomInside(mouseX_, mouseY_, std::pow(1.25f, amount));
             return;
@@ -2214,6 +2476,17 @@ private:
                 homeOpen_ = true;
                 break;
             case app::SimButton::Reset: resetComputer(); break;
+            case app::SimButton::Save:
+                session_.key(editor::Key::Escape);
+                if (currentFile_) {
+                    saveTo(*currentFile_);
+                } else {
+                    chooseFileToSave();
+                }
+                break;
+            case app::SimButton::Open:
+                if (mayDiscard()) chooseFileToOpen();
+                break;
             case app::SimButton::Slower: session_.changeSpeed(-1); break;
             case app::SimButton::Faster: session_.changeSpeed(1); break;
             default: break;
@@ -2223,6 +2496,10 @@ private:
     void mouseDown(Uint8 button, float x, float y) {
         mouseX_ = x;
         mouseY_ = y;
+        if (!peeks_.empty()) {
+            pressPeek(button, x, y);
+            return;
+        }
         if (insidePlan_ != nullptr) {
             pressInside(button, x, y);
             return;
@@ -2461,7 +2738,8 @@ private:
     void mouseUp(Uint8 button) {
         if (button == SDL_BUTTON_LEFT) zoomDragging_ = false;
         if (button == SDL_BUTTON_LEFT) insideDragging_ = false;
-        if (insidePlan_ != nullptr) return;
+        if (button == SDL_BUTTON_LEFT) peekDragging_ = false;
+        if (insidePlan_ != nullptr || !peeks_.empty()) return;
         if (codeVisible()) {
             code_->selecting = false;
             return;
@@ -2620,6 +2898,10 @@ private:
     }
 
     void keyDown(SDL_Keycode key, SDL_Keymod mod) {
+        if (!peeks_.empty()) {
+            if (key == SDLK_ESCAPE) peeks_.pop_back();
+            return;
+        }
         if (bundle_ != 0 && insidePlan_ == nullptr) {
             if (key == SDLK_ESCAPE) bundle_ = 0;
             return;
@@ -2784,6 +3066,12 @@ private:
     float mouseX_ = 0;
     float mouseY_ = 0;
     bool panning_ = false;
+    std::vector<std::pair<SDL_FingerID, SDL_FPoint>> fingers_;  // the fingers on the screen now
+    bool pinching_ = false;                                     // two of them, moving the view
+    float pinchX_ = 0.0f;
+    float pinchY_ = 0.0f;
+    float pinchDistance_ = 1.0f;
+    float touchScroll_ = 0.0f;  // a finger's move not yet turned into scrolling
     bool quitting_ = false;
 
     std::string projectName_ = "sem nome";
@@ -2792,6 +3080,8 @@ private:
     std::string dialogFolder_;
     Uint32 openEvent_ = 0;
     Uint32 saveEvent_ = 0;
+    Uint32 codeOpenEvent_ = 0;  // a program's text file chosen, to open in the editor
+    Uint32 codeSaveEvent_ = 0;  // or to save the editor's text in
     std::uint64_t autosavedRevision_ = 0;
     Uint64 nextAutosave_ = 0;
     Uint64 confirmUntil_ = 0;
@@ -2823,6 +3113,16 @@ private:
     bool galleryOpen_ = false;  // so does the gallery of examples
     std::optional<editor::Architecture> inside16_, inside32_;  // the computers drawn whole, once made
     const editor::Architecture* insidePlan_ = nullptr;
+    // Parts seen from the inside, each opened from the one before: the last is on screen.
+    struct Peek {
+        std::string title;
+        const editor::GalleryItem* item = nullptr;
+        int version = 1;
+        std::unique_ptr<editor::Session> session;
+        app::Camera camera;
+    };
+    std::vector<Peek> peeks_;
+    bool peekDragging_ = false;
     std::optional<editor::Architecture> insideLive_;  // a board's own plan, opened from a part on it
     bool insideLiveMode_ = false;
     std::uint64_t insideRevision_ = 0;
@@ -3449,6 +3749,8 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "--tamanho") == 0) std::sscanf(argv[i + 1], "%dx%d", &windowWidth, &windowHeight);
     }
 
+    // On Android the Back button comes to the game as a key, instead of closing it.
+    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
@@ -3462,6 +3764,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     SDL_SetRenderVSync(renderer, stress > 0 ? 0 : 1);
+#ifdef SDL_PLATFORM_ANDROID
+    SDL_SetWindowFullscreen(window, true);  // the whole screen, the system's bars hidden
+#endif
 
     // Only looked up when needed: asking for the user's folder also creates it.
     bancada::app::DataLocation data;
@@ -3586,6 +3891,27 @@ int main(int argc, char** argv) {
             s.clickScreen(clickX, clickY);
         }
     }
+    // peek:KEY[:V], a ready part (its box key) or a gate (and, or, not, nand, nor, xor, xnor) from the inside, in its
+    // version V; peek:KEY:V:PART, and then that part of it, by its box key or gate, a level deeper.
+    if (script != nullptr && std::strncmp(script, "peek:", 5) == 0) {
+        const auto partFor = [](const std::string& key) {
+            static const std::pair<const char*, editor::PartKind> gates[] = {
+                {"and", editor::PartKind::And}, {"or", editor::PartKind::Or},   {"not", editor::PartKind::Not},  {"nand", editor::PartKind::Nand},
+                {"nor", editor::PartKind::Nor}, {"xor", editor::PartKind::Xor}, {"xnor", editor::PartKind::Xnor}};
+            for (const auto& [name, kind] : gates) {
+                if (key == name) return editor::makePart(kind, {}, 0, 2, 1, editor::kNoBox);
+            }
+            return editor::makePart(editor::PartKind::Box, {}, 0, 0, 1, editor::boxFromKey(key));
+        };
+        std::string rest(script + 5);
+        std::vector<std::string> fields;
+        for (std::size_t colon; (colon = rest.find(':')) != std::string::npos; rest = rest.substr(colon + 1)) fields.push_back(rest.substr(0, colon));
+        fields.push_back(rest);
+        const bool opened = app.openPeek(partFor(fields[0]));
+        if (!opened) std::printf("no inside for %s\n", fields[0].c_str());
+        if (opened && fields.size() > 1) app.showPeekVersion(std::atoi(fields[1].c_str()));
+        if (opened && fields.size() > 2 && !app.openPeek(partFor(fields[2]))) std::printf("no inside for %s\n", fields[2].c_str());
+    }
     // senha:TEXTO[:enter], the lesson list with the developer's password field open and TEXTO typed (and confirmed).
     // dentro-senha:TEXT: the computers' page, with TEXT typed as the password for "Por dentro" and Enter pressed.
     if (script != nullptr && std::strncmp(script, "dentro-senha:", 13) == 0) {
@@ -3683,7 +4009,9 @@ int main(int argc, char** argv) {
     }
     if (script != nullptr && std::strncmp(script, "aula:", 5) == 0) {
         Script s(app, window);
-        app.startLesson(std::atoi(script + 5));
+        // By its number, or by its id.
+        const bool numbered = std::isdigit(static_cast<unsigned char>(script[5])) != 0;
+        app.startLesson(numbered ? std::atoi(script + 5) : editor::lessonIndex(std::string_view(script + 5, std::strcspn(script + 5, ":"))));
         app.draw("");
         if (std::strstr(script + 5, ":f") != nullptr) s.key(SDLK_ESCAPE);  // the code editor closed, back on the board
         if (std::strstr(script + 5, ":v") != nullptr) {

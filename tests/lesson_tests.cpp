@@ -335,6 +335,83 @@ TEST(a_transistor_switches_the_led) {
     CHECK(failsSaying("transistor-chave", "", build(false)));
 }
 
+// The calculator built the way its steps say: B through XORs with Op, then two full adders of gates.
+TEST(the_calculator_adds_and_subtracts_with_gates_only) {
+    const auto build = [](bool carryFromOp) {
+        return [carryFromOp](Board& board, Layout& l) {
+            const auto two = [&](PartKind kind, Point at, PartId a, unsigned pa, PartId b, unsigned pb) {
+                const PartId gate = l.gate(kind, at);
+                l.wire(a, pa, gate, 0u);
+                l.wire(b, pb, gate, 1u);
+                return gate;
+            };
+            const PartId op = input(board, "Op");
+            const PartId b0 = two(PartKind::Xor, {10, 30}, input(board, "B0"), 0u, op, 0u);
+            const PartId b1 = two(PartKind::Xor, {10, 42}, input(board, "B1"), 0u, op, 0u);
+            // Bit 0, with Op as its carry in: the + 1 of the two's complement.
+            const PartId x0 = two(PartKind::Xor, {24, 2}, input(board, "A0"), 0u, b0, 2u);
+            const PartId s0 = carryFromOp ? two(PartKind::Xor, {38, 2}, x0, 2u, op, 0u) : x0;
+            const PartId g0 = two(PartKind::And, {24, 12}, input(board, "A0"), 0u, b0, 2u);
+            const PartId p0 = two(PartKind::And, {38, 12}, x0, 2u, op, 0u);
+            const PartId c0 = carryFromOp ? two(PartKind::Or, {50, 12}, g0, 2u, p0, 2u) : g0;
+            // Bit 1, with bit 0's carry.
+            const PartId x1 = two(PartKind::Xor, {24, 24}, input(board, "A1"), 0u, b1, 2u);
+            const PartId s1 = two(PartKind::Xor, {38, 24}, x1, 2u, c0, 2u);
+            const PartId g1 = two(PartKind::And, {24, 36}, input(board, "A1"), 0u, b1, 2u);
+            const PartId p1 = two(PartKind::And, {38, 36}, x1, 2u, c0, 2u);
+            const PartId c1 = two(PartKind::Or, {50, 36}, g1, 2u, p1, 2u);
+            l.wire(s0, 2u, ledResistor(board, "S0"), 0u);
+            l.wire(s1, 2u, ledResistor(board, "S1"), 0u);
+            l.wire(c1, 2u, ledResistor(board, "C"), 0u);
+        };
+    };
+    CHECK(passes("calculadora-bits", build(true)));
+    // Forgetting the + 1 adds the one's complement: every subtraction comes out one short.
+    CHECK(!passes("calculadora-bits", build(false)));
+}
+
+TEST(an_nmos_is_a_switch_driven_by_voltage) {
+    CHECK(passes("nmos-chave", [](Board& board, Layout& l) {
+        const PartId transistor = first(board, PartKind::Nmos);
+        const PartId light = first(board, PartKind::LedBulb);
+        PartId ground = 0;
+        for (const Part& part : board.parts()) {
+            if (part.kind == PartKind::Ground) ground = part.id;  // the one under the transistor
+        }
+        PartId supply = 0;
+        for (const Part& part : board.parts()) {
+            if (part.kind == PartKind::Tunnel && part.label == "5V" && part.position.x == 0) supply = part.id;
+        }
+        const PartId toggle = l.part(PartKind::Switch, {8, 14});
+        const PartId pullDown = l.part(PartKind::Resistor, {15, 20}, 1, 10'000 * kOhm);
+        const PartId otherGround = l.part(PartKind::Ground, {15, 28});
+        l.wire(supply, 0u, toggle, 0u);
+        l.wire(toggle, 1u, transistor, 0u);
+        l.wire(transistor, 0u, pullDown, 0u);
+        l.wire(pullDown, 1u, otherGround, 0u);
+        l.wire(transistor, 2u, ground, 0u);
+        l.wire(light, 1u, transistor, 1u);
+    }));
+}
+
+TEST(a_pmos_and_an_nmos_make_the_cmos_inverter) {
+    CHECK(passes("inversor-cmos", [](Board& board, Layout& l) {
+        PartId supply = 0;
+        for (const Part& part : board.parts()) {
+            if (part.kind == PartKind::Tunnel && part.label == "5V" && part.position.x == 14) supply = part.id;
+        }
+        const PartId p = l.part(PartKind::Pmos, {16, 2});
+        const PartId n = l.part(PartKind::Nmos, {16, 12});
+        const PartId ground = l.part(PartKind::Ground, {18, 19});
+        l.wire(input(board, "A"), 0u, p, 0u);
+        l.wire(input(board, "A"), 0u, n, 0u);
+        l.wire(supply, 0u, p, 1u);
+        l.wire(p, 2u, n, 1u);
+        l.wire(n, 2u, ground, 0u);
+        l.wire(p, 2u, ledResistor(board, "S"), 0u);
+    }));
+}
+
 namespace {
 
 // A resistor from a signal to a transistor's base.
@@ -469,6 +546,55 @@ TEST(gates_light_the_led_the_way_their_tables_say) {
         l.wire(input(board, "B"), 0u, gate, 1u);
         l.wire(gate, 2u, ledResistor(board, "S"), 0u);
     }));
+}
+
+TEST(each_gate_has_its_own_exercise) {
+    const auto oneGate = [](PartKind kind) {
+        return [kind](Board& board, Layout& l) {
+            const PartId gate = l.gate(kind, {20, 4});
+            l.wire(input(board, "A"), 0u, gate, 0u);
+            l.wire(input(board, "B"), 0u, gate, 1u);
+            l.wire(gate, 2u, ledResistor(board, "S"), 0u);
+        };
+    };
+    CHECK(passes("porta-ou", oneGate(PartKind::Or)));
+    CHECK(passes("porta-nand", oneGate(PartKind::Nand)));
+    CHECK(passes("porta-nor", oneGate(PartKind::Nor)));
+    CHECK(!passes("porta-nor", oneGate(PartKind::Nand)));
+    CHECK(passes("porta-nao", [](Board& board, Layout& l) {
+        const PartId gate = l.gate(PartKind::Not, {20, 2});
+        l.wire(input(board, "A"), 0u, gate, 0u);
+        l.wire(gate, 1u, ledResistor(board, "S"), 0u);
+    }));
+    CHECK(passes("porta-tres-entradas", [](Board& board, Layout& l) {
+        const PartId gate = l.add(makePart(PartKind::And, {20, 4}, 0, 3));
+        l.wire(input(board, "A"), 0u, gate, 0u);
+        l.wire(input(board, "B"), 0u, gate, 1u);
+        l.wire(input(board, "C"), 0u, gate, 2u);
+        l.wire(gate, 3u, ledResistor(board, "S"), 0u);
+    }));
+    CHECK(passes("expressao", [](Board& board, Layout& l) {
+        const PartId both = l.gate(PartKind::And, {12, 2});
+        const PartId either = l.gate(PartKind::Or, {22, 6});
+        l.wire(input(board, "A"), 0u, both, 0u);
+        l.wire(input(board, "B"), 0u, both, 1u);
+        l.wire(both, 2u, either, 0u);
+        l.wire(input(board, "C"), 0u, either, 1u);
+        l.wire(either, 2u, ledResistor(board, "S"), 0u);
+    }));
+}
+
+// The gates' act teaches each gate first, then makes the same gates of transistors, then of NANDs.
+TEST(gates_come_before_what_they_are_made_of) {
+    const auto at = [](const char* id) { return lessonIndex(id); };
+    CHECK(lesson("inversor").act == 3);
+    CHECK(lesson("nor-transistores").act == 3);
+    CHECK(at("porta-e") < at("porta-ou"));
+    CHECK(at("expressao") < at("inversor"));
+    CHECK(at("nor-transistores") < at("nao-com-nand"));
+    CHECK(at("transistor-chave") < at("nmos-chave"));
+    CHECK(at("inversor-cmos") < at("dois-bits"));
+    for (std::size_t i = 1; i < lessons().size(); ++i) CHECK(lessons()[i - 1].act <= lessons()[i].act);
 }
 
 TEST(nand_makes_not_and_and_or) {

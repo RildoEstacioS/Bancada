@@ -509,8 +509,8 @@ const std::vector<BoxSpec>& allBoxes() {
         {"jk_flip_flop", "Flip-flop JK", "Memória", {{"J"}, {"K"}, {"Clk"}}, {{"Q"}, {"!Q"}}, jkFlipFlop},
         // Phase two.
         {"buffer", "Buffer", "Portas", {{"A"}}, {{"S"}}, buffer},
-        {"parity_odd", "Paridade ímpar", "Portas", {{"D", kPinWidth}}, {{"S"}}, parityOdd, 4},
-        {"parity_even", "Paridade par", "Portas", {{"D", kPinWidth}}, {{"S"}}, parityEven, 4},
+        {"parity_odd", "Paridade par", "Portas", {{"D", kPinWidth}}, {{"S"}}, parityOdd, 4},
+        {"parity_even", "Paridade ímpar", "Portas", {{"D", kPinWidth}}, {{"S"}}, parityEven, 4},
         {"bit_select", "Seletor de bits", "Seleção", {{"D", kPinWidth}, {"Sel", kPinAddress}}, {{"S"}}, bitSelect, 8, 3, false, "Seleção"},
         {"priority4", "Codificador de prioridade", "Seleção", {{"D0"}, {"D1"}, {"D2"}, {"D3"}}, {{"A0"}, {"A1"}, {"V"}}, priority4},
         {"multiplier", "Multiplicador N bits", "Aritmética", {{"A", kPinWidth}, {"B", kPinWidth}}, {{"Baixo", kPinWidth}, {"Alto", kPinWidth}}, multiplier, 4},
