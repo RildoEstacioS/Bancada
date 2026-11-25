@@ -4095,51 +4095,148 @@ void drawCodeHelp(SDL_Renderer* renderer, int width, int height, float scroll, b
             for (std::size_t w = 0; w < words.size() && w < 2; ++w) {
                 const std::string real = mips ? mips::disassemble(words[w], mips::kTextBase + static_cast<std::uint32_t>(4 * w))
                                               : assembly::disassemble(static_cast<std::uint16_t>(words[w]), w);
-                write(renderer, Face::Mono, 13.0f, b<?xml version="1.0" encoding="utf-8"?>
-<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="D:\Bancada\android\app\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="D:\Bancada\android\app\src\main\res"><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-hdpi\ic_launcher.png" qualifiers="hdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-mdpi\ic_launcher.png" qualifiers="mdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xhdpi\ic_launcher.png" qualifiers="xhdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xxhdpi\ic_launcher.png" qualifiers="xxhdpi-v4" type="mipmap"/><file name="ic_launcher" path="D:\Bancada\android\app\src\main\res\mipmap-xxxhdpi\ic_launcher.png" qualifiers="xxxhdpi-v4" type="mipmap"/><file path="D:\Bancada\android\app\src\main\res\values\colors.xml" qualifiers=""><color name="colorPrimary">#3F51B5</color><color name="colorPrimaryDark">#303F9F</color><color name="colorAccent">#FF4081</color></file><file path="D:\Bancada\android\app\src\main\res\values\strings.xml" qualifiers=""><string name="app_name">Bancada</string></file><file path="D:\Bancada\android\app\src\main\res\values\styles.xml" qualifiers=""><style name="AppTheme" parent="android:Theme.NoTitleBar.Fullscreen">
-        
-    </style></file></source></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="D:\Bancada\android\app\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="D:\Bancada\android\app\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"/><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"/><mergedItems/></merger>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    [
-    {
-        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-mdpi_ic_launcher.png.flat",
-        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-mdpi\\ic_launcher.png"
-    },
-    {
-        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xxhdpi\\ic_launcher.png"
-    },
-    {
-        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-hdpi_ic_launcher.png.flat",
-        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-hdpi\\ic_launcher.png"
-    },
-    {
-        "merged": "org.bancada.app-debug-3:/mipmap-xxhdpi_ic_launcher.png.flat",
-        "source": "org.bancada.app-main-5:/mipmap-xxhdpi/ic_launcher.png"
-    },
-    {
-        "merged": "org.bancada.app-debug-3:/mipmap-mdpi_ic_launcher.png.flat",
-        "source": "org.bancada.app-main-5:/mipmap-mdpi/ic_launcher.png"
-    },
-    {
-        "merged": "org.bancada.app-debug-3:/mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "org.bancada.app-main-5:/mipmap-xhdpi/ic_launcher.png"
-    },
-    {
-        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xhdpi\\ic_launcher.png"
-    },
-    {
-        "merged": "org.bancada.app-debug-3:/mipmap-hdpi_ic_launcher.png.flat",
-        "source": "org.bancada.app-main-5:/mipmap-hdpi/ic_launcher.png"
-    },
-    {
-        "merged": "org.bancada.app-debug-3:/mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "org.bancada.app-main-5:/mipmap-xxxhdpi/ic_launcher.png"
-    },
-    {
-        "merged": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-debug-3:\\mipmap-xxxhdpi_ic_launcher.png.flat",
-        "source": "D:\\AndroidTools\\gradle-home\\daemon\\9.9.2\\org.bancada.app-main-5:\\mipmap-xxxhdpi\\ic_launcher.png"
+                write(renderer, Face::Mono, 13.0f, bitsX, y + 42.0f + 18.0f * static_cast<float>(w), real, kText);
+            }
+        } else if (helpPseudo(row)) {
+            write(renderer, Face::Regular, 12.5f, bitsX, y + 24.0f, "pseudo-instrução", kTextDim);
+        } else if (!words.empty()) {
+            drawHelpBits(renderer, words[0], mips, row, bitsX, y + 12.0f);
+        }
+        fillRect(renderer, {left, y + rowHeight - 1.0f, static_cast<float>(width) - 48.0f, 1.0f}, Color{30, 40, 44});
     }
-]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   or);
+    SDL_SetRenderClipRect(renderer, nullptr);
+
+    // The header: what the help is, and the groups to jump to, the one in view lit.
+    fillRect(renderer, {0.0f, area.y, static_cast<float>(width), kHelpHeader}, kBackground);
+    write(renderer, Face::Medium, 22.0f, left, area.y + 36.0f, mips ? "Todas as instruções do MIPS" : "Todas as instruções", kText);
+    const char* intro = mips ? "Cada instrução vira uma palavra de 32 bits. À direita, os bits do exemplo, campo por campo, nas cores do Raio-X."
+                             : "Cada instrução vira uma palavra de 16 bits. À direita, os bits do exemplo, campo por campo, nas cores do Raio-X.";
+    write(renderer, Face::Regular, 14.0f, left, area.y + 60.0f, fitted(renderer, Face::Regular, 14.0f, intro, static_cast<float>(width) - 48.0f), kTextDim);
+    const std::vector<SDL_FRect> chips = helpChips(renderer, mips);
+    const std::size_t current = helpCurrentGroup(layout, scroll);
+    for (std::size_t g = 0; g < chips.size() && g < layout.groups.size(); ++g) {
+        const InstructionHelp& group = rows[layout.groups[g]];
+        const bool lit = g == current;
+        fillRound(renderer, chips[g], 14, lit ? mixed(kBackground, group.tone, 0.3f) : kPanelButton);
+        if (lit) frameRound(renderer, chips[g], 14, 1.2f, group.tone);
+        write(renderer, Face::Medium, 12.5f, chips[g].x + 13.0f, chips[g].y + 18.5f, group.syntax, lit ? kText : group.tone);
+    }
+    fillRect(renderer, {0.0f, area.y + kHelpHeader - 1.0f, static_cast<float>(width), 1.0f}, kRule);
+}
+
+}  // namespace
+
+float codeHelpMaxScroll(SDL_Renderer* renderer, int width, int height, bool mips) {
+    const HelpLayout layout = helpLayout(renderer, width, mips);
+    return std::max(0.0f, layout.height - (static_cast<float>(height) - kCodeBarHeight - kHelpHeader));
+}
+
+float codeHelpGroupAt(SDL_Renderer* renderer, int width, int height, bool mips, float x, float y) {
+    const std::vector<SDL_FRect> chips = helpChips(renderer, mips);
+    const HelpLayout layout = helpLayout(renderer, width, mips);
+    for (std::size_t g = 0; g < chips.size() && g < layout.groups.size(); ++g) {
+        if (inside(chips[g], x, y)) return std::min(layout.tops[layout.groups[g]], codeHelpMaxScroll(renderer, width, height, mips));
+    }
+    return -1.0f;
+}
+
+namespace {
+
+void drawCodeBlocks32(SDL_Renderer* renderer, const CodeView& view, const SDL_FRect& area);  // with the 32-bit computer
+
+constexpr float kBlock16 = 56.0f;
+constexpr float kBlock32 = 60.0f;
+constexpr float kBlockGap = 6.0f;
+
+// The blocks' place under the tabs.
+SDL_FRect codeBlocksArea(int width, int height) {
+    const CodeLayout layout = codeLayout(width, height);
+    const float referenceLeft = layout.problems.w;
+    const float y = kCodeBarHeight + 62.0f;
+    return {referenceLeft + 12.0f, y - 14.0f, static_cast<float>(width) - referenceLeft - 24.0f, static_cast<float>(height) - y};
+}
+
+int blocksThatFit(const SDL_FRect& area, bool mips) {
+    return std::max(1, static_cast<int>((area.h - 8.0f) / ((mips ? kBlock32 : kBlock16) + kBlockGap)));
+}
+
+// When there are more blocks than room, a thin bar on the right says where the list is.
+void drawBlocksBar(SDL_Renderer* renderer, const SDL_FRect& area, int first, int fit, int count) {
+    if (count <= fit) return;
+    const SDL_FRect track{area.x + area.w - 4.0f, area.y, 4.0f, area.h - 8.0f};
+    fillRound(renderer, track, 2, kRule);
+    const float h = std::max(24.0f, track.h * static_cast<float>(fit) / static_cast<float>(count));
+    const float y = track.y + (track.h - h) * static_cast<float>(first) / static_cast<float>(count - fit);
+    fillRound(renderer, {track.x, y, track.w, h}, 2, kTextDim);
+}
+
+// A bit in a field: a 1 bright and bold, a 0 faint, so the ones stand out at a glance.
+void writeBit(SDL_Renderer* renderer, bool one, float cx, float baseline, float size) {
+    const char* digit = one ? "1" : "0";
+    const Face face = one ? Face::Medium : Face::Mono;
+    write(renderer, face, size, cx - textWidth(renderer, face, size, digit) / 2.0f, baseline, digit, one ? kText : Color{112, 128, 132});
+}
+
+std::vector<int> codeTabs(const CodeView& view) {
+    if (view.lesson >= 0) return {kCodeTabTask, kCodeTabCommands, kCodeTabBlocks};
+    return {kCodeTabCommands, kCodeTabBlocks};
+}
+
+SDL_FRect codeTabRect(int width, int height, int index, int count) {
+    const CodeLayout layout = codeLayout(width, height);
+    const float left = layout.problems.w + 12.0f;
+    const float room = static_cast<float>(width) - layout.problems.w - 24.0f;
+    const float w = (room - 6.0f * static_cast<float>(count - 1)) / static_cast<float>(count);
+    return {left + static_cast<float>(index) * (w + 6.0f), kCodeBarHeight + 10.0f, w, 30.0f};
+}
+
+// The program as blocks, one per word, in the order they sit in the ROM: each one's 16 bits by field, in
+// the X-ray's colours, and the instruction they make. The one the computer is on is lit, and kept in view.
+void drawCodeBlocks(SDL_Renderer* renderer, const CodeView& view, const SDL_FRect& area) {
+    if (view.program.empty()) {
+        for (const std::string& line : wrapped(renderer, Face::Regular, 13.0f, "Monte o programa com Ctrl+Enter: cada instrução aparece aqui como um bloco.",
+                                               area.w)) {
+            write(renderer, Face::Regular, 13.0f, area.x, area.y + 20.0f, line, kTextDim);
+        }
+        return;
+    }
+    constexpr float kBlock = kBlock16;
+    const int count = static_cast<int>(view.program.size());
+    const int fit = std::min(count, blocksThatFit(area, false));
+    const int first = std::clamp(view.blocksFirst, 0, std::max(0, count - fit));
+    drawBlocksBar(renderer, area, first, fit, count);
+    const float blockW = count > fit ? area.w - 10.0f : area.w;
+    float y = area.y;
+    for (int i = first; i < count && i < first + fit; ++i) {
+        const bool running = i == view.runningAddress;
+        const SDL_FRect r{area.x, y, blockW, kBlock};
+        fillRound(renderer, r, 8, running ? mixed(kPanelRaised, kToneProgram, 0.28f) : kPanelRaised);
+        frameRound(renderer, r, 8, running ? 1.8f : 1.0f, running ? kToneProgram : kBodyEdge);
+        ComputerState state;
+        state.instruction = view.program[static_cast<std::size_t>(i)];
+        state.pc = static_cast<std::uint16_t>(i);
+        const InstructionTrace trace = traceInstruction(state);
+        // The address, and the instruction in the colours of its fields.
+        const std::string address = std::to_string(i);
+        write(renderer, Face::Mono, 12.0f, r.x + 10.0f, r.y + 20.0f, address, running ? kToneProgram : kTextOff);
+        float x = r.x + 40.0f;
+        for (const AsmToken& token : asmTokens(trace)) {
+            write(renderer, Face::Mono, 13.5f, x, r.y + 20.0f, token.text, token.color);
+            x += textWidth(renderer, Face::Mono, 13.5f, token.text);
+        }
+        if (i < static_cast<int>(view.lines.size())) {
+            const std::string line = i18n::format("linha {}", {std::to_string(view.lines[static_cast<std::size_t>(i)])});
+            const float w = textWidth(renderer, Face::Regular, 11.0f, line);
+            write(renderer, Face::Regular, 11.0f, r.x + r.w - 10.0f - w, r.y + 19.0f, line, kTextOff);
+        }
+        // The bits, field by field.
+        const float cell = (r.w - 50.0f) / 16.0f;
+        float bx = r.x + 40.0f;
+        for (const WordField& field : wordFields(trace)) {
+            const int bits = field.high - field.low + 1;
+            const SDL_FRect box{bx, r.y + 29.0f, cell * static_cast<float>(bits) - 2.0f, 18.0f};
+            fillRound(renderer, box, 3, mixed(kBackground, field.color, field.name[0] == '\0' ? 0.12f : 0.2f));
+            frameRound(renderer, box, 3, 1.0f, field.color);
             for (int bit = field.high; bit >= field.low; --bit) {
                 const float cx = bx + cell * static_cast<float>(field.high - bit) + cell / 2.0f - 1.0f;
                 writeBit(renderer, ((trace.word >> bit) & 1u) != 0, cx, box.y + 13.5f, 11.5f);
