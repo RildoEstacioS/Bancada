@@ -32,6 +32,7 @@ bool contains(const std::vector<Id>& ids, Id id) {
 Session::Session() { rebuildCircuit(); }
 
 void Session::adopt(Board board, std::span<const PartId> togglesOn, bool saved) {
+    locked_ = false;
     board_ = std::move(board);
     undo_.clear();
     redo_.clear();
@@ -444,6 +445,7 @@ void Session::reconfigure(Part shape) {
 }
 
 void Session::changeInputs(int delta) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now) return;
     const int wanted = static_cast<int>(now->part.inputs) + delta;
@@ -459,6 +461,7 @@ void Session::changeInputs(int delta) {
 }
 
 void Session::changeScale(int delta) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now) return;
     const int wanted = static_cast<int>(now->part.scale) + delta;
@@ -473,6 +476,7 @@ void Session::changeScale(int delta) {
 }
 
 void Session::changeBits(int delta) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now || !hasWidth(now->part)) return;
     const int wanted = static_cast<int>(now->part.width) + delta;
@@ -489,6 +493,7 @@ void Session::changeBits(int delta) {
 }
 
 void Session::changeAddress(int delta) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now || !hasAddress(now->part)) return;
     const int wanted = static_cast<int>(now->part.address) + delta;
@@ -508,6 +513,7 @@ void Session::changeAddress(int delta) {
 }
 
 void Session::setValue(std::uint64_t value) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now || now->placing) return;
     Part shape = now->part;
@@ -524,6 +530,7 @@ void Session::setValue(std::uint64_t value) {
 }
 
 void Session::setLabel(std::string label) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now || now->placing) return;
     if (now->part.kind == PartKind::Tunnel && label.empty()) return;  // a label is its name
@@ -533,6 +540,7 @@ void Session::setLabel(std::string label) {
 }
 
 void Session::setRomWords(std::vector<std::uint64_t> words, std::string source) {
+    if (locked_) return;
     const std::optional<Inspected> now = inspected();
     if (!now || now->placing || now->part.kind != PartKind::Box || !boxSpec(now->part.box).hasContents) return;
     Part shape = now->part;
@@ -544,6 +552,7 @@ void Session::setRomWords(std::vector<std::uint64_t> words, std::string source) 
 }
 
 void Session::setMemories(PartId rom, std::vector<std::uint64_t> words, std::string source, PartId ram, std::vector<std::uint64_t> data) {
+    if (locked_) return;
     Board next = board_;
     const auto fill = [&next](PartId id, std::vector<std::uint64_t> contents, std::string text, bool program) {
         const Part* part = next.part(id);
@@ -636,6 +645,7 @@ Rect Session::selectionBox() const {
 }
 
 void Session::beginPlacing(PartKind kind, BoxId box) {
+    if (locked_) return;
     if ((kind == PartKind::Box) != (box != kNoBox) || box > boxCount() || kind == PartKind::Chip) return;
     cancelTool();
     placingBox_ = box;
@@ -649,6 +659,7 @@ void Session::beginPlacing(PartKind kind, BoxId box) {
 }
 
 void Session::beginPlacingChip(ChipId chip) {
+    if (locked_) return;
     if (!canPlaceChip(chip)) return;
     cancelTool();
     placingBox_ = kNoBox;
@@ -743,6 +754,13 @@ void Session::mouseMove(float x, float y, bool straight) {
 }
 
 void Session::leftDown(bool adding) {
+    if (locked_) {  // to look at and play with: a switch flips and a button presses, and that's all
+        if (const Part* part = board_.partAtCell(cellUnder(worldX_, worldY_))) {
+            if (part->kind == PartKind::Toggle || part->kind == PartKind::Switch) flipToggle(*part);
+            if (part->kind == PartKind::Button) holdButton(part->id, 1);
+        }
+        return;
+    }
     adding_ = adding;
     switch (mode_) {
         case Mode::Placing:
@@ -865,6 +883,7 @@ void Session::leftUp() {
 void Session::rightDown() { cancelTool(); }
 
 void Session::key(Key key) {
+    if (locked_ && key != Key::Escape && key != Key::Copy && key != Key::SelectAll) return;
     switch (key) {
         case Key::Escape:
             if (mode_ != Mode::Idle) {

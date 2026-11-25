@@ -115,10 +115,20 @@ std::optional<Computer32State> readComputer32(const Board& board, const BoardCir
         for (std::size_t r = 0; r < state.registers.size(); ++r) state.registers[r] = static_cast<std::uint32_t>(circuit.memoryWord(path, r));
     }
     state.source = rom->source;
-    if (!state.source.empty()) state.lineOfWord = mips::assemble(state.source).lines;
+    if (!state.source.empty()) {
+        const mips::Program program = mips::assemble(state.source);
+        state.lineOfWord = program.lines;
+        for (const auto& [name, address] : program.labels) {
+            if (address >= mips::kDataBase && address - mips::kDataBase < 4u * mips::kMemoryWords) {
+                state.dataLabels.emplace_back(name, (address >> 2) % static_cast<std::uint32_t>(mips::kMemoryWords));
+            }
+        }
+    }
     if (state.ram != 0) {
         const std::array<PartId, 1> ramPath{state.ram};
-        for (std::uint64_t address = 0; address < 16; ++address) state.data.push_back(static_cast<std::uint32_t>(circuit.memoryWord(ramPath, address)));
+        state.memory.reserve(mips::kMemoryWords);
+        for (std::uint64_t word = 0; word < mips::kMemoryWords; ++word) state.memory.push_back(static_cast<std::uint32_t>(circuit.memoryWord(ramPath, word)));
+        state.data.assign(state.memory.begin(), state.memory.begin() + 16);
         const std::uint32_t top = (state.registers[mips::kSp] >> 2) % static_cast<std::uint32_t>(mips::kMemoryWords);
         // Up to the RAM's last word: past it, the addresses come round to the data.
         for (std::uint32_t i = 0; i < 8 && top + i < mips::kMemoryWords; ++i) {
@@ -128,7 +138,8 @@ std::optional<Computer32State> readComputer32(const Board& board, const BoardCir
         if (op == mips::kOpLw || op == mips::kOpSw) {
             const auto offset = static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(state.instruction & 0xFFFFu)));
             const std::uint32_t address = state.registers[(state.instruction >> 21) & 31u] + offset;
-            state.memoryAtAddress = static_cast<std::uint32_t>(circuit.memoryWord(ramPath, (address >> 2) % mips::kMemoryWords));
+            state.accessed = static_cast<int>((address >> 2) % mips::kMemoryWords);
+            state.memoryAtAddress = state.memory[static_cast<std::size_t>(state.accessed)];
         }
     }
     const unsigned switchesPin = pinNamed(*cpu, "Chaves");

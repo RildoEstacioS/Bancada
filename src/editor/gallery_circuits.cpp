@@ -190,16 +190,20 @@ std::vector<std::string> bitNames(const char* prefix, int count) {
 
 // The ready part from the library, with a switch on each input and a light on each output, named
 // after its pins.
-GalleryProject readyBox(const char* key, std::uint8_t width = 0) {
+GalleryProject readyBox(const char* key, std::uint8_t width = 0, std::uint8_t address = 0, RomWords words = nullptr) {
     Board board;
     Layout l(board);
     Board scratch;  // the box tried on a board of its own first, only to read its pins' sizes
-    const Part shape = *scratch.part(Layout(scratch).box(key, {0, 0}, width));
+    const Part shape = *scratch.part(Layout(scratch).box(key, {0, 0}, width, address));
     const unsigned inputs = inputCount(shape);
     int widest = 3;
     for (unsigned pin = 0; pin < inputs; ++pin) widest = std::max(widest, 2 * static_cast<int>(std::min(pinBits(shape, pin), 8u)) + 1);
     // Pins of many bits get room: every input on a row of its own, four apart.
-    const PartId box = l.box(key, {widest + 9, 0}, width);
+    Part made = makePart(PartKind::Box, {widest + 9, 0}, 0, 0, 1, boxFromKey(key));
+    if (width != 0) made.width = width;
+    if (address != 0) made.address = address;
+    made.rom = std::move(words);
+    const PartId box = l.add(std::move(made));
     const Part part = *board.part(box);
     for (unsigned pin = 0; pin < pinCount(part); ++pin) {
         const Point at = pinPosition(part, pin);
@@ -1218,7 +1222,18 @@ GalleryProject keyboardTerminal() {
 
 // --- Electronics -------------------------------------------------------------------------------------
 
-GalleryProject ledAndResistor() { return finished(buildLedExample().board); }
+// The first circuit: a battery, a resistor and an LED in a ring, the battery below, the two on top.
+GalleryProject ledAndResistor() {
+    Board board;
+    Layout l(board);
+    const PartId battery = l.part(PartKind::BatteryCell, {2, 14});
+    const PartId resistor = l.part(PartKind::Resistor, {10, 0}, 0, 330 * kOhm);
+    const PartId light = l.part(PartKind::LedBulb, {18, 0});
+    l.wire(battery, 0u, resistor, 0u);
+    l.wire(resistor, 1u, light, 0u);
+    l.wire(light, 1u, battery, 1u);
+    return finished(std::move(board));
+}
 GalleryProject blinker() { return finished(buildBlinker().board); }
 
 // Two battery circuits side by side: switches in a row light the LED only together, side by side either one does.
@@ -1430,6 +1445,254 @@ GalleryProject flipFlopLatches() {
     return finished(std::move(board));
 }
 
+
+// --- The computer's parts, from the inside --------------------------------------------------------------
+// Each one built from parts that open in their turn, down to the gates: a bus part from one-bit parts, a
+// memory from registers, a register from flip-flops.
+
+// One one-bit multiplexer per bit, all choosing with the same Sel.
+GalleryProject mux2nSlices() {
+    Board board;
+    Net n(board);
+    n.input("A", {0, 0}, 4);
+    n.input("B", {0, 14}, 4);
+    n.labelledInput("Sel", {0, 28});
+    n.split("A", {14, -3}, 4, bitNames("a", 4));
+    n.split("B", {14, 11}, 4, bitNames("b", 4));
+    for (int bit = 0; bit < 4; ++bit) {
+        const std::string i = std::to_string(bit), a = "a" + i, b = "b" + i, s = "s" + i;
+        n.box("mux2", {26, bit * 9}, {{"A", a.c_str()}, {"B", b.c_str()}, {"Sel", "Sel"}}, {{"S", s.c_str()}});
+    }
+    n.join({42, 12}, 4, bitNames("s", 4), "s");
+    n.display("S", {50, 15}, "s", 4);
+    return finished(std::move(board));
+}
+
+// One four-input multiplexer per bit: bit i of the output picks bit i of the chosen D.
+GalleryProject mux4nSlices() {
+    Board board;
+    Net n(board);
+    for (int k = 0; k < 4; ++k) {
+        const std::string d = "D" + std::to_string(k);
+        n.input(d.c_str(), {0, k * 8}, 4);
+        std::vector<std::string> bits;
+        for (int bit = 0; bit < 4; ++bit) bits.push_back("d" + std::to_string(k) + "_" + std::to_string(bit));
+        n.split(d.c_str(), {14, k * 8 - 3}, 4, bits);
+        for (const std::string& b : bits) n.label(b);
+    }
+    n.input("Sel", {0, 34}, 2);
+    n.split("Sel", {14, 31}, 2, {"sel0", "sel1"});
+    n.label("sel0");
+    n.label("sel1");
+    for (int bit = 0; bit < 4; ++bit) {
+        const std::string i = std::to_string(bit);
+        const std::string d0 = "d0_" + i, d1 = "d1_" + i, d2 = "d2_" + i, d3 = "d3_" + i, y = "y" + i;
+        n.box("mux4", {44, bit * 14}, {{"D0", d0.c_str()}, {"D1", d1.c_str()}, {"D2", d2.c_str()}, {"D3", d3.c_str()}, {"S0", "sel0"}, {"S1", "sel1"}},
+              {{"Y", y.c_str()}});
+    }
+    n.join({62, 20}, 4, bitNames("y", 4), "y");
+    n.display("Y", {70, 23}, "y", 4);
+    return finished(std::move(board));
+}
+
+GalleryProject demuxGates() {
+    Board board;
+    Net n(board);
+    n.input("E", {0, 2});
+    n.input("Sel", {0, 12});
+    n.gate(PartKind::Not, {12, 11}, {"Sel"}, "nsel");
+    n.gate(PartKind::And, {24, 2}, {"E", "nsel"}, "y0");
+    n.gate(PartKind::And, {24, 12}, {"E", "Sel"}, "y1");
+    n.light("Y0", {36, 3}, "y0");
+    n.light("Y1", {36, 13}, "y1");
+    return finished(std::move(board));
+}
+
+GalleryProject encoderGates() {
+    Board board;
+    Net n(board);
+    for (int k = 0; k < 4; ++k) n.input(("D" + std::to_string(k)).c_str(), {0, k * 6});
+    n.gate(PartKind::Or, {16, 4}, {"D1", "D3"}, "a0");
+    n.gate(PartKind::Or, {16, 14}, {"D2", "D3"}, "a1");
+    n.light("A0", {28, 5}, "a0");
+    n.light("A1", {28, 15}, "a1");
+    return finished(std::move(board));
+}
+
+// The new high bits all copy the top bit of A, when Sinal is on; with it off, an AND gives them 0.
+GalleryProject extenderGates() {
+    Board board;
+    Net n(board);
+    n.input("A", {0, 2}, 4);
+    n.input("Sinal", {0, 12});
+    n.split("A", {14, -1}, 4, bitNames("a", 4));
+    n.gate(PartKind::And, {24, 10}, {"a3", "Sinal"}, "top");
+    n.join({36, 2}, 8, {"a0", "a1", "a2", "a3", "top", "top", "top", "top"}, "q");
+    n.display("Q", {44, 6}, "q", 8);
+    return finished(std::move(board));
+}
+
+// Two stages, by 1 and by 2. In each, a multiplexer per bit picks the neighbour to the left or to the right
+// by Dir, and a second one keeps the bit or takes the moved one by that stage's bit of N.
+GalleryProject shifterMuxes() {
+    Board board;
+    Net n(board);
+    n.input("A", {0, 0}, 4);
+    n.input("N", {0, 12}, 2);
+    n.labelledInput("Dir", {0, 20});
+    std::vector<std::string> first;
+    for (int bit = 0; bit < 4; ++bit) first.push_back("v0_" + std::to_string(bit));
+    n.split("A", {12, -3}, 4, first);
+    for (const std::string& v : first) n.label(v);
+    n.split("N", {12, 9}, 2, {"n0", "n1"});
+    n.label("n0");
+    n.label("n1");
+    const PartId zero = n.l.constant(0, {12, 26}, 1);
+    n.source("zero", zero, 0);
+    n.label("zero");
+    for (int stage = 0; stage < 2; ++stage) {
+        const int amount = 1 << stage;
+        const std::string sel = "n" + std::to_string(stage);
+        const auto value = [&](int s, int bit) { return "v" + std::to_string(s) + "_" + std::to_string(bit); };
+        for (int bit = 0; bit < 4; ++bit) {
+            const std::string left = bit - amount >= 0 ? value(stage, bit - amount) : "zero";
+            const std::string right = bit + amount < 4 ? value(stage, bit + amount) : "zero";
+            const std::string keep = value(stage, bit), moved = "m" + std::to_string(stage) + "_" + std::to_string(bit), next = value(stage + 1, bit);
+            n.box("mux2", {34 + stage * 58, bit * 10}, {{"A", left.c_str()}, {"B", right.c_str()}, {"Sel", "Dir"}}, {{"S", moved.c_str()}});
+            n.box("mux2", {56 + stage * 58, bit * 10}, {{"A", keep.c_str()}, {"B", moved.c_str()}, {"Sel", sel.c_str()}}, {{"S", next.c_str()}});
+        }
+        if (stage == 0) {
+            for (int bit = 0; bit < 4; ++bit) n.label(value(1, bit));
+        }
+    }
+    n.join({136, 14}, 4, {"v2_0", "v2_1", "v2_2", "v2_3"}, "q");
+    n.display("Q", {144, 17}, "q", 4);
+    return finished(std::move(board));
+}
+
+// Four one-bit registers in a row, all with the same En and Clk: each takes its neighbour's bit, and the
+// first takes D. With En off, each keeps its own.
+GalleryProject shiftRegisterRegisters() {
+    Board board;
+    Net n(board);
+    n.input("D", {0, 0});
+    n.labelledInput("En", {0, 8});
+    n.labelledInput("Clk", {0, 14});
+    for (int bit = 0; bit < 4; ++bit) {
+        const std::string from = bit == 0 ? "D" : "q" + std::to_string(bit - 1), q = "q" + std::to_string(bit);
+        n.box("register", {20 + bit * 16, bit * 4}, {{"D", from.c_str()}, {"En", "En"}, {"Clk", "Clk"}}, {{"Q", q.c_str()}}, 1);
+    }
+    n.join({88, 6}, 4, bitNames("q", 4), "q");
+    n.display("Q", {96, 9}, "q", 4);
+    return finished(std::move(board));
+}
+
+// A D flip-flop that is given T XOR Q: with T on, the opposite of what it holds.
+GalleryProject tFlipFlopGates() {
+    Board board;
+    Net n(board);
+    n.input("T", {0, 2});
+    n.input("Clk", {0, 10});
+    const PartId ff = n.l.box("d_flip_flop", {28, 2});
+    n.source("q", ff, n.l.pin(ff, "Q"));
+    n.source("nq", ff, n.l.pin(ff, "!Q"));
+    n.gate(PartKind::Xor, {16, 0}, {"T", "q"}, "d");
+    n.feed("d", ff, n.l.pin(ff, "D"));
+    n.feed("Clk", ff, n.l.pin(ff, "Clk"));
+    n.light("Q", {42, 3}, "q");
+    n.light("!Q", {42, 8}, "nq");
+    return finished(std::move(board));
+}
+
+// A D flip-flop given (J AND NOT Q) OR (NOT K AND Q): J sets it, K resets it, both together flip it.
+GalleryProject jkFlipFlopGates() {
+    Board board;
+    Net n(board);
+    n.input("J", {0, 0});
+    n.input("K", {0, 8});
+    n.input("Clk", {0, 16});
+    const PartId ff = n.l.box("d_flip_flop", {44, 4});
+    n.source("q", ff, n.l.pin(ff, "Q"));
+    n.source("nq", ff, n.l.pin(ff, "!Q"));
+    n.gate(PartKind::And, {16, 0}, {"J", "nq"}, "set");
+    n.gate(PartKind::Not, {12, 8}, {"K"}, "nk");
+    n.gate(PartKind::And, {22, 9}, {"nk", "q"}, "hold");
+    n.gate(PartKind::Or, {32, 4}, {"set", "hold"}, "d");
+    n.feed("d", ff, n.l.pin(ff, "D"));
+    n.feed("Clk", ff, n.l.pin(ff, "Clk"));
+    n.light("Q", {58, 5}, "q");
+    n.light("!Q", {58, 10}, "nq");
+    return finished(std::move(board));
+}
+
+// Four words of four bits: a register for each, written when the decoder picks it and We is on; a
+// multiplexer of four inputs reads the one at the address.
+GalleryProject ramRegisters() {
+    Board board;
+    Net n(board);
+    n.labelledInput("A", {0, 0}, 2);
+    n.labelledInput("D", {0, 8}, 4);
+    n.labelledInput("We", {0, 18});
+    n.labelledInput("Clk", {0, 24});
+    n.split("A", {10, 29}, 2, {"a0", "a1"});
+    n.box("decoder2", {18, 28}, {{"A0", "a0"}, {"A1", "a1"}}, {{"Y0", "y0"}, {"Y1", "y1"}, {"Y2", "y2"}, {"Y3", "y3"}});
+    for (int k = 0; k < 4; ++k) {
+        const std::string i = std::to_string(k), y = "y" + i, w = "w" + i, q = "q" + i;
+        n.gate(PartKind::And, {40, k * 10}, {y.c_str(), "We"}, w.c_str());
+        n.box("register", {58, k * 10}, {{"D", "D"}, {"En", w.c_str()}, {"Clk", "Clk"}}, {{"Q", q.c_str()}}, 4);
+    }
+    n.box("mux4_n", {84, 10}, {{"D0", "q0"}, {"D1", "q1"}, {"D2", "q2"}, {"D3", "q3"}, {"Sel", "A"}}, {{"Y", "q"}}, 4);
+    n.display("Q", {102, 13}, "q", 4);
+    return finished(std::move(board));
+}
+
+// The words the small ROM holds, the same in its two versions.
+RomWords romWords() { return std::make_shared<const std::vector<std::uint64_t>>(std::vector<std::uint64_t>{5, 10, 3, 12}); }
+
+// Four fixed words, and the address choosing one with a multiplexer of four inputs.
+GalleryProject romConstants() {
+    Board board;
+    Net n(board);
+    n.input("A", {0, 8}, 2);
+    const std::vector<std::uint64_t> words = *romWords();
+    for (int k = 0; k < 4; ++k) {
+        const PartId word = n.l.constant(words[static_cast<std::size_t>(k)], {14, k * 6}, 4);
+        n.source("w" + std::to_string(k), word, 0);
+    }
+    n.box("mux4_n", {28, 4}, {{"D0", "w0"}, {"D1", "w1"}, {"D2", "w2"}, {"D3", "w3"}, {"Sel", "A"}}, {{"Y", "q"}}, 4);
+    n.display("Q", {44, 7}, "q", 4);
+    return finished(std::move(board));
+}
+
+// Registers 1 to 3, each written when Rw picks it and We is on; register 0 is a constant 0. Two
+// multiplexers read two registers at once, by Ra and by Rb.
+GalleryProject registerFileRegisters() {
+    Board board;
+    Net n(board);
+    n.labelledInput("Ra", {0, 0}, 2);
+    n.labelledInput("Rb", {0, 6}, 2);
+    n.input("Rw", {0, 12}, 2);
+    n.labelledInput("D", {0, 18}, 4);
+    n.labelledInput("We", {0, 26});
+    n.labelledInput("Clk", {0, 32});
+    n.split("Rw", {10, 9}, 2, {"w0", "w1"});
+    n.box("decoder2", {18, 8}, {{"A0", "w0"}, {"A1", "w1"}}, {{"Y1", "y1"}, {"Y2", "y2"}, {"Y3", "y3"}});
+    const PartId zero = n.l.constant(0, {60, -4}, 4);
+    n.source("zero", zero, 0);
+    n.label("zero");
+    for (int k = 1; k < 4; ++k) {
+        const std::string i = std::to_string(k), y = "y" + i, e = "e" + i, r = "r" + i;
+        n.gate(PartKind::And, {40, k * 10}, {y.c_str(), "We"}, e.c_str());
+        n.box("register", {58, k * 10}, {{"D", "D"}, {"En", e.c_str()}, {"Clk", "Clk"}}, {{"Q", r.c_str()}}, 4);
+        n.label(r);
+    }
+    n.box("mux4_n", {90, 4}, {{"D0", "zero"}, {"D1", "r1"}, {"D2", "r2"}, {"D3", "r3"}, {"Sel", "Ra"}}, {{"Y", "a"}}, 4);
+    n.box("mux4_n", {90, 26}, {{"D0", "zero"}, {"D1", "r1"}, {"D2", "r2"}, {"D3", "r3"}, {"Sel", "Rb"}}, {{"Y", "b"}}, 4);
+    n.display("A", {108, 7}, "a", 4);
+    n.display("B", {108, 29}, "b", 4);
+    return finished(std::move(board));
+}
+
 // The words on the version buttons.
 constexpr const char* kReady = "Peça pronta";
 constexpr const char* kGates = "Portas lógicas";
@@ -1448,14 +1711,16 @@ std::vector<GalleryItem> circuitExamples() {
     };
     std::vector<GalleryItem> items{
         // Electronics.
-        {"led", kGroupElectronics, "LED e resistor", "O primeiro circuito, com uma chave",
+        {"led", kGroupElectronics, "LED e resistor", "O primeiro circuito: bateria, resistor e LED",
          {{"Circuito", ledAndResistor,
            "O LED fica com cerca de 2 V; os 3 V que sobram ficam no resistor de 330 Ω, que deixa passar I = 3 V ÷ 330 Ω ≈ 9 mA, uma "
            "corrente segura para o LED."}},
          -1,
-         "O circuito elétrico mais simples: uma bateria, uma chave, um resistor e um LED em série. A corrente sai do + da bateria, atravessa "
-         "todas as peças e volta pelo -; abrindo a chave, o caminho se interrompe e ela para.",
-         "Feche a chave e passe o mouse sobre cada peça para ler tensão e corrente. Troque o resistor com Editar valor e veja o brilho mudar."},
+         "O circuito elétrico mais simples: uma bateria, um resistor e um LED em série, num caminho fechado. A corrente "
+         "sai do + da bateria, atravessa o resistor e o LED e volta pelo -. O resistor limita a corrente, para o LED "
+         "acender sem queimar.",
+         "Passe o mouse sobre cada peça para ler a tensão e a corrente. Para trocar o resistor, use Editar uma cópia e "
+         "depois Editar valor, e veja o brilho mudar."},
         {"chaves", kGroupElectronics, "Chaves em série e em paralelo", "A lógica antes do transistor",
          {{"Circuito", switchesInSeriesAndParallel,
            "É lógica feita com contatos, como nos primeiros computadores, de relés: a forma de ligar as chaves decide a função, sem nenhuma "
@@ -1606,6 +1871,58 @@ std::vector<GalleryItem> circuitExamples() {
          "S1 e S0 formam um número de 0 a 3, e Y mostra a entrada D com esse número. É o que, dentro da ULA, escolhe qual operação vai para o "
          "resultado.",
          "Ligue D2 e escolha S1 = 1, S0 = 0: Y acende. Mude a seleção e veja Y seguir outra entrada."},
+        {"mux2-n", kGroupMoreGates, "MUX 2:1 de 4 bits", "Escolhe entre dois números",
+         {{kReady, [] { return readyBox("mux2_n", 4); }, kReadyHow},
+          {"MUX de 1 bit", mux2nSlices,
+           "Um multiplexador de 1 bit para cada bit do número, os quatro com o mesmo Sel: o bit i da saída vem do bit i "
+           "de A ou de B."}},
+         -1,
+         "Escolhe um número inteiro entre A e B: com Sel em 0, S é A; com Sel em 1, S é B. A CPU tem vários: escolhem o "
+         "que vai para a ULA e o que vai ser gravado no registrador.",
+         "Ponha números diferentes em A e em B e troque Sel."},
+        {"mux4-n", kGroupMoreGates, "MUX 4:1 de 4 bits", "Escolhe entre quatro números",
+         {{kReady, [] { return readyBox("mux4_n", 4); }, kReadyHow},
+          {"MUX de 1 bit", mux4nSlices,
+           "Um multiplexador de quatro entradas para cada bit: o bit i da saída escolhe entre os bits i de D0, D1, D2 e "
+           "D3, todos pelo mesmo Sel."}},
+         -1,
+         "Sel, de 2 bits, escolhe qual dos quatro números vai para Y. Na CPU, escolhe entre o resultado da ULA, a "
+         "memória, o imediato e o PC.",
+         "Ponha quatro números diferentes e passe Sel por 0, 1, 2 e 3."},
+        {"demux", kGroupMoreGates, "DEMUX 1:2", "Manda a entrada para uma de duas saídas",
+         {{kReady, [] { return readyBox("demux2"); }, kReadyHow},
+          {kGates, demuxGates,
+           "Um NÃO inverte Sel, e duas E deixam E passar: a de cima quando Sel é 0, a de baixo quando Sel é 1."}},
+         -1,
+         "O contrário do multiplexador: uma entrada, duas saídas, e Sel escolhe para onde E vai. A outra saída fica em "
+         "0.",
+         "Ligue E e troque Sel: a luz acesa muda de lado."},
+        {"codificador", kGroupMoreGates, "Codificador 4:2", "O número da entrada ligada",
+         {{kReady, [] { return readyBox("encoder4"); }, kReadyHow},
+          {kGates, encoderGates,
+           "Duas OU: A0 acende para D1 ou D3, os números ímpares; A1 acende para D2 ou D3, os números de 2 para cima."}},
+         -1,
+         "O contrário do decodificador: com uma só entrada ligada, A1 A0 dizem o número dela em binário.",
+         "Ligue uma entrada de cada vez e leia A1 A0."},
+        {"extensor", kGroupMoreGates, "Extensor de bits", "Mais bits, o mesmo número",
+         {{kReady, [] { return readyBox("extender", 8, 4); }, kReadyHow},
+          {kGates, extenderGates,
+           "Os quatro bits de A passam direto. Os quatro de cima copiam o bit 3 de A quando Sinal está ligado; uma E com "
+           "Sinal os deixa em 0 quando ele está desligado."}},
+         -1,
+         "Leva um número de 4 bits para 8 bits sem mudar o valor. Com Sinal, repete o bit de sinal, e -3 continua -3; "
+         "sem ele, completa com zeros. A CPU faz isso com os imediatos das instruções.",
+         "Ponha 1101 em A e troque Sinal: com ele ligado, Q é 11111101, o mesmo -3."},
+        {"deslocador", kGroupMoreGates, "Deslocador", "Anda com os bits para um lado",
+         {{kReady, [] { return readyBox("shifter", 4, 2); }, kReadyHow},
+          {"Multiplexadores", shifterMuxes,
+           "Dois estágios, um que anda 1 casa e outro que anda 2. Em cada um, um MUX por bit escolhe o vizinho da "
+           "esquerda ou da direita por Dir, e outro MUX fica com o bit ou com o deslocado conforme o bit de N daquele "
+           "estágio."}},
+         -1,
+         "Desloca A por N casas: com Dir em 0 para a esquerda, que multiplica por 2 a cada casa; com Dir em 1 para a "
+         "direita. O que entra é 0.",
+         "Ponha 0011 em A e passe N por 0, 1, 2 e 3."},
         {"display7", kGroupMoreGates, "Display de 7 segmentos", "Desenha um dígito",
          {{"Com decodificador", displayWithDecoder,
            "Um decodificador de 7 segmentos olha os quatro bits de N e liga os segmentos do dígito, de 0 a F. Por dentro, cada segmento é uma "
@@ -1861,6 +2178,57 @@ std::vector<GalleryItem> circuitExamples() {
          "Guarda um número de 4 bits: com Grava ligado, copia o Dado no próximo pulso do clock; com Grava desligado, mantém o que tinha. Os "
          "registradores R0 a R7 da CPU são assim.",
          "Escolha um Dado, ligue Grava e aperte Passo; depois mude o Dado com Grava desligado."},
+        {"registrador-deslocamento", kGroupMemory, "Registrador de deslocamento", "Os bits andam uma casa a cada pulso",
+         {{kReady, [] { return readyBox("shift_register", 4); }, kReadyHow},
+          {"Registradores de 1 bit", shiftRegisterRegisters,
+           "Quatro registradores de 1 bit em fila, todos com o mesmo En e o mesmo Clk. Com En ligado, cada um recebe o "
+           "bit do vizinho, e o primeiro recebe D; com En desligado, cada um guarda o que tem."}},
+         -1,
+         "A cada subida de Clk com En ligado, os bits andam uma casa e D entra no bit 0. É assim que um número viaja "
+         "por um fio só, um bit de cada vez.",
+         "Ligue En e D, e clique em Clk duas vezes para cada pulso."},
+        {"flip-flop-t", kGroupMemory, "Flip-flop T", "Troca a cada pulso",
+         {{kReady, [] { return readyBox("t_flip_flop"); }, kReadyHow},
+          {"Flip-flop D", tFlipFlopGates,
+           "Um flip-flop D que recebe T XOR Q: com T ligado, recebe o contrário do que guarda e troca na subida do clock."}},
+         -1,
+         "Com T ligado, Q troca a cada subida de Clk; com T desligado, guarda. Uma fila deles conta em binário.",
+         "Ligue T e clique em Clk várias vezes."},
+        {"flip-flop-jk", kGroupMemory, "Flip-flop JK", "Liga, desliga ou troca",
+         {{kReady, [] { return readyBox("jk_flip_flop"); }, kReadyHow},
+          {"Flip-flop D", jkFlipFlopGates,
+           "Um flip-flop D que recebe (J E NÃO Q) OU (NÃO K E Q): J liga, K desliga, e os dois juntos trocam o que ele "
+           "guarda."}},
+         -1,
+         "Na subida de Clk: J liga Q, K desliga, os dois em 0 guardam e os dois em 1 trocam.",
+         "Experimente J e K nas quatro combinações, clicando em Clk."},
+        {"ram", kGroupMemory, "RAM de 4 palavras", "Guarda quatro números",
+         {{kReady, [] { return readyBox("ram", 4, 2); }, kReadyHow},
+          {"Registradores", ramRegisters,
+           "Um registrador por palavra. O decodificador do endereço e uma E com We escolhem qual grava no clock; um MUX "
+           "de quatro entradas lê a palavra do endereço."}},
+         -1,
+         "Quatro palavras de 4 bits, uma em cada endereço de 0 a 3. Com We ligado, a subida de Clk grava D no endereço "
+         "A; Q mostra sempre o que está no endereço A.",
+         "Escolha A e D, ligue We e clique em Clk; depois mude A e veja as outras palavras."},
+        {"rom", kGroupMemory, "ROM de 4 palavras", "Números fixos, lidos pelo endereço",
+         {{kReady, [] { return readyBox("rom", 4, 2, romWords()); }, kReadyHow},
+          {"Constantes e MUX", romConstants,
+           "Quatro números fixos, 5, 10, 3 e 12, e um multiplexador de quatro entradas que escolhe um deles pelo endereço "
+           "A."}},
+         -1,
+         "Uma memória só de leitura com quatro palavras: Q mostra a palavra do endereço A. A ROM do computador guarda o "
+         "programa assim.",
+         "Passe A por 0, 1, 2 e 3."},
+        {"banco-registradores", kGroupMemory, "Banco de registradores", "Dois lidos e um gravado de cada vez",
+         {{kReady, [] { return readyBox("regfile", 4, 2); }, kReadyHow},
+          {"Registradores", registerFileRegisters,
+           "Três registradores e uma constante 0 no lugar do registrador 0. O decodificador de Rw e uma E com We escolhem "
+           "qual grava; dois MUX de quatro entradas leem os registradores de Ra e de Rb ao mesmo tempo."}},
+         -1,
+         "Quatro registradores de 4 bits, com o 0 valendo sempre 0. A e B mostram os registradores Ra e Rb; com We "
+         "ligado, a subida de Clk grava D no registrador Rw. É o banco de R0 a R7 da CPU, em pequeno.",
+         "Ponha D, escolha Rw, ligue We e clique em Clk; depois leia por Ra e Rb."},
     };
     // Every gate built from NAND alone, as a version of its own: NAND is universal.
     const auto onlyNand = [&](const char* id, GalleryProject (*build)(), const char* how) {

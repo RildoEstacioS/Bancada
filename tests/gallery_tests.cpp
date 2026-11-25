@@ -10,6 +10,7 @@
 
 #include "asm/assembler.hpp"
 #include "check.hpp"
+#include "editor/boxes.hpp"
 #include "editor/circuit.hpp"
 #include "editor/computer_view.hpp"
 #include "editor/gallery.hpp"
@@ -168,7 +169,40 @@ Behaviour behaviourOf(const GalleryProject& project) {
 bool remembers(const GalleryItem& item) {
     const std::string_view id = item.id;
     return id == "latch" || id == "contador4" || id == "registrador" || id == "aleatorio" || id == "display7" || id == "botao" || id == "matriz" ||
-           id == "teclado" || id == "latch-d" || id == "flip-flop";
+           id == "teclado" || id == "latch-d" || id == "flip-flop" || id == "registrador-deslocamento" || id == "flip-flop-t" ||
+           id == "flip-flop-jk" || id == "ram" || id == "banco-registradores";
+}
+
+// The parts that remember, ready and built from smaller parts, given the same inputs and the same clock
+// pulses one after the other: what every output shows, after every pulse.
+std::vector<std::map<std::string, std::uint64_t>> pulses(const GalleryProject& project, int count) {
+    ChipBoards chips;
+    BoardCircuit circuit(project.board, &chips);
+    std::map<std::string, const Part*> ins;
+    std::vector<const Part*> outs;
+    for (const Part& part : project.board.parts()) {
+        if (part.label.empty()) continue;
+        if (part.kind == PartKind::Toggle) ins[part.label] = &part;
+        if (isOutputPart(part.kind)) outs.push_back(&part);
+    }
+    std::vector<std::map<std::string, std::uint64_t>> seen;
+    std::uint64_t seed = 99;
+    for (int step = 0; step < count; ++step) {
+        for (const auto& [name, part] : ins) {
+            if (name == "Clk") continue;
+            seed = seed * 6364136223846793005ull + 1442695040888963407ull;
+            circuit.setToggle(part->id, (seed >> 33) & ((std::uint64_t{1} << part->width) - 1));
+        }
+        circuit.settle();
+        circuit.setToggle(ins.at("Clk")->id, 1);
+        circuit.settle();
+        circuit.setToggle(ins.at("Clk")->id, 0);
+        circuit.settle();
+        std::map<std::string, std::uint64_t> now;
+        for (const Part* part : outs) now[part->label] = outputOf(project.board, circuit, part->id);
+        seen.push_back(now);
+    }
+    return seen;
 }
 
 }  // namespace
@@ -190,6 +224,27 @@ TEST(every_version_of_an_example_does_the_same) {
         }
     }
     CHECK(compared >= 20);
+}
+
+TEST(the_memories_inside_remember_like_the_ready_parts) {
+    for (const char* id : {"registrador-deslocamento", "flip-flop-t", "flip-flop-jk", "ram", "banco-registradores"}) {
+        const auto ready = pulses(buildGalleryItem(item(id), 0), 60);
+        const auto inside = pulses(buildGalleryItem(item(id), 1), 60);
+        if (ready != inside) std::printf("  %s: the inside remembers otherwise\n", id);
+        CHECK(ready == inside);
+        CHECK(!ready.empty() && !ready.front().empty());
+    }
+}
+
+// Every ready part of the computers opens down to gates, the terminal aside: it's a device, not logic.
+TEST(every_part_of_the_computers_has_an_inside) {
+    for (const char* key : {"mux2_n", "mux4_n", "shifter", "extender", "rom", "ram", "regfile", "register", "adder_n", "alu_n", "cmp_n",
+                            "bit_select", "mux2", "counter", "demux2", "encoder4", "shift_register", "t_flip_flop", "jk_flip_flop"}) {
+        const Part part = makePart(PartKind::Box, {}, 0, 0, 1, boxFromKey(key));
+        const PartInside inside = galleryInsideOf(part);
+        if (inside.item == nullptr) std::printf("  %s has no inside\n", key);
+        CHECK(inside.item != nullptr);
+    }
 }
 
 TEST(every_version_builds_and_says_how_it_works) {

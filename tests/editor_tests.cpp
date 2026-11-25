@@ -2159,4 +2159,27 @@ TEST(the_way_into_chips_is_the_way_back) {
     CHECK_EQ(session.currentCircuit(), ChipId{0});
 }
 
+// An example's board is locked: its switches flip, and nothing on it can be added, moved or taken away.
+TEST(a_locked_board_can_be_played_but_not_changed) {
+    Board board;
+    const PartId toggle = *board.addPart(PartKind::Toggle, {0, 0});
+    board.addPart(PartKind::And, {10, 0});
+    Session session;
+    session.adopt(board);
+    session.setLocked(true);
+    const Rect bounds = boundsOf(*session.board().part(toggle));
+    session.mouseMove(static_cast<float>(bounds.left) + 0.5f, static_cast<float>(bounds.top) + 0.5f);
+    session.leftDown();
+    session.leftUp();
+    CHECK(session.toggleOn(toggle));
+    CHECK(session.mode() == Mode::Idle);
+    session.beginPlacing(PartKind::Or);
+    CHECK(session.mode() == Mode::Idle);
+    session.selectOnly(toggle);
+    session.key(Key::Delete);
+    CHECK_EQ(session.board().parts().size(), std::size_t{2});
+    session.adopt(board);
+    CHECK(!session.locked());
+}
+
 int main() { return check::runAll(); }

@@ -27,6 +27,8 @@ struct ComputerState {
     std::vector<std::uint16_t> memory;  // the first words of the RAM
     std::uint16_t switches = 0;         // what the switches on the CPU's Chaves pin say
     std::uint16_t memoryAtAddress = 0;  // the RAM word a load or store about to run uses, as it is now
+    int accessed = -1;                  // which word that is, or -1 when the instruction isn't a load or store
+    std::vector<std::uint16_t> ramWords;  // every word of the RAM
 };
 
 std::optional<ComputerState> readComputer(const Board& board, const BoardCircuit& circuit, const ChipBoards& chips);

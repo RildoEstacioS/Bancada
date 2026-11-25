@@ -481,6 +481,27 @@ TEST(two_switches_show_two_bits) {
     }));
 }
 
+// Two labels with the same name are one wire: each switch reaches the LED across the board with no wire
+// crossing. Straight wires light the wrong LEDs, and two labels left as "sinal" join the switches.
+TEST(labels_join_two_points_without_a_wire) {
+    CHECK(passes("ligar-com-rotulos", [](Board& board, Layout& l) {
+        l.name(input(board, "A"), 0, "a", false);
+        l.name(ledResistor(board, "T"), 0, "a", true);
+        l.name(input(board, "B"), 0, "b", false);
+        l.name(ledResistor(board, "S"), 0, "b", true);
+    }));
+    CHECK(!passes("ligar-com-rotulos", [](Board& board, Layout& l) {
+        l.wire(input(board, "A"), 0u, ledResistor(board, "S"), 0u);
+        l.wire(input(board, "B"), 0u, ledResistor(board, "T"), 0u);
+    }));
+    CHECK(!passes("ligar-com-rotulos", [](Board& board, Layout& l) {
+        l.name(input(board, "A"), 0, "sinal", false);
+        l.name(ledResistor(board, "T"), 0, "sinal", true);
+        l.name(input(board, "B"), 0, "sinal", false);
+        l.name(ledResistor(board, "S"), 0, "sinal", true);
+    }));
+}
+
 // The joiner's top input is bit 0, worth 1: wired the other way round, 0001 would show 8.
 TEST(a_joiner_makes_a_number_and_a_splitter_takes_it_apart) {
     const char* names[] = {"1", "2", "4", "8"};
@@ -594,6 +615,7 @@ TEST(gates_come_before_what_they_are_made_of) {
     CHECK(at("nor-transistores") < at("nao-com-nand"));
     CHECK(at("transistor-chave") < at("nmos-chave"));
     CHECK(at("inversor-cmos") < at("dois-bits"));
+    CHECK(at("dois-bits") < at("ligar-com-rotulos") && at("ligar-com-rotulos") < at("quatro-bits-numero"));
     for (std::size_t i = 1; i < lessons().size(); ++i) CHECK(lessons()[i - 1].act <= lessons()[i].act);
 }
 

@@ -278,10 +278,10 @@ public:
                     const editor::Part* part = session_.partUnderCursor();
                     if (part != nullptr && part->kind == editor::PartKind::Chip) {
                         session_.openChipUnderCursor();
-                    } else if (part != nullptr && openPeek(*part)) {
-                        // how the part is made, from the gallery
-                    } else if (part != nullptr && !editor::isGate(part->kind) && app::canLookInside(*part)) {
-                        lookInside(part->id);  // a big part the gallery doesn't build: where it sits in the whole
+                    } else if (part != nullptr && editor::isBundle(part->kind)) {
+                        lookInside(part->id);  // a splitter or a joiner: which bit goes where
+                    } else if (part != nullptr) {
+                        openPeek(*part);  // how the part is made, in gates: the whole computer is only on the menu
                     }
                 }
                 break;
@@ -845,16 +845,22 @@ public:
             debug.before = registersBefore_;
             debug.memoryBefore = memoryBefore_;
             debug.hasBefore = hasBefore_;
+            if (view_ == app::kViewMemory) fillMemoryView(&*computer, nullptr);
             debug.running = session_.running();
             text.debug = &debug;
         } else if (computer32) {
             followComputer32(*computer32);
             debug.breakpoints = &breakpoints_;
             debug.before32 = registers32Before_;
+            debug.memoryBefore32 = memory32Before_;
+            debug.steps32 = &steps32_;
+            debug.memoryRow32 = memoryPanelRow_;
             debug.hasBefore = hasBefore_;
+            if (view_ == app::kViewMemory) fillMemoryView(nullptr, &*computer32);
             debug.running = session_.running();
             text.debug = &debug;
         }
+        text.memory = view_ == app::kViewMemory && (computer || computer32) ? &memoryView_ : nullptr;
         reading_.clear();
         if (session_.mode() == editor::Mode::Idle && view_ == app::kViewBoard && !modal() && overBoard(mouseX_, mouseY_)) {
             const Vec2 at = camera_.toBoard(mouseX_, mouseY_);
@@ -1073,6 +1079,15 @@ public:
         openPeek(copy);
     }
 
+    // The example on the board as a project of one's own, to change at will: the example stays as it was.
+    void editExampleCopy() {
+        if (example_ < 0) return;
+        io::Project project = snapshot();
+        project.name = i18n::format("{} (cópia)", {i18n::tr(editor::galleryItems()[static_cast<std::size_t>(example_)].title)});
+        applyProject(std::move(project), std::nullopt);
+        showNote("Esta cópia é sua: mude à vontade e salve com Ctrl+S. O exemplo continua igual.", false);
+    }
+
     void showHome() {
         homeOpen_ = true;
         homeComputers_ = false;
@@ -1193,6 +1208,8 @@ public:
             debugPc_ = computer.pc;
             registersNow_ = computer.registers;
             memoryNow_ = computer.memory;
+            ram16Before_ = ram16Now_;
+            ram16Now_ = computer.ramWords;
             if (computer.pc != leavingBreakpoint_) leavingBreakpoint_ = UINT32_MAX;
         }
         const bool stop = std::find(breakpoints_.begin(), breakpoints_.end(), computer.pc) != breakpoints_.end();
@@ -1202,15 +1219,106 @@ public:
         }
     }
 
+    // What the instruction that just ran did, in words: the registers and the words of memory it changed, where it
+    // sent the PC and what it printed. Before and after are the last state seen and the one now.
+    app::Step32 describeStep32(const editor::Computer32State& now) const {
+        const auto hex = [](std::uint32_t v) {
+            char text[16];
+            std::snprintf(text, sizeof text, "0x%08X", v);
+            return std::string(text);
+        };
+        const auto dec = [](std::uint32_t v) { return std::to_string(static_cast<std::int32_t>(v)); };
+        app::Step32 step;
+        step.instruction = hex(debugPc_) + "   " + lastText32_;
+        std::vector<std::string> said;
+        for (unsigned r = 1; r < 32; ++r) {
+            if (registers32Now_[r] == now.registers[r]) continue;
+            said.push_back(i18n::format("{} passou de {} para {}", {std::string(mips::registerName(r)), dec(registers32Now_[r]), dec(now.registers[r])}));
+        }
+        if (memory32Now_.size() == now.memory.size() && !now.memory.empty()) {
+            const auto words = static_cast<std::uint32_t>(now.memory.size());
+            const std::uint32_t stackWord = (now.registers[mips::kSp] >> 2) % words;
+            for (std::uint32_t w = 0; w < words; ++w) {
+                if (memory32Now_[w] == now.memory[w]) continue;
+                std::string where = hex(mips::kDataBase + 4u * w);
+                for (const auto& [name, at] : now.dataLabels) {
+                    if (at == w) where = name;
+                }
+                if (stackWord > words / 2 && w >= stackWord) where = i18n::format("a pilha, em $sp + {}", {std::to_string(4u * (w - stackWord))});
+                said.push_back(i18n::format("gravou {} em {} (era {})", {dec(now.memory[w]), where, dec(memory32Now_[w])}));
+            }
+        }
+        if (now.pc != debugPc_ + 4u) said.push_back(i18n::format("pulou para {}", {hex(now.pc)}));
+        if (console_.size() > consoleMark32_) {
+            std::string printed = console_.substr(consoleMark32_);
+            std::replace(printed.begin(), printed.end(), '\n', ' ');
+            said.push_back(i18n::format("mostrou \"{}\" no console", {printed}));
+        }
+        if (said.empty()) said.push_back(i18n::tr("nada mudou nos registradores nem na memória: seguiu para a próxima instrução"));
+        for (std::size_t i = 0; i < said.size(); ++i) step.effect += (i == 0 ? "" : "; ") + said[i];
+        return step;
+    }
+
+    // The memory tab: the RAM of the computer on the board, with what names its words and what just changed.
+    void fillMemoryView(const editor::ComputerState* computer, const editor::Computer32State* computer32) {
+        app::MemoryView& v = memoryView_;
+        v.marks.clear();
+        v.jumps.clear();
+        v.hex = memoryHex_;
+        if (computer32 != nullptr) {
+            v.words.assign(computer32->memory.begin(), computer32->memory.end());
+            v.before = hasBefore_ ? memory32Before_ : std::vector<std::uint32_t>{};
+            v.bits = 32;
+            v.base = mips::kDataBase;
+            v.step = 4;
+            v.accessed = computer32->accessed;
+            v.note = "Uma linha por palavra. Cada palavra tem 4 bytes, e os endereços contam bytes: por isso sobem de 4 em 4, a partir do .data "
+                     "(0x10010000). A RAM usa os bits 11 a 2 do endereço, então o $gp (0x10008000) cai na primeira palavra, e o $sp na última.";
+            const auto words = static_cast<std::uint32_t>(v.words.size());
+            if (words == 0) return;
+            for (const auto& [name, word] : computer32->dataLabels) v.marks.push_back({word, name, false});
+            // $gp first, then $sp, then any register holding an address near .data; $at is the assembler's own.
+            static constexpr unsigned kOrder[] = {28, 29, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 30, 31};
+            for (const unsigned r : kOrder) {
+                const std::uint32_t value = computer32->registers[r];
+                if (r != mips::kSp && (value >> 28) != 1u) continue;
+                v.marks.push_back({(value >> 2) % words, std::string(mips::registerName(r)), true});
+            }
+            v.jumps.push_back({".data e $gp", static_cast<int>((computer32->registers[28] >> 2) % words)});
+            v.jumps.push_back({"Pilha ($sp)", static_cast<int>((computer32->registers[mips::kSp] >> 2) % words)});
+            v.jumps.push_back({"lw / sw", computer32->accessed});
+        } else if (computer != nullptr) {
+            v.words.assign(computer->ramWords.begin(), computer->ramWords.end());
+            v.before = hasBefore_ && ram16Before_.size() == computer->ramWords.size() ? std::vector<std::uint32_t>(ram16Before_.begin(), ram16Before_.end())
+                                                                                  : std::vector<std::uint32_t>{};
+            v.bits = 16;
+            v.base = 0;
+            v.step = 1;
+            v.accessed = computer->accessed;
+            v.note = "Uma linha por palavra de 16 bits. Aqui cada endereço é uma palavra inteira, de 0 em diante, como LD e ST os usam.";
+            v.jumps.push_back({"Início", 0});
+            v.jumps.push_back({"LD / ST", computer->accessed});
+        }
+        const int total = static_cast<int>(v.words.size());
+        memoryRow_ = std::clamp(memoryRow_, 0, std::max(0, total - app::memoryVisibleRows(renderer_, v, viewArea())));
+        v.firstRow = memoryRow_;
+    }
+
     // The same for the 32-bit computer. Its breakpoints are words of the ROM, as the debugger lists them.
     void followComputer32(const editor::Computer32State& computer) {
         if (computer.pc != debugPc_) {
             if (debugPc_ != UINT32_MAX) {
+                steps32_.push_back(describeStep32(computer));
+                if (steps32_.size() > 60) steps32_.erase(steps32_.begin());
                 registers32Before_ = registers32Now_;
+                memory32Before_ = memory32Now_;
                 hasBefore_ = true;
             }
             debugPc_ = computer.pc;
             registers32Now_ = computer.registers;
+            memory32Now_ = computer.memory;
+            lastText32_ = computer.text;
+            consoleMark32_ = console_.size();
             if (computer.index != leavingBreakpoint_) leavingBreakpoint_ = UINT32_MAX;
         }
         const bool stop = std::find(breakpoints_.begin(), breakpoints_.end(), computer.index) != breakpoints_.end();
@@ -1246,6 +1354,8 @@ public:
         console_.clear();
         hasBefore_ = false;
         debugPc_ = UINT32_MAX;
+        steps32_.clear();
+        memoryPanelRow_ = 0;
     }
 
     // Play and pause, the same from the toolbar, the debugger and the space bar. Running on leaves a
@@ -1408,6 +1518,7 @@ public:
             }
         }
         applyProject(std::move(project), std::nullopt);
+        session_.setLocked(true);  // to look at: "Editar uma cópia" gives one to change
         example_ = index;
         exampleVersion_ = version;
         view_ = example.computer ? app::kViewPanel : app::kViewBoard;
@@ -1486,7 +1597,8 @@ public:
     }
 
     // The 32-bit computer, the same way: in a file of its own, opened on its program.
-    void openProgram32() {
+    // With source, that program instead of the player's: for the screenshots.
+    void openProgram32(const char* source = nullptr) {
         homeOpen_ = false;
         galleryOpen_ = false;
         leaveLesson();
@@ -1495,7 +1607,7 @@ public:
         const auto isComputer = [](const io::Project& project) {
             return std::any_of(project.chips.begin(), project.chips.end(), [](const editor::ChipData& chip) { return chip.name == editor::kCpu32Name; });
         };
-        if (saved.project && isComputer(*saved.project)) {
+        if (source == nullptr && saved.project && isComputer(*saved.project)) {
             saved.project->hasUnsavedChanges = false;
             applyProject(std::move(*saved.project), std::nullopt);
         } else {
@@ -1523,8 +1635,9 @@ public:
                 "        syscall\n"
                 "        li   $v0, 10         # e termina\n"
                 "        syscall\n";
-            const mips::Program program = mips::assemble(i18n::tr(kStarter));
-            editor::Computer32Project computer = editor::buildComputer32(program, kStarter);
+            const std::string text = source != nullptr ? std::string(source) : std::string(i18n::tr(kStarter));
+            const mips::Program program = mips::assemble(text);
+            editor::Computer32Project computer = editor::buildComputer32(program, source != nullptr ? text : std::string(kStarter));
             io::Project project;
             project.board = std::move(computer.board);
             project.chips = std::move(computer.chips);
@@ -2264,7 +2377,7 @@ private:
     std::optional<SDL_FRect> diagramArea() const {
         if (!computerHere_ || view_ == app::kViewBoard || modal()) return std::nullopt;
         if (view_ == app::kViewXray) return app::xrayParts(viewArea()).plan;
-        if (!is32_) return app::panelPlanArea(viewArea());
+        if (!is32_ && view_ == app::kViewPanel) return app::panelPlanArea(viewArea());
         return std::nullopt;
     }
 
@@ -2289,6 +2402,23 @@ private:
         }
         if (insidePlan_ != nullptr) {
             zoomInside(mouseX_, mouseY_, std::pow(1.25f, amount));
+            return;
+        }
+        if (computerHere_ && is32_ && view_ == app::kViewPanel && !modal() && !codeVisible()) {
+            const SDL_FRect box = app::panel32MemoryArea(viewArea());
+            if (mouseX_ >= box.x && mouseX_ < box.x + box.w && mouseY_ >= box.y && mouseY_ < box.y + box.h) {
+                if (const std::optional<editor::Computer32State> now = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
+                    app::DebugView debug;
+                    debug.hasBefore = hasBefore_;
+                    debug.memoryBefore32 = memory32Before_;
+                    const int last = app::panel32MemoryMaxRow(*now, debug, viewArea());
+                    memoryPanelRow_ = std::clamp(memoryPanelRow_ - static_cast<int>(std::lround(amount * 2.0f)), 0, last);
+                }
+                return;
+            }
+        }
+        if (computerHere_ && view_ == app::kViewMemory && !modal() && !codeVisible() && overBoard(mouseX_, mouseY_)) {
+            memoryRow_ = std::max(0, memoryRow_ - static_cast<int>(std::lround(amount * 3.0f)));  // the drawing keeps it from going past the end
             return;
         }
         if (const std::optional<SDL_FRect> plan = diagramArea();
@@ -2343,7 +2473,12 @@ private:
             }
             case app::PanelButton::LookInside: {
                 const std::optional<editor::Inspected> shown = session_.inspected();
-                if (shown) lookInside(shown->part.id);
+                if (shown && editor::isBundle(shown->part.kind)) {
+                    lookInside(shown->part.id);
+                } else if (shown) {
+                    session_.key(editor::Key::Escape);
+                    openPeek(shown->part);
+                }
                 break;
             }
             default: break;
@@ -2603,6 +2738,7 @@ private:
             if (button == SDL_BUTTON_LEFT && example_ >= 0) {
                 const int chosen = app::exampleStripAt(lessonStripArea(), app::ExampleStrip{example_, exampleVersion_}, x, y);
                 if (chosen == app::kExampleStripAll) showGallery();
+                if (chosen == app::kExampleStripEdit) editExampleCopy();
                 if (chosen >= 0 && chosen != exampleVersion_) openGalleryItem(example_, chosen);
             } else if (button == SDL_BUTTON_LEFT) {
                 pressLessonButton(app::lessonStripAt(lessonStripArea(), lessonStrip(), x, y));
@@ -2628,6 +2764,16 @@ private:
                                editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
                     pressDebugger(app::debugger32At(*computer32, debuggerArea(), x, y));
                 }
+            }
+            return;
+        }
+        if (view_ == app::kViewMemory && overBoard(x, y)) {
+            if (button != SDL_BUTTON_LEFT) return;
+            const app::MemoryHit hit = app::memoryViewAt(renderer_, memoryView_, viewArea(), x, y);
+            if (hit.choice == app::MemoryChoice::Base) memoryHex_ = !memoryHex_;
+            if (hit.choice == app::MemoryChoice::Jump && hit.jump < static_cast<int>(memoryView_.jumps.size())) {
+                const int word = memoryView_.jumps[static_cast<std::size_t>(hit.jump)].second;
+                if (word >= 0) memoryRow_ = std::max(0, word - 2);  // two words above it in view too
             }
             return;
         }
@@ -2796,6 +2942,10 @@ private:
             return;
         }
         const app::PaletteItem& item = groups[group].items[static_cast<std::size_t>(hit.item)];
+        if (session_.locked() && item.example == app::Example::None && !item.newChip) {
+            showNote("Este exemplo é só para ver. Para mudar o circuito, use Editar uma cópia.", false);
+            return;
+        }
         if (item.example == app::Example::Gallery) {
             showGallery();
             return;
@@ -3168,6 +3318,17 @@ private:
     std::string console_;        // what the 32-bit computer printed with syscall since it last started
     std::array<std::uint32_t, 32> registers32Now_{};
     std::array<std::uint32_t, 32> registers32Before_{};
+    std::vector<std::uint32_t> memory32Before_;  // the 32-bit RAM before the last instruction, and as it is now
+    std::vector<std::uint32_t> memory32Now_;
+    std::vector<std::uint16_t> ram16Before_;  // the 16-bit RAM, whole, for the memory tab
+    std::vector<std::uint16_t> ram16Now_;
+    app::MemoryView memoryView_;              // what the memory tab shows this frame
+    bool memoryHex_ = true;                   // its numbers in hexadecimal, or in decimal
+    int memoryRow_ = 0;                       // its first row on screen
+    std::vector<app::Step32> steps32_;        // the 32-bit panel's step by step, the newest last
+    std::string lastText32_;                  // the instruction the 32-bit computer was on
+    std::size_t consoleMark32_ = 0;           // how much of the console it had printed then
+    int memoryPanelRow_ = 0;                  // the panel's memory list, scrolled
     bool program32_ = false;  // the player's program computer is the 32-bit one
     std::string reading_;
     Uint64 lastTick_ = 0;
@@ -3858,6 +4019,50 @@ int main(int argc, char** argv) {
                     if (const char* hex = std::strchr(zoom + 1, ':'); hex != nullptr) app.showHex(std::atoi(hex + 1) == 1);
                 }
             }
+        }
+        s.moveScreen(700, 400);
+    }
+    // feixe32:K: the 32-bit computer's Palavra chip, its splitter (K 0) or its joiner (K 1) seen from the inside.
+    if (script != nullptr && std::strncmp(script, "feixe32:", 8) == 0) {
+        app.openProgram32();
+        app.draw("");
+        for (const editor::CircuitEntry& circuit : app.session().circuits()) {
+            if (circuit.name == "Palavra") app.session().openCircuit(circuit.id);
+        }
+        const editor::PartKind kind = std::atoi(script + 8) == 1 ? editor::PartKind::Joiner : editor::PartKind::Splitter;
+        for (const editor::Part& part : app.session().board().parts()) {
+            if (part.kind == kind) {
+                app.lookInside(part.id);
+                break;
+            }
+        }
+    }
+    // memoria32:N:V: a loop counting in a .data word and in a word near $gp, N instructions in, on view V (3 Memória).
+    if (script != nullptr && std::strncmp(script, "memoria32:", 10) == 0) {
+        Script s(app, window);
+        app.openProgram32(
+            "        .data\n"
+            "contador: .word 0\n"
+            "limite:   .word 5\n"
+            "        .text\n"
+            "main:   la   $s0, contador\n"
+            "        lw   $t1, limite\n"
+            "laco:   lw   $t0, 0($s0)\n"
+            "        addi $t0, $t0, 1\n"
+            "        sw   $t0, 0($s0)\n"
+            "        sw   $t0, 8($gp)\n"
+            "        bne  $t0, $t1, laco\n"
+            "        li   $v0, 10\n"
+            "        syscall\n");
+        app.draw("");
+        for (int i = 0; i < std::atoi(script + 10); ++i) {  // one instruction at a time, drawn, as the debugger sees them
+            app.session().stepClock();
+            app.session().stepClock();
+            app.draw("");
+        }
+        if (const char* view = std::strchr(script + 10, ':'); view != nullptr) {
+            const SDL_FRect r = app::viewSwitchRect(app.boardRightEdge(), std::atoi(view + 1));
+            s.clickScreen(r.x + 20.0f, r.y + 10.0f);
         }
         s.moveScreen(700, 400);
     }

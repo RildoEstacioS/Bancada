@@ -100,6 +100,11 @@ public:
     bool dirty() const { return revision_ != savedRevision_; }
     void markSaved() { savedRevision_ = revision_; }
 
+    // A board to look at and play with, not to change: switches flip and buttons press, and nothing else does.
+    // Adopting a board unlocks it.
+    void setLocked(bool locked) { locked_ = locked; }
+    bool locked() const { return locked_; }
+
     void mouseMove(float x, float y, bool straight = false);
     void leftDown(bool adding = false);
     void leftUp();
@@ -210,6 +215,7 @@ private:
     std::vector<PartId> selectedParts_;
     std::vector<WireId> selectedWires_;
     PartId pressedPart_ = 0;
+    bool locked_ = false;
     PartId heldButton_ = 0;  // a button the mouse is holding down
 
     PartKind placingKind_ = PartKind::Nand;

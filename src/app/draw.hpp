@@ -182,6 +182,7 @@ int truthRowsVisible(const editor::Session& session, int height);
 struct LessonStrip;
 struct ExampleStrip;
 struct DebugView;
+struct MemoryView;
 struct QuizView;
 
 // How close a computer's diagram is seen, in the X-ray and on the panel: 1 fits it whole.
@@ -216,6 +217,7 @@ struct InterfaceText {
     int xrayStage = 0;                                // the step the X-ray shows, 0 to 5
     float xrayProgress = 0.0f;                        // seconds into it, for the values moving along the wires
     const DebugView* debug = nullptr;                 // the debugger beside the X-ray
+    const MemoryView* memory = nullptr;               // the memory tab
     const QuizView* quiz = nullptr;                   // a lesson of questions, over the board
     XrayZoom zoom;                                    // the diagrams' zoom
     const char* reading = "";  // what the electric part under the mouse is doing
@@ -228,7 +230,8 @@ std::string describeReading(const editor::Part& part, const editor::PartReading&
 constexpr int kViewBoard = 0;
 constexpr int kViewPanel = 1;
 constexpr int kViewXray = 2;
-constexpr int kViewCount = 3;
+constexpr int kViewMemory = 3;  // the RAM, every word of it
+constexpr int kViewCount = 4;
 SDL_FRect viewSwitchRect(float rightEdge, int which);
 SDL_FRect panelNextButton(const SDL_FRect& area);
 SDL_FRect xrayStageRect(const SDL_FRect& area, int stage);  // the button for one of the six steps
@@ -251,14 +254,50 @@ SDL_FRect zoomButtonRect(const SDL_FRect& plan, int which);
 // buttons to run, pause and step.
 constexpr float kDebugWidth = 340.0f;
 
+// One instruction the 32-bit computer ran, for the panel's step by step: where it was and what it said, and what changed.
+struct Step32 {
+    std::string instruction;
+    std::string effect;
+};
+
 struct DebugView {
     const std::vector<std::uint16_t>* breakpoints = nullptr;  // ROM addresses
     std::array<std::uint16_t, 8> before{};                    // the registers before the last instruction
     std::array<std::uint32_t, 32> before32{};                 // the same, on the 32-bit computer
+    std::vector<std::uint32_t> memoryBefore32;                // and its RAM before the last instruction
+    const std::vector<Step32>* steps32 = nullptr;             // what the instructions run so far did
+    int memoryRow32 = 0;                                      // the panel's memory list, scrolled
     std::vector<std::uint16_t> memoryBefore;
     bool hasBefore = false;
     bool running = false;
 };
+
+// The memory tab: every word of a computer's RAM, eight to a row, the way MARS shows its data segment.
+struct MemoryMark {
+    std::uint32_t word = 0;
+    std::string name;      // a .data label, or a register holding an address on that word
+    bool pointer = false;  // a register: drawn in the wires' colour
+};
+struct MemoryView {
+    std::vector<std::uint32_t> words;
+    std::vector<std::uint32_t> before;  // the RAM before the last instruction; empty when not known
+    unsigned bits = 32;
+    std::uint32_t base = 0, step = 4;   // a word's address: base + step × its place
+    int accessed = -1;                  // the word the next load or store uses
+    std::vector<MemoryMark> marks;
+    std::vector<std::pair<std::string, int>> jumps;  // buttons that bring a word into view
+    std::string note;                   // a line on how the addresses work
+    bool hex = true;
+    int firstRow = 0;
+};
+enum class MemoryChoice : std::uint8_t { None, Base, Jump };
+struct MemoryHit {
+    MemoryChoice choice = MemoryChoice::None;
+    int jump = -1;
+};
+MemoryHit memoryViewAt(SDL_Renderer* renderer, const MemoryView& view, const SDL_FRect& area, float x, float y);
+int memoryVisibleRows(SDL_Renderer* renderer, const MemoryView& view, const SDL_FRect& area);
+void drawMemoryView(SDL_Renderer* renderer, const MemoryView& view, const SDL_FRect& area, float mouseX, float mouseY);
 
 enum class DebugAction : std::uint8_t { None, Continue, Pause, Step, Stage, Reset, Breakpoint };
 
@@ -275,6 +314,9 @@ void drawDebugger(SDL_Renderer* renderer, const editor::ComputerState& state, co
 DebugHit debugger32At(const editor::Computer32State& state, const SDL_FRect& area, float x, float y);
 void drawDebugger32(SDL_Renderer* renderer, const editor::Computer32State& state, const DebugView& view, const std::string& console,
                     const SDL_FRect& area, float mouseX, float mouseY);
+// The panel's memory box, and how far its list can scroll.
+SDL_FRect panel32MemoryArea(const SDL_FRect& area);
+int panel32MemoryMaxRow(const editor::Computer32State& state, const DebugView& debug, const SDL_FRect& area);
 void drawComputer32Panel(SDL_Renderer* renderer, const editor::Computer32State& state, const std::string& console, const DebugView* debug,
                          const SDL_FRect& area, float mouseX, float mouseY);
 void drawXray32(SDL_Renderer* renderer, const editor::Computer32State& state, const SDL_FRect& area, int stage, float progress, float mouseX, float mouseY);
@@ -446,6 +488,7 @@ struct ExampleStrip {
     int version = 0;
 };
 constexpr int kExampleStripAll = -2;
+constexpr int kExampleStripEdit = -3;  // a copy of the example, to change
 int exampleStripAt(const SDL_FRect& area, const ExampleStrip& strip, float x, float y);  // a version, kExampleStripAll, or -1
 
 // Over the panel and the X-ray, a program from the gallery says what it does: this much room, or none.

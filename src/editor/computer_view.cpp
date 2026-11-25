@@ -114,11 +114,15 @@ std::optional<ComputerState> readComputer(const Board& board, const BoardCircuit
     if (!state.source.empty()) state.lineOfWord = assemble(state.source).lines;
     if (state.ram != 0) {
         const std::array<PartId, 1> ramPath{state.ram};
-        for (std::uint64_t address = 0; address < 8; ++address) state.memory.push_back(static_cast<std::uint16_t>(circuit.memoryWord(ramPath, address)));
+        const Part* ramPart = board.part(state.ram);
+        const std::uint64_t words = ramPart != nullptr && ramPart->address > 0 && ramPart->address < 17 ? std::uint64_t{1} << ramPart->address : 8;
+        for (std::uint64_t address = 0; address < words; ++address) state.ramWords.push_back(static_cast<std::uint16_t>(circuit.memoryWord(ramPath, address)));
+        state.memory.assign(state.ramWords.begin(), state.ramWords.begin() + static_cast<std::ptrdiff_t>(std::min<std::uint64_t>(8, words)));
         const Fields f = fieldsOf(state.instruction);
         if (f.op == kOpLd || f.op == kOpSt) {
             const auto address = static_cast<std::uint16_t>(state.registers[f.rs] + static_cast<std::uint16_t>(f.imm6));
             state.memoryAtAddress = static_cast<std::uint16_t>(circuit.memoryWord(ramPath, address));
+            if (address < state.ramWords.size()) state.accessed = address;
         }
     }
     const unsigned switchesPin = pinNamed(*cpu, "Chaves");

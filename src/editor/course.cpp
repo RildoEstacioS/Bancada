@@ -190,6 +190,19 @@ TheoryFigure oneBitTwoWays() {
     return figure;
 }
 
+// One input into the label "sinal", and two more labels with that name feeding two lights far away, with
+// no wire between the two sides: the same name is the same wire.
+TheoryFigure labelsFigure() {
+    TheoryFigure figure;
+    Layout l(figure.board);
+    const PartId a = l.input("A", {0, 5});
+    l.name(a, 0, "sinal", false);
+    l.name(l.output("S", {30, 1}), 0, "sinal", true);
+    l.name(l.output("T", {30, 9}), 0, "sinal", true);
+    figure.closed.push_back(a);
+    return figure;
+}
+
 // The inputs worth 1, 2, 4 and 8 into a joiner, and the number on a display: 4 and 1 on make 5.
 TheoryFigure fourSwitchesFive() {
     TheoryFigure figure;
@@ -820,6 +833,52 @@ std::vector<Topic> makeTopics() {
     });
 
     all.push_back(Topic{
+        "rotulos",
+        2,
+        "Rótulos: ligar sem fio",
+        "Dois rótulos com o mesmo nome são o mesmo fio, em qualquer lugar da placa",
+        {
+            {K::Page, "Um fio invisível"},
+            {K::Text, "Num circuito grande, os fios começam a se cruzar e a dar voltas, e fica difícil seguir de onde vem cada "
+             "sinal. O rótulo resolve isso: é uma etiqueta com um nome, presa a um pino. Dois rótulos com o mesmo nome são "
+             "o mesmo fio, mesmo sem nenhum fio desenhado entre eles. O sinal que entra num rótulo sai em todos os outros "
+             "que têm o mesmo nome."},
+            {K::Figure, "A Entrada A entra no rótulo sinal, à esquerda. À direita, outros dois rótulos sinal levam o mesmo bit às "
+             "Luzes S e T, sem nenhum fio entre os dois lados. Clique em A e veja as duas luzes mudarem juntas.", labelsFigure, 200},
+            {K::Text, "Você já viu rótulos. Nas aulas de transistor, o rótulo 5V liga o resistor de cada LED à fonte de 5 V, sem um "
+             "fio comprido atravessando a placa. Nos computadores, o rótulo Clk leva o clock a todos os registradores, e o "
+             "Grava diz a cada um quando guardar."},
+            {K::Question, "Há três rótulos chamados x na placa, e um deles recebe o bit 1. O que os outros dois levam?\n*1, os dois\n0, "
+             "porque não há fio até eles\nSó o mais perto leva 1\n=Todos os rótulos com o mesmo nome são o mesmo fio: o 1 "
+             "chega aos dois.\n?Pense nos três como um fio só."},
+            {K::Page, "Como usar"},
+            {K::Example, "Ligando dois pontos com rótulos\nNa biblioteca, abra a pasta Fios e arraste um Rótulo para perto do pino de "
+             "onde sai o sinal. Ligue o pino ao rótulo com um fio.\nCom o rótulo selecionado, clique no botão com o nome "
+             "dele, no painel da direita, e escreva um nome, como x.\nArraste outro Rótulo para perto do pino que deve "
+             "receber o sinal, ligue-o com um fio e dê a ele o mesmo nome.\nPronto: os dois pinos estão ligados, como se "
+             "houvesse um fio entre eles."},
+            {K::Text, "Para conferir, clique num rótulo, só nele: todos os rótulos com o mesmo nome ganham uma moldura laranja, e a "
+             "barra de baixo conta em quantos lugares ele aparece. Se só ele ficar laranja, o outro está com o nome "
+             "diferente."},
+            {K::Mistake, "Esquecer de trocar o nome\nTodo rótulo novo nasce com o nome sinal. Dois rótulos novos, então, já são o mesmo "
+             "fio, mesmo que você quisesse dois sinais diferentes. Dê a cada sinal um nome seu."},
+            {K::Mistake, "Um nome quase igual\nOs nomes têm de ser idênticos, letra por letra, e maiúscula é diferente de minúscula: "
+             "Clk e clk são dois fios diferentes, e o sinal não passa de um para o outro."},
+            {K::Question, "Você pôs um rótulo novo na saída da chave A e outro na saída da chave B, e esqueceu de dar nome aos dois. O "
+             "que acontece?\nNada: um rótulo sem nome não liga nada\n*A e B viram o mesmo fio, porque os dois se chamam "
+             "sinal\nO simulador apaga um deles\n=Todo rótulo novo nasce com o nome sinal. Com o mesmo nome, os dois são o "
+             "mesmo fio, e as chaves A e B ficam ligadas uma na outra.\n?Qual é o nome de um rótulo novo?"},
+            {K::Tip, "Dê nomes que digam o que o sinal é, como Clk, Grava ou Soma: quem lê o circuito depois, você inclusive, "
+             "entende sem seguir fio nenhum. No assembly, mais adiante, rótulo é outra coisa: o nome de um endereço do "
+             "programa. A ideia é parecida, um nome no lugar de um caminho."},
+            {K::Summary, "Rótulo: uma etiqueta com nome presa a um pino.\nRótulos com o mesmo nome são o mesmo fio, em qualquer lugar "
+             "da placa.\nO nome tem de ser idêntico: maiúscula conta.\nTodo rótulo novo se chama sinal: troque o nome.\n"
+             "Clique num rótulo para ver, em laranja, todos os que têm o mesmo nome."},
+        },
+        {"ligar-com-rotulos"},
+    });
+
+    all.push_back(Topic{
         "bits-viram-numeros",
         2,
         "Bits viram números",
@@ -950,25 +1009,26 @@ std::vector<Topic> makeTopics() {
              "diferentes|S = A XOR B"},
             {K::Figure, "As seis portas, com as mesmas entradas A e B. Clique em A e em B e veja quais acendem. A bolinha na saída "
              "quer dizer: invertido.", gateSymbols, 270},
-            {K::Question, "Com A = 1 e B = 1, qual destas portas dá 0?\nE (AND)\nOU (OR)\n*XOR\n=O XOR só dá 1 quando as entradas são "
-             "diferentes. Iguais, dá 0.\n?Qual delas quer as entradas diferentes?"},
+            {K::Question, "Com A = 1 e B = 1, qual destas portas dá 0?\nE (AND)\nOU (OR)\n*XOR\n=A porta XOR só dá 1 quando as entradas "
+             "são diferentes. Iguais, dá 0.\n?Qual delas quer as entradas diferentes?"},
             {K::Page, "Uma porta de cada vez"},
-            {K::Text, "E (AND): a saída só é 1 quando todas as entradas são 1, como as chaves em série do Ato 1. OU (OR): basta uma "
-             "entrada em 1, como as chaves em paralelo. NÃO (NOT): tem uma entrada só e entrega o contrário dela; também se "
-             "chama inversor."},
-            {K::Text, "As outras três vêm dessas. A NAND é um E com a saída invertida (NÃO-E), a NOR é um OU invertido (NÃO-OU), e o "
-             "XOR, o OU exclusivo, dá 1 só quando as entradas são diferentes. No desenho, a bolinha na ponta da saída "
-             "sempre quer dizer invertido."},
-            {K::Example, "Uma linha da tabela, seis portas\nCom A = 1 e B = 0.\nE: nem todas as entradas são 1, então dá 0. A NAND "
-             "inverte: 1.\nOU: pelo menos uma é 1, então dá 1. A NOR inverte: 0.\nXOR: as entradas são diferentes, então dá "
-             "1. E o NÃO de A dá 0."},
-            {K::Mistake, "Esquecer a bolinha\nA bolinha na saída muda tudo: sem ela a porta é um E, com ela é uma NAND, e as duas "
-             "tabelas são opostas linha a linha. Antes de ler um circuito, olhe a ponta de cada porta."},
+            {K::Text, "Porta E (AND): a saída só é 1 quando todas as entradas são 1, como as chaves em série do Ato 1. Porta OU "
+             "(OR): basta uma entrada em 1, como as chaves em paralelo. Porta NÃO (NOT): tem uma entrada só e entrega o "
+             "contrário dela; também se chama inversor."},
+            {K::Text, "As outras três vêm dessas. A porta NAND é uma porta E com a saída invertida (NÃO-E), a porta NOR é uma porta "
+             "OU invertida (NÃO-OU), e a porta XOR, a porta OU exclusivo, dá 1 só quando as entradas são diferentes. No "
+             "desenho, a bolinha na ponta da saída sempre quer dizer invertido."},
+            {K::Example, "Uma linha da tabela, seis portas\nCom A = 1 e B = 0.\nPorta E: nem todas as entradas são 1, então dá 0. A "
+             "porta NAND inverte: 1.\nPorta OU: pelo menos uma é 1, então dá 1. A porta NOR inverte: 0.\nPorta XOR: as "
+             "entradas são diferentes, então dá 1. E a porta NÃO de A dá 0."},
+            {K::Mistake, "Esquecer a bolinha\nA bolinha na saída muda tudo: sem ela a porta é uma porta E, com ela é uma porta NAND, e "
+             "as duas tabelas são opostas linha a linha. Antes de ler um circuito, olhe a ponta de cada porta."},
             {K::Tip, "Na bancada, um clique duplo numa porta mostra o que há dentro dela. Mais adiante, neste ato, você mesmo monta "
              "as portas com transistores."},
             {K::Summary, "Uma porta recebe bits e entrega um bit, seguindo uma regra.\nCada porta tem símbolo, expressão e "
-             "tabela-verdade.\nE: todas em 1. OU: pelo menos uma em 1. NÃO: o contrário.\nNAND e NOR são o E e o OU "
-             "invertidos; o XOR quer as entradas diferentes.\nA bolinha na saída quer dizer invertido."},
+             "tabela-verdade.\nPorta E: todas em 1. Porta OU: pelo menos uma em 1. Porta NÃO: o contrário.\nNAND e NOR são "
+             "a porta E e a porta OU invertidas; a porta XOR quer as entradas diferentes.\nA bolinha na saída quer dizer "
+             "invertido."},
         },
         {"portas-perguntas", "porta-e", "porta-ou", "porta-nao", "porta-nand", "porta-nor"},
     });
@@ -980,22 +1040,23 @@ std::vector<Topic> makeTopics() {
         "Boole e Shannon, as regras das contas com 0 e 1, e portas de várias entradas",
         {
             {K::Page, "Contas com verdadeiro e falso"},
-            {K::Text, "Em 1854, George Boole mostrou que dá para fazer contas com verdadeiro e falso. Nessa álgebra booleana, o E se "
-             "escreve como uma multiplicação (A · B), porque só dá 1 quando os dois são 1; o OU, como uma soma (A + B); e o "
-             "NÃO, como NÃO A. Toda tabela-verdade pode ser escrita como uma expressão assim, e toda expressão vira um "
-             "circuito de portas."},
+            {K::Text, "Em 1854, George Boole mostrou que dá para fazer contas com verdadeiro e falso. Nessa álgebra booleana, a "
+             "porta E se escreve como uma multiplicação (A · B), porque só dá 1 quando os dois são 1; a porta OU, como uma "
+             "soma (A + B); e a porta NÃO, como NÃO A. Toda tabela-verdade pode ser escrita como uma expressão assim, e "
+             "toda expressão vira um circuito de portas."},
             {K::Text, "Em 1938, Claude Shannon, um estudante do MIT, mostrou que essa álgebra descreve circuitos de chaves. Desde "
              "então ela serve para duas coisas: analisar um circuito, dizendo numa expressão curta o que ele faz, e "
              "projetar um, partindo da função desejada até um circuito simples que a faça."},
-            {K::Text, "Como na aritmética, há uma ordem: sem parênteses, o E vem antes do OU, assim como a multiplicação vem antes "
-             "da soma. A + B · C quer dizer A + (B · C). E quando não há confusão, o ponto some: AB é o mesmo que A · B."},
+            {K::Text, "Como na aritmética, há uma ordem: sem parênteses, a porta E vem antes da porta OU, assim como a multiplicação "
+             "vem antes da soma. A + B · C quer dizer A + (B · C). E quando não há confusão, o ponto some: AB é o mesmo que "
+             "A · B."},
             {K::Example, "Lendo um circuito: (A E B) OU C\nSiga da entrada para a saída. A porta E recebe A e B: o fio que sai dela é A "
              "· B.\nA porta OU recebe esse fio e C: a saída é A · B + C.\nCom A = 1, B = 0 e C = 1: A · B = 0, e 0 + 1 = 1. "
              "A saída acende.\nCom A = 1, B = 0 e C = 0: 0 + 0 = 0. Apaga."},
             {K::Question, "Em S = A · B + C, com A = 1, B = 1 e C = 0, quanto vale S?\n0\n*1\n2\n=A · B = 1, e 1 + 0 = 1. Na álgebra "
-             "booleana não existe 2: tudo é 0 ou 1.\n?Faça primeiro o E, depois o OU."},
-            {K::Mistake, "Fazer o + do OU como uma soma de números\nNa álgebra booleana, 1 + 1 = 1: o OU só diz se pelo menos um é 1. O "
-             "+ é só a forma de escrever; não há vai-um."},
+             "booleana não existe 2: tudo é 0 ou 1.\n?Faça primeiro a porta E, depois a porta OU."},
+            {K::Mistake, "Fazer o + da porta OU como uma soma de números\nNa álgebra booleana, 1 + 1 = 1: a porta OU só diz se pelo "
+             "menos um é 1. O + é só a forma de escrever; não há vai-um."},
             {K::Tip, "Para ler um circuito de portas, siga da entrada para a saída e escreva a expressão de cada fio. Para montar "
              "um, faça o contrário: comece pela tabela-verdade."},
             {K::Page, "As regras da álgebra"},
@@ -1008,25 +1069,26 @@ std::vector<Topic> makeTopics() {
              "De Morgan|NÃO (A · B) = NÃO A + NÃO B|NÃO (A + B) = NÃO A · NÃO B"},
             {K::Example, "Conferindo De Morgan com A = 1 e B = 0\nDo lado esquerdo: A · B = 1 · 0 = 0, e NÃO 0 = 1.\nDo lado direito: "
              "NÃO A = 0 e NÃO B = 1, e 0 + 1 = 1.\nOs dois lados dão 1. Repita com as outras três combinações e eles sempre "
-             "empatam: a regra vale.\nEm palavras: uma NAND é um OU das entradas invertidas."},
+             "empatam: a regra vale.\nEm palavras: uma porta NAND é uma porta OU das entradas invertidas."},
             {K::Question, "Quanto vale A + NÃO A, qualquer que seja A?\n0\n*1\nDepende de A\n=Um dos dois sempre é 1: se A é 0, NÃO A é "
-             "1. E um OU com um 1 dá 1.\n?Teste com A = 0 e depois com A = 1."},
+             "1. E uma porta OU com um 1 dá 1.\n?Teste com A = 0 e depois com A = 1."},
             {K::Mistake, "Usar a distributiva só do jeito da aritmética\nNa aritmética, A + B · C não se abre. Na álgebra booleana se "
              "abre: A + BC = (A + B) · (A + C). É a regra que mais surpreende, e a que mais ajuda a simplificar."},
             {K::Page, "Mais entradas, e o atraso"},
-            {K::Text, "Toda porta, menos o NÃO, pode ter mais de duas entradas. Um E de três entradas faz A · B · C de uma vez, sem "
-             "precisar de duas portas em fila. No simulador, selecione a porta e mude as Entradas no painel da direita."},
+            {K::Text, "Toda porta, menos a porta NÃO, pode ter mais de duas entradas. Uma porta E de três entradas faz A · B · C de "
+             "uma vez, sem precisar de duas portas em fila. No simulador, selecione a porta e mude as Entradas no painel da "
+             "direita."},
             {K::Table, "Porta|Com várias entradas, a saída é 1 quando\n@and E|todas são 1\n@or OU|pelo menos uma é 1\n@nand NAND|pelo "
              "menos uma é 0\n@nor NOR|todas são 0\n@xor XOR|o número de entradas em 1 é ímpar"},
             {K::Text, "Uma porta também não responde no mesmo instante. A saída muda alguns bilionésimos de segundo depois da "
              "entrada: é o atraso de porta. Num caminho com várias portas em fila, os atrasos se somam, e é isso que limita "
              "a velocidade de um circuito: quanto mais portas no caminho mais longo, mais tempo até a saída ficar certa."},
-            {K::Question, "Um XOR de três entradas recebe 1, 1 e 1. Quanto dá?\n0\n*1\nNão existe XOR de três entradas\n=Três entradas "
-             "em 1 é um número ímpar de uns: o XOR dá 1.\n?Conte quantas entradas estão em 1."},
-            {K::Summary, "Boole criou a álgebra (1854); Shannon a levou aos circuitos (1938).\nO E vem antes do OU; AB é A · B.\nAs "
-             "regras vêm em pares; De Morgan troca E por OU invertendo tudo.\nA + BC = (A + B) · (A + C), ao contrário da "
-             "aritmética.\nPortas podem ter várias entradas; o XOR de várias dá 1 com um número ímpar de uns.\nCada porta "
-             "atrasa um pouco o sinal, e os atrasos se somam."},
+            {K::Question, "Uma porta XOR de três entradas recebe 1, 1 e 1. Quanto dá?\n0\n*1\nNão existe XOR de três entradas\n=Três "
+             "entradas em 1 é um número ímpar de uns: a porta XOR dá 1.\n?Conte quantas entradas estão em 1."},
+            {K::Summary, "Boole criou a álgebra (1854); Shannon a levou aos circuitos (1938).\nA porta E vem antes da porta OU; AB é A "
+             "· B.\nAs regras vêm em pares; De Morgan troca E por OU invertendo tudo.\nA + BC = (A + B) · (A + C), ao "
+             "contrário da aritmética.\nPortas podem ter várias entradas; a porta XOR de várias dá 1 com um número ímpar de "
+             "uns.\nCada porta atrasa um pouco o sinal, e os atrasos se somam."},
         },
         {"porta-tres-entradas", "expressao"},
     });
@@ -1034,7 +1096,7 @@ std::vector<Topic> makeTopics() {
     all.push_back(Topic{
         "portas-de-transistores",
         3,
-        "Portas de transistores: o NÃO",
+        "Portas de transistores: a porta NÃO",
         "Por dentro de uma porta: o bit vira tensão, e um transistor faz o inversor",
         {
             {K::Page, "Por dentro de uma porta"},
@@ -1073,86 +1135,92 @@ std::vector<Topic> makeTopics() {
         "NAND, NOR, E e OU de transistores",
         "Dois transistores em série ou em paralelo, e um inversor a mais",
         {
-            {K::Page, "Em série: a NAND"},
+            {K::Page, "Em série: a porta NAND"},
             {K::Text, "Ponha dois transistores em série entre S e o terra, com o pull-up em cima. S só vai a 0 quando os dois ligam "
              "juntos, quando A E B valem 1: só então existe um caminho até o terra. Em qualquer outro caso, o pull-up mantém "
              "S em 1."},
-            {K::Text, "É um E com a saída invertida: a porta NAND, NÃO-E. São as chaves em série do Ato 1, agora comandadas por "
-             "sinais e puxando a saída para baixo."},
-            {K::Figure, "A NAND de transistores. Clique em A e em B: só com os dois ligados S vai a 0.", nandOfTransistors, 260},
-            {K::Question, "Na NAND de transistores, com A = 1 e B = 0, quanto vale S?\n*1\n0\nDepende de qual transistor está em "
+            {K::Text, "É uma porta E com a saída invertida: a porta NAND, NÃO-E. São as chaves em série do Ato 1, agora comandadas "
+             "por sinais e puxando a saída para baixo."},
+            {K::Figure, "A porta NAND de transistores. Clique em A e em B: só com os dois ligados S vai a 0.", nandOfTransistors, 260},
+            {K::Question, "Na porta NAND de transistores, com A = 1 e B = 0, quanto vale S?\n*1\n0\nDepende de qual transistor está em "
              "cima\n=Um transistor ligado sozinho não fecha o caminho até o terra: o pull-up mantém S em 1.\n?Em série, a "
              "corrente precisa passar pelos dois."},
-            {K::Page, "Em paralelo: a NOR"},
+            {K::Page, "Em paralelo: a porta NOR"},
             {K::Text, "Com os dois transistores em paralelo, cada um num caminho próprio até o terra, basta um ligar para puxar S "
-             "para 0. S só vale 1 quando A e B valem 0. É um OU invertido: a porta NOR, NÃO-OU."},
+             "para 0. S só vale 1 quando A e B valem 0. É uma porta OU invertida: a porta NOR, NÃO-OU."},
             {K::Table, "A|B|NAND|NOR\n0|0|1|1\n0|1|1|0\n1|0|1|0\n1|1|0|0"},
             {K::Example, "Lendo a linha A = 0, B = 1\nNAND, em série: o transistor de A está desligado, e o caminho até o terra se "
-             "corta. O pull-up ganha: S = 1.\nNOR, em paralelo: o transistor de B está ligado e abre um caminho até o terra. "
-             "S cai: S = 0.\nPor isso, na mesma linha, a NAND dá 1 e a NOR dá 0."},
-            {K::Question, "Em quantas linhas da tabela a NOR dá 1?\n*1\n2\n3\n=Só na primeira, com A e B em 0: qualquer transistor ligado "
-             "puxa S para 0.\n?Conte os 1 da coluna NOR."},
+             "corta. O pull-up ganha: S = 1.\nNOR, em paralelo: o transistor de B está ligado e abre um caminho até o "
+             "terra. S cai: S = 0.\nPor isso, na mesma linha, a porta NAND dá 1 e a porta NOR dá 0."},
+            {K::Question, "Em quantas linhas da tabela a porta NOR dá 1?\n*1\n2\n3\n=Só na primeira, com A e B em 0: qualquer transistor "
+             "ligado puxa S para 0.\n?Conte os 1 da coluna NOR."},
             {K::Page, "E e OU: inverter outra vez"},
-            {K::Text, "Com transistores, a NAND e a NOR saem direto, e o E e o OU não: a inversão vem de graça, e para desfazê-la é "
-             "preciso mais um inversor na saída. O E de transistores é uma NAND seguida de um NÃO, três transistores ao "
-             "todo; o OU é uma NOR seguida de um NÃO."},
-            {K::Figure, "O E de transistores: a NAND de dois transistores, e um terceiro que inverte a saída. Clique em A e em B.", andOfTransistors, 260},
-            {K::Figure, "O OU de transistores: a NOR, e o inversor depois dela. Clique em A e em B.", orOfTransistors, 260},
-            {K::Question, "Quantos transistores tem o E feito de transistores?\n2\n*3\n4\n=Dois em série para a NAND e um terceiro para "
-             "inverter a saída.\n?É uma NAND e mais um NÃO."},
-            {K::Text, "É por isso que os chips são feitos de NAND e NOR: são as portas mais baratas, com menos transistores. Um E ou "
-             "um OU custa um inversor a mais."},
-            {K::Mistake, "Achar que transistores em série dão um E\nDariam, se acendessem a saída. Mas aqui eles puxam S para baixo, "
-             "contra o pull-up: em série dão NÃO-E, a NAND; em paralelo, NÃO-OU, a NOR. A inversão vem de graça."},
-            {K::Tip, "Toda a lógica de um computador pode ser montada só com NAND, ou só com NOR. A próxima aula mostra como."},
+            {K::Text, "Com transistores, a porta NAND e a porta NOR saem direto, e a porta E e a porta OU não: a inversão vem de "
+             "graça, e para desfazê-la é preciso mais um inversor na saída. A porta E de transistores é uma porta NAND "
+             "seguida de uma porta NÃO, três transistores ao todo; a porta OU é uma porta NOR seguida de uma porta NÃO."},
+            {K::Figure, "A porta E de transistores: a porta NAND de dois transistores, e um terceiro que inverte a saída. Clique em A "
+             "e em B.", andOfTransistors, 260},
+            {K::Figure, "A porta OU de transistores: a porta NOR, e o inversor depois dela. Clique em A e em B.", orOfTransistors, 260},
+            {K::Question, "Quantos transistores tem a porta E feita de transistores?\n2\n*3\n4\n=Dois em série para a porta NAND e um "
+             "terceiro para inverter a saída.\n?É uma porta NAND e mais uma porta NÃO."},
+            {K::Text, "É por isso que os chips são feitos de portas NAND e NOR: são as portas mais baratas, com menos transistores. "
+             "Uma porta E ou uma porta OU custa um inversor a mais."},
+            {K::Mistake, "Achar que transistores em série dão uma porta E\nDariam, se acendessem a saída. Mas aqui eles puxam S para "
+             "baixo, contra o pull-up: em série dão NÃO-E, a porta NAND; em paralelo, NÃO-OU, a porta NOR. A inversão vem "
+             "de graça."},
+            {K::Tip, "Toda a lógica de um computador pode ser montada só com portas NAND, ou só com portas NOR. A próxima aula "
+             "mostra como."},
             {K::Summary, "Dois transistores em série puxando S para baixo: NAND, que só dá 0 com A e B em 1.\nEm paralelo: NOR, que só "
-             "dá 1 com A e B em 0.\nO pull-up dá o 1; os transistores dão o 0.\nE e OU de transistores: a NAND ou a NOR, e "
-             "mais um inversor.\nNAND e NOR são universais: com uma delas se faz todo o resto."},
+             "dá 1 com A e B em 0.\nO pull-up dá o 1; os transistores dão o 0.\nE e OU de transistores: a porta NAND ou a "
+             "porta NOR, e mais um inversor.\nNAND e NOR são universais: com uma delas se faz todo o resto."},
         },
         {"tabelas-transistores", "nand-transistores", "nor-transistores"},
     });
     all.push_back(Topic{
         "nand-universal",
         3,
-        "NAND, a porta universal, e o OU exclusivo",
-        "Qualquer porta feita só de NAND, e como combinar portas",
+        "NAND, a porta universal, e a porta OU exclusivo",
+        "Qualquer porta feita só de portas NAND, e como combinar portas",
         {
             {K::Page, "Uma porta para fazer todas"},
             {K::Text, "A porta NAND tem uma propriedade especial: com ela, e só com ela, dá para montar qualquer outra porta. Por "
              "isso se diz que ela é universal. As fábricas de chips aproveitam isso: um único tipo de bloco, repetido "
              "milhões de vezes, faz o circuito inteiro."},
-            {K::Table, "Para ter...|Monte com NAND\nNÃO A|uma NAND com as duas entradas ligadas em A\nA E B|uma NAND e, depois dela, "
-             "outra NAND que inverte a saída\nA OU B|inverta A e B com duas NAND e junte as duas numa terceira NAND"},
-            {K::Figure, "Uma NAND com as duas entradas no mesmo fio. Clique em A: a saída é sempre o contrário.", notFromNand, 150},
-            {K::Question, "Uma NAND com as duas entradas em A. Com A = 1, quanto dá a saída?\n1\n*0\nDepende de B\n=NÃO (1 E 1) = NÃO 1 = "
-             "0. Com as duas entradas no mesmo fio, a NAND vira um NÃO.\n?A NAND só dá 0 quando todas as entradas são 1."},
-            {K::Page, "O E e o OU feitos de NAND"},
-            {K::Figure, "Duas NAND em fila: a segunda desfaz a inversão da primeira, e sobra o E. Clique em A e em B.", andFromNand, 150},
-            {K::Text, "O OU sai da lei de De Morgan: NÃO (NÃO A E NÃO B) é igual a A OU B. Em palavras: dizer que não é verdade que "
-             "os dois estão desligados é o mesmo que dizer que pelo menos um está ligado."},
-            {K::Example, "O OU de três NAND, com A = 0 e B = 1\nA primeira NAND inverte A: NÃO 0 = 1.\nA segunda inverte B: NÃO 1 = "
-             "0.\nA terceira recebe 1 e 0: NÃO (1 E 0) = NÃO 0 = 1.\nA OU B, com A = 0 e B = 1, dá 1: certo."},
-            {K::Question, "Quantas NAND são precisas para fazer um OU?\n1\n2\n*3\n=Duas para inverter A e B, e uma terceira para "
+            {K::Table, "Para ter...|Monte com portas NAND\nNÃO A|uma porta NAND com as duas entradas ligadas em A\nA E B|uma porta "
+             "NAND e, depois dela, outra porta NAND que inverte a saída\nA OU B|inverta A e B com duas portas NAND e junte "
+             "as duas numa terceira NAND"},
+            {K::Figure, "Uma porta NAND com as duas entradas no mesmo fio. Clique em A: a saída é sempre o contrário.", notFromNand, 150},
+            {K::Question, "Uma porta NAND com as duas entradas em A. Com A = 1, quanto dá a saída?\n1\n*0\nDepende de B\n=NÃO (1 E 1) = "
+             "NÃO 1 = 0. Com as duas entradas no mesmo fio, a porta NAND vira uma porta NÃO.\n?A porta NAND só dá 0 quando "
+             "todas as entradas são 1."},
+            {K::Page, "A porta E e a porta OU feitas de portas NAND"},
+            {K::Figure, "Duas portas NAND em fila: a segunda desfaz a inversão da primeira, e sobra a porta E. Clique em A e em B.", andFromNand, 150},
+            {K::Text, "A porta OU sai da lei de De Morgan: NÃO (NÃO A E NÃO B) é igual a A OU B. Em palavras: dizer que não é "
+             "verdade que os dois estão desligados é o mesmo que dizer que pelo menos um está ligado."},
+            {K::Example, "A porta OU de três portas NAND, com A = 0 e B = 1\nA primeira NAND inverte A: NÃO 0 = 1.\nA segunda inverte "
+             "B: NÃO 1 = 0.\nA terceira recebe 1 e 0: NÃO (1 E 0) = NÃO 0 = 1.\nA OU B, com A = 0 e B = 1, dá 1: certo."},
+            {K::Question, "Quantas NAND são precisas para fazer uma porta OU?\n1\n2\n*3\n=Duas para inverter A e B, e uma terceira para "
              "juntá-las.\n?Olhe a última linha da tabela."},
             {K::Page, "OU exclusivo"},
-            {K::Text, "O XOR dá 1 quando as entradas são diferentes. Ele pode ser montado com as portas que você já conhece: (A OU B) "
-             "E NÃO (A E B), ou seja, pelo menos um ligado, mas não os dois. O XOR aparece em todo lugar: na soma de "
-             "números, na comparação e na detecção de erros."},
+            {K::Text, "A porta XOR dá 1 quando as entradas são diferentes. Ele pode ser montado com as portas que você já conhece: "
+             "(A OU B) E NÃO (A E B), ou seja, pelo menos um ligado, mas não os dois. A porta XOR aparece em todo lugar: na "
+             "soma de números, na comparação e na detecção de erros."},
             {K::Table, "A|B|A OU B|A XOR B\n0|0|0|0\n0|1|1|1\n1|0|1|1\n1|1|1|0"},
-            {K::Mistake, "Achar que XOR e OU são a mesma coisa\nSó diferem numa linha, mas ela importa: com as duas entradas em 1, o OU "
-             "dá 1 e o XOR dá 0. É essa linha que faz do XOR o bit da soma: 1 + 1 = 10, e o bit da direita é 0."},
-            {K::Page, "Só com NOR também"},
-            {K::Text, "A NOR é universal como a NAND. Uma NOR com as duas entradas juntas é um NÃO; uma NOR seguida desse NÃO é um "
-             "OU; e, pela lei de De Morgan, uma NOR das entradas invertidas é um E. Um conjunto de portas que faz qualquer "
-             "função se diz funcionalmente completo."},
-            {K::Table, "Conjunto|Por que basta\nE, OU, NÃO|são as três operações da álgebra booleana\nE, NÃO|o OU sai de De Morgan: "
-             "NÃO (NÃO A E NÃO B)\nOU, NÃO|o E sai de De Morgan: NÃO (NÃO A OU NÃO B)\nsó NAND|faz o NÃO, o E e o OU\nsó "
-             "NOR|faz o NÃO, o OU e o E"},
-            {K::Question, "Quantas NOR são precisas para fazer um E?\n1\n2\n*3\n=Duas para inverter A e B, e uma terceira juntando: NOR "
-             "(NÃO A, NÃO B) = A E B.\n?É o mesmo truque do OU de NAND, com as portas trocadas."},
-            {K::Summary, "NAND é universal: NÃO, E, OU e todas as outras saem só dela.\nNÃO: uma NAND com as entradas juntas. E: NAND e "
-             "mais uma NAND. OU: três NAND, pela lei de De Morgan.\nXOR dá 1 quando as entradas são diferentes: (A OU B) E "
-             "NÃO (A E B)."},
+            {K::Mistake, "Achar que XOR e OU são a mesma coisa\nSó diferem numa linha, mas ela importa: com as duas entradas em 1, a "
+             "porta OU dá 1 e a porta XOR dá 0. É essa linha que faz da porta XOR o bit da soma: 1 + 1 = 10, e o bit da "
+             "direita é 0."},
+            {K::Page, "Só com portas NOR também"},
+            {K::Text, "A porta NOR é universal como a porta NAND. Uma porta NOR com as duas entradas juntas é uma porta NÃO; uma "
+             "porta NOR seguida desse NÃO é uma porta OU; e, pela lei de De Morgan, uma porta NOR das entradas invertidas é "
+             "uma porta E. Um conjunto de portas que faz qualquer função se diz funcionalmente completo."},
+            {K::Table, "Conjunto|Por que basta\nE, OU, NÃO|são as três operações da álgebra booleana\nE, NÃO|a porta OU sai de De "
+             "Morgan: NÃO (NÃO A E NÃO B)\nOU, NÃO|a porta E sai de De Morgan: NÃO (NÃO A OU NÃO B)\nsó NAND|faz a porta "
+             "NÃO, a porta E e a porta OU\nsó NOR|faz a porta NÃO, a porta OU e a porta E"},
+            {K::Question, "Quantas NOR são precisas para fazer uma porta E?\n1\n2\n*3\n=Duas para inverter A e B, e uma terceira "
+             "juntando: NOR (NÃO A, NÃO B) = A E B.\n?É o mesmo truque da porta OU de portas NAND, com as portas trocadas."},
+            {K::Summary, "NAND é universal: NÃO, E, OU e todas as outras saem só dela.\nPorta NÃO: uma porta NAND com as entradas "
+             "juntas. Porta E: NAND e mais uma porta NAND. Porta OU: três portas NAND, pela lei de De Morgan.\nXOR dá 1 "
+             "quando as entradas são diferentes: (A OU B) E NÃO (A E B)."},
         },
         {"nao-com-nand", "e-com-nand", "ou-com-nand", "xor"},
     });
@@ -1195,9 +1263,9 @@ std::vector<Topic> makeTopics() {
             {K::Question, "Uma memória de quatro chips usa os 2 bits mais altos do endereço para escolher o chip. Com esses bits em 10, "
              "qual chip responde?\nO chip 1\n*O chip 2\nOs chips 1 e 0\n=10 em binário é 2: o decodificador liga só a saída "
              "2.\n?Que número é 10 em binário?"},
-            {K::Summary, "Decodificador: um número acende uma saída. Cada saída é uma E que reconhece uma combinação.\nMultiplexador: um "
-             "número escolhe qual entrada passa para a saída.\nPor dentro do MUX: um decodificador, uma E por entrada e uma "
-             "OU.\nOs dois estão em toda a CPU."},
+            {K::Summary, "Decodificador: um número acende uma saída. Cada saída é uma porta E que reconhece uma combinação.\n"
+             "Multiplexador: um número escolhe qual entrada passa para a saída.\nPor dentro do MUX: um decodificador, uma "
+             "porta E por entrada e uma porta OU.\nOs dois estão em toda a CPU."},
         },
         {"decodificador", "mux4"},
     });
@@ -1218,12 +1286,13 @@ std::vector<Topic> makeTopics() {
             {K::Question, "Quanto dá 1 + 1 + 1 em binário?\n3\n*11\n111\n=1 + 1 = 10, e mais 1 dá 11: fica 1 e vai 1. É o 3 em "
              "binário.\n?Some dois primeiro, depois o terceiro."},
             {K::Page, "O meio somador"},
-            {K::Text, "Olhe a tabela de novo: a soma S é 1 quando A e B são diferentes, um XOR; e o vai-um C é 1 só quando os dois "
-             "são 1, um E. Duas portas fazem a soma de dois bits. Esse circuito se chama meio somador, porque ainda não "
-             "recebe o vai-um que vem da casa de baixo."},
-            {K::Figure, "O meio somador: um XOR e um E. Clique em A e em B; com os dois em 1, S apaga e C acende: 1 + 1 = 10.", halfAdder, 200},
-            {K::Question, "No meio somador, que porta dá o vai-um?\nXOR\n*E (AND)\nOU (OR)\n=O vai-um só é 1 quando A e B são 1: é um "
-             "E.\n?Em que linha da tabela o vai-um é 1?"},
+            {K::Text, "Olhe a tabela de novo: a soma S é 1 quando A e B são diferentes, uma porta XOR; e o vai-um C é 1 só quando os "
+             "dois são 1, uma porta E. Duas portas fazem a soma de dois bits. Esse circuito se chama meio somador, porque "
+             "ainda não recebe o vai-um que vem da casa de baixo."},
+            {K::Figure, "O meio somador: uma porta XOR e uma porta E. Clique em A e em B; com os dois em 1, S apaga e C acende: 1 + 1 "
+             "= 10.", halfAdder, 200},
+            {K::Question, "No meio somador, que porta dá o vai-um?\nXOR\n*E (AND)\nOU (OR)\n=O vai-um só é 1 quando A e B são 1: é uma "
+             "porta E.\n?Em que linha da tabela o vai-um é 1?"},
             {K::Page, "O somador completo"},
             {K::Text, "Da segunda casa em diante, a soma tem três bits para juntar: A, B e o vai-um que veio da direita, Ce. O "
              "somador completo soma os três e entrega S e o vai-um de saída, Cs. Ele é feito de dois meios somadores e uma "
@@ -1250,9 +1319,9 @@ std::vector<Topic> makeTopics() {
             {K::Question, "Num somador de 4 bits em fila, quantas vezes o vai-um pode ter de passar de uma casa para a seguinte?\n1\n*3\n"
              "8\n=Da casa 0 para a 1, da 1 para a 2 e da 2 para a 3: três passagens, uma depois da outra.\n?Conte as "
              "fronteiras entre quatro casas."},
-            {K::Summary, "Em binário, 1 + 1 = 10: fica 0 e vai 1.\nMeio somador: S é um XOR, o vai-um é um E.\nSomador completo: soma A, "
-             "B e o vai-um de entrada; dois meios somadores e um OU.\nLado a lado, com o Cs de cada um no Ce do seguinte, "
-             "somam números inteiros."},
+            {K::Summary, "Em binário, 1 + 1 = 10: fica 0 e vai 1.\nMeio somador: S é uma porta XOR, o vai-um é uma porta E.\nSomador "
+             "completo: soma A, B e o vai-um de entrada; dois meios somadores e uma porta OU.\nLado a lado, com o Cs de "
+             "cada um no Ce do seguinte, somam números inteiros."},
         },
         {"somas-binarias", "meio-somador", "somador-completo", "somador-4-bits"},
     });
@@ -1266,8 +1335,8 @@ std::vector<Topic> makeTopics() {
             {K::Page, "Subtrair com empréstimo"},
             {K::Text, "Subtrair bit a bit funciona como no papel, com empréstimo em vez de vai-um. 0 - 1 não dá: a casa pede 1 "
              "emprestado à de cima, e o resultado é 1, com empréstimo. O subtrator completo recebe A, B e o pedido que vem "
-             "de baixo, Ve, e entrega a diferença D e o pedido para cima, Vs. A diferença é de novo um XOR: D = A XOR B XOR "
-             "Ve."},
+             "de baixo, Ve, e entrega a diferença D e o pedido para cima, Vs. A diferença é de novo uma porta XOR: D = A "
+             "XOR B XOR Ve."},
             {K::Figure, "O subtrator. Clique em A, B e Ve: com A = 0 e B = 1, D = 1 e Vs acende, pedindo emprestado.", subtractor, 230},
             {K::Question, "No subtrator, com A = 1, B = 1 e Ve = 0, quanto valem D e Vs?\n*D = 0, Vs = 0\nD = 1, Vs = 1\nD = 0, Vs = "
              "1\n=1 - 1 = 0, sem precisar pedir emprestado.\n?1 - 1 precisa de empréstimo?"},
@@ -1283,8 +1352,8 @@ std::vector<Topic> makeTopics() {
              "somando 1, 1110.\n?Inverta os bits de 2 e some 1."},
             {K::Page, "O mesmo somador para os dois"},
             {K::Text, "A vantagem do complemento de dois é que o mesmo somador serve para somar e subtrair: A - B é A + (NÃO B) + 1. "
-             "O NÃO inverte os bits de B, e o + 1 entra pelo vai-um de entrada da primeira casa. É por isso que a CPU tem "
-             "uma só ULA para as duas contas."},
+             "A porta NÃO inverte os bits de B, e o + 1 entra pelo vai-um de entrada da primeira casa. É por isso que a CPU "
+             "tem uma só ULA para as duas contas."},
             {K::Mistake, "Inverter os bits e esquecer o + 1\nSó inverter dá o complemento de um: NÃO 0011 = 1100, que é -4, não -3. O + "
              "1 é parte da regra."},
             {K::Mistake, "Achar que 1111 é sempre 15\nOs bits são os mesmos; quem diz o que eles valem é a forma de ler. Sem sinal, 1111 "
@@ -1317,8 +1386,8 @@ std::vector<Topic> makeTopics() {
         {
             {K::Page, "Comparar"},
             {K::Text, "O comparador diz se A é maior, igual ou menor que B. Para um bit: A > B quando A = 1 e B = 0 (A E NÃO B); A < "
-             "B no caso contrário (NÃO A E B); e A = B quando os dois são iguais, um XNOR. Para números de vários bits, "
-             "compara-se do bit mais alto para o mais baixo: o primeiro bit diferente decide."},
+             "B no caso contrário (NÃO A E B); e A = B quando os dois são iguais, uma porta XNOR. Para números de vários "
+             "bits, compara-se do bit mais alto para o mais baixo: o primeiro bit diferente decide."},
             {K::Figure, "O comparador de 1 bit. Clique em A e em B e veja qual das três saídas acende.", comparator, 220},
             {K::Example, "Comparando 0110 e 0101\nBit 3: 0 e 0, iguais. Segue.\nBit 2: 1 e 1, iguais. Segue.\nBit 1: 1 e 0, diferentes. "
              "Quem tem o 1 é o maior: 0110 > 0101.\nO bit 0 nem precisa ser olhado. Em decimal: 6 > 5."},
@@ -1332,8 +1401,8 @@ std::vector<Topic> makeTopics() {
             {K::Figure, "A ULA de 1 bit montada com blocos: as quatro operações lado a lado e o MUX que escolhe uma pelo Op. Clique nas "
              "chaves.", aluSlice, 280},
             {K::Table, "Op1|Op0|Operação\n0|0|A E B\n0|1|A OU B\n1|0|A XOR B\n1|1|A + B"},
-            {K::Question, "Na fatia de ULA, com A = 1, B = 1 e Op = 10, quanto sai em R?\n1\n*0\n10\n=Op = 10 escolhe o XOR, e 1 XOR 1 = "
-             "0.\n?Primeiro veja na tabela qual operação o Op escolhe."},
+            {K::Question, "Na fatia de ULA, com A = 1, B = 1 e Op = 10, quanto sai em R?\n1\n*0\n10\n=Op = 10 escolhe a porta XOR, e 1 "
+             "XOR 1 = 0.\n?Primeiro veja na tabela qual operação o Op escolhe."},
             {K::Mistake, "Achar que a ULA calcula só a operação escolhida\nEla calcula todas ao mesmo tempo, o tempo todo; o Op só diz "
              "ao multiplexador qual resultado deixar passar. Escolher é mais rápido que calcular sob encomenda."},
             {K::Page, "O que a ULA conta além do resultado"},
@@ -1345,9 +1414,9 @@ std::vector<Topic> makeTopics() {
              "desvio compara dois registradores direto, sem guardar sinalizadores."},
             {K::Question, "A ULA fez A − B e a saída Z acendeu. O que se sabe?\nA é maior que B\n*A é igual a B\nA é zero\n=Z quer dizer "
              "resultado zero: A − B = 0, então A = B.\n?Quando uma subtração dá 0?"},
-            {K::Summary, "Comparador de 1 bit: A > B é A E NÃO B; A < B é NÃO A E B; A = B é um XNOR.\nPara vários bits, o primeiro bit "
-             "diferente, a partir do mais alto, decide.\nA ULA calcula várias operações ao mesmo tempo, e um MUX escolhe uma "
-             "pelo Op.\nFatias de 1 bit lado a lado formam a ULA da CPU."},
+            {K::Summary, "Comparador de 1 bit: A > B é A E NÃO B; A < B é NÃO A E B; A = B é uma porta XNOR.\nPara vários bits, o "
+             "primeiro bit diferente, a partir do mais alto, decide.\nA ULA calcula várias operações ao mesmo tempo, e um "
+             "MUX escolhe uma pelo Op.\nFatias de 1 bit lado a lado formam a ULA da CPU."},
         },
         {"comparador", "ula-1-bit", "calculadora-bits"},
     });
@@ -1377,8 +1446,9 @@ std::vector<Topic> makeTopics() {
             {K::Example, "Duas portas NÃO em roda\nComece com 1 na entrada da primeira NÃO. Ela dá 0.\nEsse 0 entra na segunda NÃO, que "
              "dá 1.\nEsse 1 volta para a primeira, que já estava recebendo 1: nada muda. O 1 está guardado.\nComece com 0 e "
              "acontece o mesmo ao contrário: o 0 fica guardado. São dois estados que se sustentam: um bit."},
-            {K::Text, "Só que duas NÃO em roda não têm por onde mudar o valor guardado. Para poder ligar e desligar o bit, troque "
-             "cada NÃO por uma porta NOR, a NÃO-OU, que no jogo aparece como NOU: ela dá 1 só quando as duas entradas são 0. A entrada livre de cada uma vira um botão."},
+            {K::Text, "Só que duas portas NÃO em roda não têm por onde mudar o valor guardado. Para poder ligar e desligar o bit, "
+             "troque cada porta NÃO por uma porta NOR, a porta NÃO-OU, que no jogo aparece como NOU: ela dá 1 só quando as "
+             "duas entradas são 0. A entrada livre de cada uma vira um botão."},
             {K::Page, "O latch SR"},
             {K::Text, "Duas portas NOR com as saídas cruzadas formam o latch SR. S (set, ligar) põe Q em 1. R (reset, desligar) põe Q em 0. "
              "Com S e R em 0, cada porta segura a outra, e Q fica como estava. Experimente na figura: ligue S, desligue, e "
@@ -1386,28 +1456,30 @@ std::vector<Topic> makeTopics() {
             {K::Figure, "O latch SR feito de duas portas NOR. Clique em S e em R.", srLatchFigure, 230},
             {K::Table, "S|R|Q depois\n1|0|1: liga\n0|1|0: desliga\n0|0|o mesmo de antes: guarda\n1|1|proibido: não use"},
             {K::Question, "Q está em 1. Você põe S e R em 0. O que acontece com Q?\nVolta para 0, porque nada o liga\n*Continua em 1: é "
-             "isso que o latch guarda\nFica piscando entre 0 e 1\n=Com S e R em 0, cada NOR segura a outra no estado em que "
-             "está. Q continua em 1 até alguém ligar R.\n?Olhe a linha 0 e 0 da tabela."},
+             "isso que o latch guarda\nFica piscando entre 0 e 1\n=Com S e R em 0, cada porta NOR segura a outra no estado "
+             "em que está. Q continua em 1 até alguém ligar R.\n?Olhe a linha 0 e 0 da tabela."},
             {K::Page, "Passo a passo, porta por porta"},
-            {K::Example, "Ligando o latch com S\nAntes: S = 0, R = 0 e Q = 0. A NOR de cima recebe S = 0 e Q = 0, e dá !Q = 1.\nLigue S. "
-             "A NOR de cima agora recebe um 1: NOR dá 0, então !Q = 0.\nA NOR de baixo recebe R = 0 e !Q = 0: dá Q = "
-             "1.\nDesligue S. A NOR de cima recebe S = 0 e Q = 1: continua dando 0. Nada muda: Q ficou em 1."},
-            {K::Mistake, "Ligar S e R ao mesmo tempo\nAs duas NOR dão 0, e Q e !Q deixam de ser opostos. Pior: quando os dois voltam a 0 "
-             "juntos, não dá para saber para que lado o latch cai. Por isso essa combinação é proibida. A próxima aula "
-             "resolve isso com o latch D."},
+            {K::Example, "Ligando o latch com S\nAntes: S = 0, R = 0 e Q = 0. A porta NOR de cima recebe S = 0 e Q = 0, e dá !Q = 1.\n"
+             "Ligue S. A porta NOR de cima agora recebe um 1: NOR dá 0, então !Q = 0.\nA porta NOR de baixo recebe R = 0 e "
+             "!Q = 0: dá Q = 1.\nDesligue S. A porta NOR de cima recebe S = 0 e Q = 1: continua dando 0. Nada muda: Q ficou "
+             "em 1."},
+            {K::Mistake, "Ligar S e R ao mesmo tempo\nAs duas portas NOR dão 0, e Q e !Q deixam de ser opostos. Pior: quando os dois "
+             "voltam a 0 juntos, não dá para saber para que lado o latch cai. Por isso essa combinação é proibida. A "
+             "próxima aula resolve isso com o latch D."},
             {K::Mistake, "Achar que o latch guarda o bit com o computador desligado\nEle guarda enquanto houver energia: é a corrente "
              "nas portas que mantém o estado. Desligou, perdeu. A memória RAM do computador funciona assim também."},
-            {K::Page, "O mesmo latch, feito de NAND"},
-            {K::Text, "O latch também pode ser feito com duas NAND cruzadas, em vez de duas NOR. A ideia é a mesma, com tudo "
-             "invertido: as entradas agem quando vão a 0, não a 1. Em repouso as duas ficam em 1, um 0 em S liga, um 0 em R "
-             "desliga, e os dois em 0 ao mesmo tempo é o caso proibido. Por isso, nos desenhos, essas entradas levam uma "
-             "barra por cima ou uma bolinha."},
+            {K::Page, "O mesmo latch, feito de portas NAND"},
+            {K::Text, "O latch também pode ser feito com duas portas NAND cruzadas, em vez de duas portas NOR. A ideia é a mesma, "
+             "com tudo invertido: as entradas agem quando vão a 0, não a 1. Em repouso as duas ficam em 1, um 0 em S liga, "
+             "um 0 em R desliga, e os dois em 0 ao mesmo tempo é o caso proibido. Por isso, nos desenhos, essas entradas "
+             "levam uma barra por cima ou uma bolinha."},
             {K::Table, "Feito de|Em repouso|Liga com|Desliga com|Proibido\nNOR|S = 0, R = 0|S = 1|R = 1|S = R = 1\nNAND|S = 1, R = "
              "1|S = 0|R = 0|S = R = 0"},
-            {K::Question, "Num latch de NAND, as duas entradas estão em 1. O que acontece com Q?\nVai a 1\nVai a 0\n*Guarda o que tinha\n"
-             "=Em 1, as entradas de um latch de NAND estão em repouso: ele guarda.\n?No latch de NAND, quem age é o 0."},
-            {K::Summary, "Combinacional: a saída depende só das entradas de agora. Sequencial: depende também do que veio "
-             "antes.\nRealimentação, a saída voltando para a entrada, é o que faz um circuito lembrar.\nO latch SR, duas NOR "
+            {K::Question, "Num latch de portas NAND, as duas entradas estão em 1. O que acontece com Q?\nVai a 1\nVai a 0\n*Guarda o que "
+             "tinha\n=Em 1, as entradas de um latch de portas NAND estão em repouso: ele guarda.\n?No latch de portas NAND, "
+             "quem age é o 0."},
+            {K::Summary, "Combinacional: a saída depende só das entradas de agora. Sequencial: depende também do que veio antes.\n"
+             "Realimentação, a saída voltando para a entrada, é o que faz um circuito lembrar.\nO latch SR, duas portas NOR "
              "cruzadas, guarda um bit: S liga, R desliga, com os dois em 0 ele guarda.\nS e R juntos em 1 é proibido."},
         },
         {"latch-sr"},
@@ -1426,9 +1498,9 @@ std::vector<Topic> makeTopics() {
              "pode copiar D\nPara inverter o valor guardado\n=En é a permissão: com ela ligada, Q segue D; desligada, Q fica "
              "parado com o último D.\n?En vem de enable, que quer dizer habilitar, permitir."},
             {K::Page, "Como ele é feito"},
-            {K::Text, "Na frente de um latch SR, duas portas E. Uma faz S = D E En; a outra, R = (NÃO D) E En. Com En em 0, as duas E "
-             "dão 0, e o latch guarda. Com En em 1, se D é 1 a primeira liga S; se D é 0 a segunda liga R. S e R nunca ficam "
-             "em 1 juntos: o problema do SR some."},
+            {K::Text, "Na frente de um latch SR, duas portas E. Uma faz S = D E En; a outra, R = (NÃO D) E En. Com En em 0, as duas "
+             "portas E dão 0, e o latch guarda. Com En em 1, se D é 1 a primeira liga S; se D é 0 a segunda liga R. S e R "
+             "nunca ficam em 1 juntos: o problema do SR some."},
             {K::Figure, "O latch D feito de portas. Ligue En e mexa em D; depois desligue En e mexa de novo.", dLatchFigure, 260},
             {K::Table, "En|D|Q\n0|qualquer|guarda o que tinha\n1|0|0\n1|1|1"},
             {K::Page, "Enquanto En estiver ligado, ele é transparente"},
@@ -1443,7 +1515,8 @@ std::vector<Topic> makeTopics() {
              "qualquer mudança de D passa para Q. Isso vira um problema quando Q volta para D por algum caminho, como num "
              "contador: o valor dá voltas sem parar. O flip-flop, duas aulas adiante, resolve."},
             {K::Summary, "O latch D tem um dado, D, e uma permissão, En.\nCom En em 1, Q copia D o tempo todo: ele é transparente.\nCom "
-             "En em 0, Q guarda o último D.\nPor dentro: duas E na frente de um latch SR, que nunca recebe S e R juntos."},
+             "En em 0, Q guarda o último D.\nPor dentro: duas portas E na frente de um latch SR, que nunca recebe S e R "
+             "juntos."},
         },
         {"latch-d"},
     });
@@ -2109,10 +2182,10 @@ std::vector<Topic> makeTopics() {
              "o dispositivo; a CPU não gasta tempo perguntando.\n?Quem pergunta, e quem avisa?"},
             {K::Tip, "Espera ocupada: a CPU pergunta o tempo todo. Interrupção: o dispositivo avisa quando precisa."},
             {K::Page, "Três jeitos de fazer entrada e saída"},
-            {K::Text, "Na E/S programada, a CPU pergunta ao dispositivo de novo e de novo se ele está pronto: é a espera ocupada, "
-             "simples e cara. Na E/S por interrupção, a CPU segue trabalhando e o dispositivo avisa quando precisa dela. E "
-             "no acesso direto à memória (DMA), um circuito à parte copia blocos inteiros entre o dispositivo e a memória, "
-             "e a CPU só fica sabendo no fim."},
+            {K::Text, "Na porta E/S programada, a CPU pergunta ao dispositivo de novo e de novo se ele está pronto: é a espera "
+             "ocupada, simples e cara. Na porta E/S por interrupção, a CPU segue trabalhando e o dispositivo avisa quando "
+             "precisa dela. E no acesso direto à memória (DMA), um circuito à parte copia blocos inteiros entre o "
+             "dispositivo e a memória, e a CPU só fica sabendo no fim."},
             {K::Table, "Jeito|Quem fica esperando|Bom para\nProgramada|a CPU, perguntando sem parar|coisas raras e simples\nPor "
              "interrupção|ninguém: o dispositivo avisa|teclado, mouse, rede\nDMA|ninguém: um circuito copia o bloco|disco, "
              "vídeo, blocos grandes"},
@@ -2200,8 +2273,8 @@ std::vector<Topic> makeTopics() {
              "junto com os dados vai um bit a mais, P, escolhido para que o total de 1s, contando o próprio P, seja par. É "
              "a paridade par, e com ela P vale 1 quando os dados têm uma quantidade ímpar de 1s. Na paridade ímpar, o total "
              "fica ímpar e P é o contrário. Na chegada, conta-se de novo: se o total não bater, houve erro."},
-            {K::Text, "O circuito é uma fila de XOR, porque o XOR de vários bits dá 1 exatamente quando há uma quantidade ímpar de "
-             "1: é o P da paridade par."},
+            {K::Text, "O circuito é uma fila de portas XOR, porque a porta XOR de vários bits dá 1 exatamente quando há uma "
+             "quantidade ímpar de 1: é o P da paridade par."},
             {K::Figure, "O bit da paridade par de 4 bits, feito com portas XOR em fila. Clique nos bits de D: o LED S acende quando a "
              "quantidade de 1 é ímpar, e D com S fica sempre com uma quantidade par.", parityGates, 220},
             {K::Example, "Mandando 1011 com paridade par\nHá três 1 em 1011: ímpar, então P = 1, e o total fica quatro, par. Vão 1011 e "
@@ -2215,7 +2288,7 @@ std::vector<Topic> makeTopics() {
              "códigos maiores, com vários bits de verificação."},
             {K::Page, "O multiplexador de dois"},
             {K::Text, "O MUX de duas entradas é o mais usado de todos: S = 0 deixa passar A, e S = 1 deixa passar B. Em expressão, Y "
-             "= (A E NÃO S) OU (B E S): de cada vez, só uma das duas E pode deixar passar."},
+             "= (A E NÃO S) OU (B E S): de cada vez, só uma das duas portas E pode deixar passar."},
             {K::Table, "S|A saída Y\n0|A\n1|B"},
             {K::Question, "Com S = 1, A = 0 e B = 1, quanto vale Y?\n0\n*1\nDepende de A\n=S = 1 escolhe B, que vale 1. A não importa.\n"
              "?Qual entrada S = 1 escolhe?"},
@@ -2394,7 +2467,7 @@ std::vector<Topic> makeTopics() {
             {K::Question, "Em quantos dos algarismos de 0 a 9 o segmento e acende?\n*4\n6\n8\n=e, embaixo à esquerda, acende no 0, 2, 6 "
              "e 8.\n?Procure o e em cada linha da tabela."},
             {K::Tip, "Um decodificador para 7 segmentos é só um conjunto de tabelas-verdade. Montar cada segmento é o mesmo "
-             "trabalho do Ato das portas lógicas: achar quando ele vale 1 e juntar com E, OU e NÃO."},
+             "trabalho do Ato das portas lógicas: achar quando ele vale 1 e juntar com portas E, OU e NÃO."},
             {K::Page, "Uma tabela vira uma ROM"},
             {K::Text, "O decodificador de 7 segmentos é só uma tabela: para cada número de 4 bits, quais segmentos acendem. Toda "
              "tabela assim pode ser feita com portas, mas também com uma ROM: o número entra como endereço, e a palavra "
@@ -2431,11 +2504,11 @@ std::vector<Topic> makeTopics() {
              "que parece aleatória: o registrador de deslocamento com realimentação, o LFSR. A cada clock os bits sobem uma "
              "casa, e o bit que entra embaixo é calculado de alguns bits do próprio registrador. Com as posições certas, "
              "ele passa por quase todos os valores antes de repetir."},
-            {K::Figure, "O gerador de 8 bits: um registrador de deslocamento com XNOR na entrada. Ele passa por 255 valores antes de "
-             "repetir.", randomShift, 260},
-            {K::Example, "Um LFSR de 4 bits, partindo de 0\nO bit novo é uma XNOR de q3 e q2: vale 1 quando os dois são iguais.\n0000: "
-             "q3 e q2 iguais, entra 1. Fica 0001, que é 1.\n0001 e 0011: q3 e q2 ainda iguais, entra 1. Vêm 3 e depois "
-             "0111, 7.\n0111: q3 = 0 e q2 = 1, diferentes, entra 0. Fica 1110, 14. E segue: 13, 11, 6..."},
+            {K::Figure, "O gerador de 8 bits: um registrador de deslocamento com portas XNOR na entrada. Ele passa por 255 valores "
+             "antes de repetir.", randomShift, 260},
+            {K::Example, "Um LFSR de 4 bits, partindo de 0\nO bit novo é uma porta XNOR de q3 e q2: vale 1 quando os dois são iguais.\n"
+             "0000: q3 e q2 iguais, entra 1. Fica 0001, que é 1.\n0001 e 0011: q3 e q2 ainda iguais, entra 1. Vêm 3 e "
+             "depois 0111, 7.\n0111: q3 = 0 e q2 = 1, diferentes, entra 0. Fica 1110, 14. E segue: 13, 11, 6..."},
             {K::Question, "Nesse LFSR de 4 bits, o que vem depois de 14 (1110)?\n*13\n12\n7\n=q3 = 1 e q2 = 1 são iguais: entra 1. Os "
              "bits sobem e fica 1101, que é 13.\n?Veja q3 e q2 de 1110, e lembre que os bits sobem uma casa."},
             {K::Mistake, "Começar no valor preso\nCom XNOR, 1111 é uma armadilha: q3 e q2 são iguais, entra 1, e fica 1111 de novo, "

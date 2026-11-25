@@ -30,6 +30,9 @@ struct Computer32State {
     std::vector<std::uint32_t> stack;  // the words from $sp up
     std::uint32_t switches = 0;
     std::uint32_t memoryAtAddress = 0;  // the RAM word a lw or sw about to run uses, as it is now
+    int accessed = -1;                  // which word of the RAM that is, or -1 when the instruction isn't a lw or sw
+    std::vector<std::uint32_t> memory;  // every word of the RAM, by its place: an address's bits 11 to 2
+    std::vector<std::pair<std::string, std::uint32_t>> dataLabels;  // the .data labels, each with the RAM word it names
 };
 
 std::optional<Computer32State> readComputer32(const Board& board, const BoardCircuit& circuit, const ChipBoards& chips);
