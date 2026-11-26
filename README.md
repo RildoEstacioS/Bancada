@@ -1,6 +1,12 @@
-# bancada
+# Bancada
 
-Codinome provisório de um jogo original sobre construir um computador, do LED aos programas em C.
+**Do LED ao computador, montando cada peça.**
+
+A Bancada é um jogo educativo sobre como um computador funciona por dentro. Você começa acendendo um LED com uma bateria e um resistor, passa pelos transistores, pelas portas lógicas, pela soma em binário e pela memória, e termina programando dois computadores feitos só de peças que você mesmo poderia montar: um de 16 bits, criado para o curso, e um MIPS de 32 bits.
+
+Tudo o que aparece na tela é simulado de verdade. Os fios mostram os bits que levam, o LED acende pela corrente que passa nele, e qualquer peça pode ser aberta para ver do que ela é feita, até chegar aos transistores.
+
+![Tela inicial](docs/prints/inicio.png)
 
 ## Como jogar
 
@@ -18,34 +24,129 @@ chmod +x bancada
 
 O `chmod` só é preciso na primeira vez, porque o GitHub não guarda a permissão de execução.
 
+**Android 7.0 ou mais novo:** baixe [`jogar/android/bancada.apk`](jogar/android/bancada.apk) no celular e abra o arquivo. O Android pede para permitir a instalação de apps de fora da loja. Se ele disser que o app não foi instalado, desinstale a versão anterior da Bancada e tente de novo.
+
 Para levar o jogo num pendrive com os seus circuitos, crie uma pasta `dados` ao lado do executável: tudo o que o jogo salvar fica nela.
 
-## Estado atual
+## O que tem no jogo
 
-- **Núcleo lógico headless** (`src/sim`): netlist, compilação com detecção de laços, interpretador de referência e simulador orientado a eventos.
-- **Editor headless** (`src/editor`): placa, fios, roteamento, desfazer e ferramentas, testáveis sem janela.
-- **Sandbox** (`src/app`): janela SDL3 que desenha a sessão e traduz eventos.
-- **Arquivos** (`src/io`): projetos, autosave, migrações e perfis locais.
-- **Biblioteca** (`src/editor/boxes.cpp`): portas e caixas prontas de 1 a 64 bits, de somador a ULA, registrador, contador, RAM e ROM, e também buffer, paridade par e ímpar, seletor de bits, codificador de prioridade, multiplicador, divisor, negador, contador de bits, localizador de bit, decodificador para 7 segmentos e gerador aleatório. Entre as entradas e saídas, há também o botão, que vale 1 só enquanto está apertado, o display de 7 segmentos, o teclado (que recebe as teclas do teclado de verdade enquanto está selecionado), a matriz de LEDs 8×8 e o terminal de texto.
-- **Barramentos**: fios de 1 a 64 bits, com separador, juntador e constante.
-- **Clock**: rodar, pausar, passo a passo e velocidade ajustável.
+### Um curso inteiro, do LED ao sistema operacional
+
+São **12 atos, 45 aulas teóricas e 101 exercícios**: eletricidade, transistores, bits, portas lógicas, aritmética, memória, linguagem de máquina, programação, sistema operacional, mais peças, entrada e saída e o computador de 32 bits. Cada ato abre quando os exercícios do anterior estão feitos.
+
+| | |
+|---|---|
+| ![Lista de aulas](docs/prints/aulas.png) | ![Uma aula teórica](docs/prints/leitura.png) |
+
+- **Aulas em telas**, uma ideia por tela, com perguntas no meio (a tela seguinte só abre com a resposta certa, e a errada mostra uma dica), circuitos de verdade em que se clica nas chaves, tabelas, exemplos resolvidos passo a passo, erros comuns e um resumo no fim.
+- **Exercícios que se verificam sozinhos**: o jogo testa o circuito em todas as combinações de entrada, roda o programa no próprio computador ou confere a resposta digitada (em decimal, binário ou hexadecimal). Verificar diz o que falta e Dica ajuda sem entregar a resposta.
+- **Em degraus**: primeiro perguntas, depois usar a peça pronta, depois montá-la por dentro. As saídas são LEDs de verdade, com resistor e terra.
+- **Em breve**, apagados no fim de cada ato: ponto flutuante, mapas de Karnaugh, máquinas de estados, pipeline, desempenho, cache, compilador, memória virtual, interrupções e DMA.
+
+![Um exercício](docs/prints/exercicio.png)
+
+### Um editor de circuitos
+
+- **Lógica**: portas E, OU, NÃO, NAND, NOR, XOR e XNOR, com quantas entradas quiser.
+- **Biblioteca de peças prontas** de 1 a 64 bits: somador, subtrator, comparador, ULA, multiplexador, decodificador, codificador de prioridade, deslocador, extensor, multiplicador, divisor, latch, flip-flop, registrador, contador, banco de registradores, RAM e ROM.
+- **Entrada e saída**: chave, botão, display de 7 segmentos, teclado, matriz de LEDs 8×8 e terminal de texto.
+- **Barramentos** de 1 a 64 bits, com separador, juntador e constante.
+- **Rótulos**: dois rótulos com o mesmo nome são o mesmo fio, sem fio desenhado entre eles.
 - **Chips**: qualquer circuito do projeto vira uma caixa, inclusive dentro de outros chips.
-- **Tabela-verdade** (`src/editor/truth_table.cpp`): recalculada a cada mudança no circuito.
-- **Rótulos**: dois rótulos com o mesmo nome são o mesmo fio, sem fio entre eles.
-- **Computador de 16 bits** (`src/editor/computer16.cpp`, `src/asm`): CPU feita só de peças do editor, em cinco blocos que se abrem, com assembler, editor de código e painel que mostra o programa, o caminho de dados e os registradores.
-- **Eletricidade** (`src/electric`, `src/editor/analog.cpp`): bateria (desenhada como uma bateria de verdade, e também como Fonte, o símbolo), terra, resistor, diodo, LED (desenhado como um LED de verdade, e também como Diodo LED, o símbolo), chave, capacitor e transistores NPN, PNP, NMOS e PMOS, resolvidos como no SPICE. O valor de resistores, baterias e capacitores é digitado só como número, com a unidade fixa ao lado. Corrente e tensão aparecem nos fios e no mouse. Transistores dentro da lógica viram tabelas exatas, inclusive circuitos que lembram.
-- **Visual**: fonte própria embutida (Ubuntu, com acentos), linhas suaves, ícones e biblioteca em pastas, com um desenho de cada peça. A tela inicial tem um logotipo de chip e, ao fundo, circuitos de todos os atos desenhados ao vivo, meio transparentes e flutuando devagar.
-- **Raio-X** (`src/editor/computer_view.cpp`): a instrução do computador de 16 bits passando pelo caminho de dados em seis etapas, com o valor de cada fio. Cada tipo de instrução tem uma cor, e blocos com os valores andam pelas trilhas. O Painel mostra o mesmo diagrama. Cada peça tem a forma do que é: a ULA e os dois somadores (PC + 1 e Alvo do desvio, com a conta PC+1+imm) no formato de ULA, e os quatro multiplexadores (A e B na frente da ULA, o que volta para os registradores e o Próximo PC) no formato de MUX, cada um com as duas entradas e a linha de seleção vinda do Controle. O Z da ULA desce até o Controle, que manda o MUX do Próximo PC desviar ou não. Os testes conferem cada valor contra o circuito.
-- **Por dentro, ao vivo** (`src/editor/architecture.cpp`): qualquer peça de qualquer placa abre por dentro, com clique duplo ou com Ver por dentro no painel: portas, caixas prontas (Extensor, Deslocador, ULA, RAM...) e chips. A planta é a da placa inteira, começando na peça escolhida, e os fios acendem com os valores do circuito rodando (1 claro, 0 escuro), com Rodar e Passo do clock ali mesmo; um teste confere que todo NAND desenhado mostra o NAND das suas entradas. Separador e Juntador, que não têm porta nenhuma, abrem num desenho dos seus fios, bit a bit, com os valores. Na página Computadores, cada computador (16 e 32 bits) aparece inteiro, peça por peça, numa planta só que se vê de três jeitos: portas lógicas, as NANDs de cada porta e os 4 transistores de cada NAND. Quadros com nome dizem o que é cada parte (CPU, ULA, Contador, somador completo, flip-flop...), e as memórias são grades de bits. A planta sai do mesmo circuito que o simulador roda (cada porta marca as NANDs que cria), e os testes conferem que toda NAND aparece, sem nada sobreposto. Arraste para mover, a roda do mouse aproxima; 1, 2 e 3 trocam a vista.
-- **Depurador**: à esquerda do Painel e do Raio-X, como num IDE: o programa com a linha atual e pontos de parada, os registradores (os que mudaram ficam amarelos) e a memória, com um botão que alterna entre Rodar e Pausar (e vira De novo quando o programa chega ao HLT), Instrução, Etapa e Zerar; o ▶ da barra de cima e a barra de espaço fazem o mesmo. Comentários longos quebram em várias linhas.
-- **Exemplos** (`src/editor/gallery.cpp`, `src/editor/gallery_circuits.cpp`): cada peça da biblioteca com o seu nome (portas lógicas, contas de 1 e de N bits, memória), em versões que se trocam acima da placa: a peça pronta, feita de portas lógicas, feita de transistores (lógica resistor-transistor) ou de blocos menores. Cada exemplo explica o que é e como cada versão funciona, e um teste confere que todas as versões de um exemplo dão a mesma tabela-verdade. As portas NÃO, E, OU e XOR têm também a versão Só NAND. Também há circuitos de eletrônica (LED e resistor, fonte e terra, transistor como chave, chaves em série e em paralelo, pisca-pisca), multiplexadores 2:1 e 4:1, latch D, flip-flop D feito de dois latches, dez programas para o computador (soma, multiplicação, Fibonacci, potências de 2, contagem regressiva, soma de uma lista, sub-rotina, contador, um programa escrito em binário e um que espera pelas chaves) e dois com um sistema operacional pequeno (chamadas de sistema e duas tarefas). Toda aula tem pelo menos um exemplo do mesmo assunto.
-- **Programar**: um computador só seu, separado dos exemplos, para escrever e testar os próprios programas. Ele fica salvo e reabre como estava.
-- **Idiomas** (`src/i18n`): português e inglês, escolhidos no canto da tela inicial. O código é escrito em português, e o catálogo em inglês traduz cada texto; os testes conferem que as aulas, os exemplos e as peças estão todos traduzidos.
-- **Aulas** (`src/editor/lessons.cpp`): 91 exercícios em doze atos: eletricidade, transistores, bits (o bit como tensão alta ou baixa, juntar quatro bits num número com o Juntador, separar um número em bits com o Separador, e dois exercícios de perguntas: ler e escrever binário, contar e converter para hexadecimal), portas lógicas, aritmética, memória (latch, flip-flop, registrador, contador), linguagem de máquina (três programas escritos à mão em binário, só com .word), programação no computador de 16 bits (do primeiro programa às sub-rotinas) sistema operacional (entrada e saída, espera ocupada, chamadas de sistema, duas tarefas revezando a CPU e, por fim, o jogador escreve a troca de tarefas), mais peças (paridade, multiplexador, codificador de prioridade, números negativos e multiplicação, deslocar e estender), entrada e saída (display de 7 segmentos, contador com botão, números aleatórios e teclado com terminal) e o computador de 32 bits (MIPS: o primeiro programa, somar um vetor, recortar bits com máscara e deslocamento, um laço até N e uma função com jal). Também há aulas próprias para o decodificador, o multiplexador 4:1, o subtrator, o comparador e a ULA de 1 bit. As saídas são LEDs de verdade, e toda aula oferece na biblioteca a bateria e a fonte, terra, resistor, LED e diodo LED. Cada aula se verifica sozinha (as de programação de 16 bits rodam o programa no próprio circuito, e as de 32 bits no modelo do MIPS que o circuito segue; as de perguntas conferem a resposta digitada, em decimal, binário ou hexadecimal), e os testes resolvem todas. O progresso pode ser zerado na lista de aulas. No fim de cada ato, a lista mostra apagados, como "A ser implementado", os assuntos que ainda vão ganhar aula: ponto flutuante, mapas de Karnaugh, máquinas de estados, pipeline, desempenho, cache, linguagem de alto nível e compilador, memória virtual, interrupções e DMA.
-- **Aulas em telas** (atos Eletricidade, Transistores, Bits, Portas lógicas, Aritmética, Memória, Linguagem de máquina, Programação, Sistema operacional, Mais peças, Entrada e saída e O computador de 32 bits): cada aula se divide em telas, uma ideia por tela, com perguntas no meio (a tela seguinte só abre com a resposta certa, e a errada mostra uma dica), figuras em que se clica nas chaves (inclusive no Clk, para ver a borda), exemplos resolvidos passo a passo, erros comuns e um resumo no fim. Os exercícios vêm em degraus: perguntas, depois usar a peça pronta, depois montá-la por dentro.
-- **Curso** (`src/editor/course.cpp`): cada ato se divide em aulas teóricas, com texto, tabelas e circuitos de verdade desenhados ao vivo, e cada aula é seguida dos seus exercícios. O ato seguinte fica com cadeado até os exercícios do atual estarem feitos. Os doze atos têm 42 aulas teóricas: corrente, circuito e LED; fonte e terra; o resistor e a lei de Ohm; a chave e o capacitor; chaves em série e em paralelo; o transistor; 0 e 1 como tensões e o inversor; NAND e NOR de transistores; o bit e como o simulador o mostra (fio âmbar claro e escuro); bits viram números (pesos, barramento, Juntador e Separador); contar, tamanho e hexadecimal (por que a Saída mostra hexadecimal); as portas lógicas e a álgebra booleana; NAND universal e XOR; decodificador e multiplexador; somar em binário; subtrair e números negativos; comparar e a ULA; o latch SR; o latch D; o clock; o flip-flop D; o registrador; o contador; RAM e ROM; o banco de registradores; a CPU por dentro e o ciclo de instrução; os formatos das instruções e o hexadecimal; desvios, saltos e o montador. Nas aulas, um bloco mostra os 16 bits de uma instrução nas cores do Raio-X, e o montador aceita _ entre os dígitos (0b0010_001_000000111). Na programação e no sistema operacional: assembly, laços e memória, sub-rotinas, entrada e saída com espera, chamadas de sistema e troca de tarefas; nas peças finais: paridade, multiplexador e prioridade, negativos e multiplicação, deslocar e estender, display de 7 segmentos, botões e números ao acaso, teclado e terminal; no computador de 32 bits: registradores, syscall e endereços em bytes, os formatos R, I e J, e desvios, saltos, funções e a pilha. As aulas de programação trazem trechos de código coloridos como no editor.
-- **Raio-X e Ajuda do assembly**: o Raio-X mostra os 16 bits da instrução, campo por campo e em cores, e os valores que andam nos fios usam as cores dos campos de onde vêm. O editor de programas tem um botão Ajuda com todas as instruções, o que cada uma faz, um exemplo e como seus 16 bits se dividem.
-- Ainda não existem puzzles, laboratório nem JIT.
+- **Tabela-verdade** ao lado, recalculada a cada mudança.
+- **Clock** com Rodar, Pausar, passo a passo e velocidade ajustável.
+- Desfazer, copiar e colar, salvar e abrir projetos, salvamento automático e perfis de jogador.
+
+### Eletrônica de verdade
+
+Bateria, fonte, terra, resistor, diodo, LED, chave, capacitor e transistores NPN, PNP, NMOS e PMOS, resolvidos como no SPICE. Corrente e tensão aparecem nos fios e ao passar o mouse, e o LED acende pela corrente que passa nele. O simulador elétrico é conferido contra o ngspice.
+
+![Eletrônica](docs/prints/eletronica.png)
+
+### Ver por dentro
+
+Clique duplo em qualquer peça (ou Ver por dentro no painel) abre a peça por dentro, só para ver: uma porta vira transistores ou só NANDs, um multiplexador vira portas lógicas, e as peças maiores viram blocos menores. Clique duplo de novo desce mais um nível. Separador e Juntador, que não têm porta nenhuma, mostram os seus fios bit a bit.
+
+![Multiplexador por dentro](docs/prints/por-dentro.png)
+
+### 70 exemplos prontos
+
+Eletrônica, portas lógicas, contas de 1 e de N bits, memória, programas para o computador e um sistema operacional pequeno (chamadas de sistema e duas tarefas). Muitos exemplos têm várias versões: a peça pronta, feita de portas lógicas, feita de transistores ou de blocos menores, e um teste confere que todas dão a mesma tabela-verdade.
+
+Os exemplos são só para ver: as chaves e botões funcionam, mas o circuito não muda. **Editar uma cópia** abre o mesmo circuito como um projeto seu, e mudar a cópia não muda o exemplo.
+
+![Exemplos](docs/prints/exemplos.png)
+
+### O computador de 16 bits
+
+Uma CPU feita só de peças do editor: contador de programa, ROM, decodificador, banco de 8 registradores, ULA, RAM e controle. Tem assembler próprio, com 16 instruções de 16 bits cada.
+
+- **Painel**: o caminho de dados desenhado com os valores de cada fio, ao lado de um depurador com o programa, pontos de parada, registradores e memória.
+- **Raio-X**: a instrução atual passando pelas seis etapas (busca, decodifica, executa, memória, escreve e próximo PC), cada campo dos 16 bits na sua cor, com o texto do que acontece em cada etapa.
+
+| | |
+|---|---|
+| ![Painel do computador de 16 bits](docs/prints/painel-16.png) | ![Raio-X](docs/prints/raio-x.png) |
+
+### O computador de 32 bits (MIPS)
+
+Um MIPS de 32 bits com os formatos R, I e J, 32 registradores (`$t0`, `$s0`, `$sp`...), `.data` e `.word`, pseudoinstruções como `li` e `la`, `jal` e `jr`, e `syscall` para mostrar números e letras.
+
+- **Painel**: a instrução no PC com os seus campos coloridos, todos os registradores, o console, a pilha e uma **Memória** que rola e cresce conforme o programa usa, mostrando onde apontam `$gp` e `$sp` e o que mudou.
+- **Passo a passo**: o que cada instrução fez, em português ("`$t1` passou de 0 para 5", "gravou 1 em contador (era 0)").
+- **Aba Memória**: uma palavra por linha, com o endereço, o valor em hexadecimal e em decimal, quem aponta para ela e a última mudança.
+
+| | |
+|---|---|
+| ![Editor de código MIPS](docs/prints/mips-codigo.png) | ![Painel do MIPS](docs/prints/mips-memoria.png) |
+
+### Editor de código
+
+Um editor para os dois computadores, com cores, ajuda de todas as instruções e mensagens de erro na linha certa. **Salvar** e **Abrir** guardam o programa num arquivo de texto (`.asm` para o de 16 bits, `.s` para o MIPS), e `Ctrl+Enter` monta e grava na ROM.
+
+### Os computadores inteiros, ao vivo
+
+Na tela Editor de código, **Por dentro** mostra cada computador inteiro, peça por peça, de três jeitos: portas lógicas, as NANDs de cada porta e os transistores de cada NAND. A CPU de 16 bits tem 2.632 portas lógicas, 3.149 NANDs e mais de 7 milhões de transistores contando a memória. Os fios acendem com o circuito rodando.
+
+| | |
+|---|---|
+| ![Escolha do computador](docs/prints/computadores.png) | ![CPU por dentro, ao vivo](docs/prints/cpu-ao-vivo.png) |
+
+### Português e inglês
+
+O jogo inteiro existe nos dois idiomas, escolhidos no canto da tela inicial. Os testes conferem que todas as aulas, exemplos e peças estão traduzidos.
+
+## Referências
+
+Os textos, circuitos e exercícios da Bancada são próprios. Para escrevê-los e conferir se estão corretos, foram usados estes livros e materiais.
+
+### Livros
+
+- **William Stallings, *Arquitetura e Organização de Computadores*** (Pearson). A referência principal: os conceitos das aulas foram conferidos contra o livro e adaptados a partir dele, da representação dos dados e da aritmética do computador até a memória, o conjunto de instruções e a estrutura da CPU.
+- **David A. Patterson e John L. Hennessy, *Organização e Projeto de Computadores: a interface hardware/software*** (Elsevier). Base do computador de 32 bits: a arquitetura MIPS, os formatos R, I e J, o cartão de referência das instruções (o "green sheet") e o caminho de dados.
+- **James R. Larus, *Assemblers, Linkers, and the SPIM Simulator*** (apêndice do livro de Patterson e Hennessy) e a documentação do simulador SPIM. Base das chamadas de sistema (`syscall`), das diretivas `.data`, `.text` e `.word` e do mapa de memória do MIPS (`$gp` em `0x10008000`, `.data` em `0x10010000`, `$sp` em `0x7FFFEFFC`).
+- **Noam Nisan e Shimon Schocken, *The Elements of Computing Systems*** (MIT Press, o curso Nand2Tetris). A ideia de construir o computador inteiro a partir da porta NAND, que é a única porta primitiva do simulador.
+- **Charles Petzold, *Code: The Hidden Language of Computer Hardware and Software*** (Microsoft Press). A sequência que vai do circuito elétrico com chaves até o computador.
+- **David Money Harris e Sarah L. Harris, *Digital Design and Computer Architecture*** (Morgan Kaufmann). Consultado para a ordem dos assuntos de lógica digital e arquitetura.
+
+### Materiais de curso e referência do MIPS
+
+- Tutorial do MARS (Missouri State University), o ambiente de MIPS usado em muitos cursos, consultado para o editor de código.
+- *MIPS Reference Data*, a tabela de codificação das instruções, e *MIPS Reference Guide* (University of Cambridge).
+- Materiais de aula sobre MIPS da Cornell University (CS 3410), da University of California, Berkeley (CS 61C), da University of Washington (CSE 378) e da King Fahd University of Petroleum and Minerals (COE 301).
+
+### Currículo
+
+- ACM/IEEE-CS/AAAI, *Computer Science Curricula 2023* (CS2023): os conhecimentos de arquitetura e organização esperados num curso de computação.
+- Planos de ensino e apostilas de arquitetura e organização de computadores de instituições brasileiras (IFPB, IFCE, IFF, USP, UFU e o repositório eduCAPES), para alinhar o curso ao que se ensina no Brasil.
+
+### Ferramentas, bibliotecas e fonte
+
+- [ngspice](https://ngspice.sourceforge.io/): o simulador elétrico da Bancada é conferido contra ele (`tools/compare_spice.py`).
+- [SDL3](https://www.libsdl.org/): janela, desenho e entrada, no Windows, no Linux e no Android.
+- [zstd](https://github.com/facebook/zstd) e [xxHash](https://github.com/Cyan4973/xxHash): compressão e verificação dos arquivos de projeto.
+- [nlohmann/json](https://github.com/nlohmann/json): leitura e escrita do conteúdo dos projetos.
+- Família de fontes **Ubuntu** (Ubuntu, Ubuntu Medium e Ubuntu Mono), embutida no jogo sob a Ubuntu Font Licence 1.0; o aviso está em [`assets/fonts/LICENCA-fonte-ubuntu.txt`](assets/fonts/LICENCA-fonte-ubuntu.txt).
 
 ## Usar o editor
 
@@ -65,20 +166,20 @@ Para levar o jogo num pendrive com os seus circuitos, crie uma pasta `dados` ao 
 | Navegar | Roda do mouse dá zoom; botão direito ou do meio move a vista; `F` enquadra |
 | Simular | Clique em uma entrada para ligar ou desligar; em entradas de vários bits, clique no bit; `T` mostra ou esconde a tabela |
 | Bits | Selecione a peça e use Bits no painel, ou `,` e `.`; um fio entre larguras diferentes fica vermelho |
-| Clock | Coloque um Clock e use Rodar, Passo e Zerar na barra; `Espaco` roda ou pausa, `N` dá meio ciclo |
+| Clock | Coloque um Clock e use Rodar, Passo e Zerar na barra; `Espaço` roda ou pausa, `N` dá meio ciclo |
+| Rótulos | Arraste um Rótulo da pasta Fios e dê um nome no painel; clique num rótulo e todos com o mesmo nome ficam em laranja |
+| Por dentro | Clique duplo numa peça, ou Ver por dentro no painel; clique duplo lá dentro desce mais um nível; `Esc` volta |
 | Chips | Em Circuitos do projeto, clique em + Novo chip; suas Entradas e saídas viram os pinos; arraste o nome para a placa; clique no nome ou dê duplo clique no chip para abrir |
 | ROM e constante | Selecione e use Editar conteúdo ou Editar valor, em hexadecimal |
-| Programa | Selecione uma ROM de 16 bits e use Editar programa; `Ctrl+Enter` monta e grava |
-| Computador | Em Exemplos, abra Computador pronto ou um dos programas e use Painel na barra para ver a CPU trabalhando |
-| Seu programa | Na tela inicial, clique em Programar: o editor de código abre num computador só seu |
-| Depurador | No Painel ou no Raio-X, clique numa linha do programa para parar nela; Continuar, Instrução e Etapa avançam |
-| Idioma | Na tela inicial, Português ou English, no canto de cima |
-| Rótulos | Clique num rótulo: todos os rótulos com o mesmo nome ficam em laranja, com os fios do sinal |
-| Versões de um exemplo | Os botões à direita, acima da placa: Peça pronta, Portas lógicas, Transistores ou Blocos |
-| Raio-X | Com o computador na placa, use Raio-X na barra: as etapas avançam sozinhas; clique numa etapa para ficar nela; Próxima instrução avança |
-| Aulas | Na tela inicial, clique em Aulas, escolha o ato à esquerda e leia a aula antes dos exercícios; Verificar diz o que falta, Dica ajuda, e o exercício se completa sozinho quando o circuito funciona |
-| Tela inicial | O botão da casinha, no começo da barra; o circuito fica salvo e Continuar o traz de volta |
+| Programa | Selecione uma ROM e use Programar a ROM; `Ctrl+Enter` monta e grava |
+| Editor de código | Na tela inicial, Editor de código, e escolha 16 bits ou 32 bits · MIPS; Salvar e Abrir guardam o programa em arquivo |
+| Exemplos | Na tela inicial, Exemplos; os botões acima da placa trocam a versão; Editar uma cópia abre o circuito para mudar |
+| Painel e Raio-X | Com um computador na placa, use Painel ou Raio-X na barra; clique numa linha do programa para parar nela |
+| Memória | No computador de 32 bits, a aba Memória lista uma palavra por linha; a roda do mouse rola a memória do painel |
+| Aulas | Na tela inicial, Começar as aulas; leia a aula antes dos exercícios; Verificar diz o que falta e Dica ajuda |
 | Eletrônica | Arraste bateria, resistores e transistores; clique na chave para fechá-la; passe o mouse para medir; Editar valor aceita `4k7`, `220`, `10u` |
+| Tela inicial | O botão da casinha, no começo da barra; o circuito fica salvo e Continuar o traz de volta |
+| Idioma | Na tela inicial, Português ou English, no canto de cima |
 | Salvar | `Ctrl+S`; `Ctrl+Shift+S` salva com outro nome |
 | Abrir | `Ctrl+O`, ou solte um arquivo `.bancada` na janela |
 | Novo projeto | `Ctrl+N` |
@@ -130,6 +231,30 @@ ctest --test-dir build --output-on-failure
 Para compilar só o núcleo, sem janela, use `-DBANCADA_APP=OFF`.
 Para conferir o simulador elétrico contra o ngspice: `python3 tools/compare_spice.py build/bancada_electric_cli`.
 Para detectar erros de memória no Linux, use `-DBANCADA_SANITIZE=ON`.
+
+### Android
+
+O projeto do Android fica em [`android`](android). Ele compila o mesmo C++ do computador, com o SDL dentro, usando o Android SDK, o NDK 28.2.13676358 e o CMake 3.31.6. Os caminhos das ferramentas desta máquina vão em `android/local.properties`, que fica fora do git; [`android/app/build.gradle`](android/app/build.gradle) explica cada um. Com eles no lugar:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+O APK sai em `android/app/build/outputs/apk/debug/` e é copiado para `jogar/android/bancada.apk`.
+
+## Estrutura do código
+
+| Pasta | O que tem |
+|---|---|
+| `src/sim` | Núcleo lógico: netlist, compilação com detecção de laços, interpretador de referência e simulador orientado a eventos |
+| `src/electric` | Simulador elétrico, resolvido como no SPICE |
+| `src/editor` | Placa, fios, roteamento, desfazer, peças prontas, chips, os dois computadores, aulas, exemplos e tabela-verdade, tudo testável sem janela |
+| `src/asm` | Montadores do computador de 16 bits e do MIPS |
+| `src/io` | Projetos, salvamento automático, migrações e perfis |
+| `src/i18n` | Catálogo em inglês |
+| `src/app` | A janela SDL3, que desenha tudo e traduz os eventos |
+| `tests` | 15 grupos de testes, que resolvem todos os exercícios e conferem os exemplos, os computadores e as traduções |
 
 ## Modo portátil
 
