@@ -81,7 +81,7 @@ Os exemplos são só para ver: as chaves e botões funcionam, mas o circuito nã
 
 Uma CPU feita só de peças do editor: contador de programa, ROM, decodificador, banco de 8 registradores, ULA, RAM e controle. Tem assembler próprio, com 16 instruções de 16 bits cada.
 
-- **Painel**: o caminho de dados desenhado com os valores de cada fio, ao lado de um depurador com o programa, pontos de parada, registradores e memória.
+- **Painel**: o caminho de dados desenhado com os valores de cada fio, ao lado de um depurador com o programa, pontos de parada, registradores e memória. Embaixo, o **passo a passo** do que cada instrução fez e a **memória** que o programa usa, com o que mudou.
 - **Raio-X**: a instrução atual passando pelas seis etapas (busca, decodifica, executa, memória, escreve e próximo PC), cada campo dos 16 bits na sua cor, com o texto do que acontece em cada etapa.
 
 | | |
@@ -92,9 +92,9 @@ Uma CPU feita só de peças do editor: contador de programa, ROM, decodificador,
 
 Um MIPS de 32 bits com os formatos R, I e J, 32 registradores (`$t0`, `$s0`, `$sp`...), `.data` e `.word`, pseudoinstruções como `li` e `la`, `jal` e `jr`, e `syscall` para mostrar números e letras.
 
-- **Painel**: a instrução no PC com os seus campos coloridos, todos os registradores, o console, a pilha e uma **Memória** que rola e cresce conforme o programa usa, mostrando onde apontam `$gp` e `$sp` e o que mudou.
+- **Painel**: como no computador de 16 bits, a arquitetura inteira com o valor de cada fio. Embaixo, uma **Memória** que rola e cresce conforme o programa usa, mostrando onde apontam `$gp` e `$sp` e o que mudou.
 - **Passo a passo**: o que cada instrução fez, em português ("`$t1` passou de 0 para 5", "gravou 1 em contador (era 0)").
-- **Aba Memória**: uma palavra por linha, com o endereço, o valor em hexadecimal e em decimal, quem aponta para ela e a última mudança.
+- **Aba Memória**: uma palavra por linha, com o endereço, o valor em hexadecimal e em decimal, quem aponta para ela e a última mudança; ao lado, os 32 registradores e o PC, com o que a última instrução mudou em destaque. O computador de 16 bits tem a mesma aba, com R0 a R7, o PC e a saída.
 
 | | |
 |---|---|

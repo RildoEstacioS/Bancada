@@ -3847,6 +3847,11 @@ constexpr Entry kEnglish[] = {
     {"Na tabela de serviços, procure o que lê as chaves.", "In the table of services, look for the one that reads the switches."},
     {"Conte os 1 de 1011: se já for uma quantidade ímpar, P não precisa somar nada.", "Count the 1s in 1011: if there's already an odd number of them, P needn't add anything."},
     {"Conte os 1 de 0110: se for uma quantidade par, P precisa completar.", "Count the 1s in 0110: if there's an even number of them, P has to make up the difference."},
+    {"A chave Rst estava ligada e segurava a CPU no começo do programa. Ela foi desligada para o programa andar.", "The Rst switch was on and held the CPU at the start of the program. It was turned off so the program can run."},
+    {"Do endereço 0 em diante", "From address 0 onwards"},
+    {"… e mais {} palavras livres", "… and {} more free words"},
+    {"gravou {} no endereço {} (era {})", "stored {} at address {} (it was {})"},
+    {"mostrou {} na saída", "showed {} on the output"},
 };
 
 }  // namespace

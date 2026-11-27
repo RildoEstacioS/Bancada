@@ -2566,7 +2566,9 @@ void drawStepColumn(SDL_Renderer* renderer, const SDL_FRect& side, int stage, co
     }
 }
 
-void drawComputerPanel(SDL_Renderer* renderer, const ComputerState& state, const SDL_FRect& area, float mouseX, float mouseY) {
+void drawPanelBelow16(SDL_Renderer* renderer, const ComputerState& state, const DebugView* debug, const SDL_FRect& area);  // below
+
+void drawComputerPanel(SDL_Renderer* renderer, const ComputerState& state, const DebugView* debug, const SDL_FRect& area, float mouseX, float mouseY) {
     fillRect(renderer, area, kBackground);
     const SDL_FRect next = panelNextButton(area);
     fillRound(renderer, next, 8, inside(next, mouseX, mouseY) ? kPanelHover : kPanelButton);
@@ -2576,6 +2578,7 @@ void drawComputerPanel(SDL_Renderer* renderer, const ComputerState& state, const
     write(renderer, Face::Regular, 16.0f, sentenceX, next.y + 22.0f, fitted(renderer, Face::Regular, 16.0f, explainInstruction(state), area.x + area.w - sentenceX - 16.0f), kText);
     drawXrayPlan(renderer, state, panelPlanArea(area), kTraceStages - 1, 100.0f);
     drawZoomButtons(renderer, panelPlanArea(area), mouseX, mouseY);
+    drawPanelBelow16(renderer, state, debug, area);
 }
 
 // --- The X-ray: the instruction about to run going through the CPU, with the value on each wire ------
@@ -4919,7 +4922,6 @@ SDL_FRect viewSwitchRect(float rightEdge, int which) { return viewButtons(rightE
 
 SDL_FRect panelNextButton(const SDL_FRect& area) { return {area.x + 14.0f, area.y + 12.0f, 182.0f, 34.0f}; }
 
-SDL_FRect panelPlanArea(const SDL_FRect& area) { return {area.x + 10.0f, area.y + 58.0f, area.w - 20.0f, area.h - 68.0f}; }
 
 XrayParts xrayParts(const SDL_FRect& area) {
     XrayParts p;
@@ -6791,28 +6793,23 @@ namespace {
 constexpr float kPanelMemoryRow = 17.0f;
 constexpr float kStepRow = 40.0f;
 
-// Where the 32-bit panel's boxes go: the instruction, the registers and the steps on the left; the console,
-// the memory and the stack on the right.
-struct Panel32Layout {
-    SDL_FRect now, regs, steps, console, memory, stack;
+// Where a computer's panel puts its pieces, the same on both: the architecture on top, and under it what each
+// instruction did, beside the memory the program uses.
+struct PanelLayout {
+    SDL_FRect plan, steps, memory;
 };
 
-Panel32Layout panel32Layout(const SDL_FRect& area) {
-    Panel32Layout l;
-    const float top = area.y + 60.0f;
-    const float left = area.x + 12.0f;
-    const float width = area.w - 24.0f;
-    const float rightWidth = std::min(400.0f, width * 0.38f);
-    const float mainWidth = width - rightWidth - 12.0f;
-    const float bottom = area.y + area.h - 12.0f;
-    l.now = {left, top, mainWidth, 98.0f};
-    l.regs = {left, top + 110.0f, mainWidth, 8.0f * 22.0f + 36.0f};
-    l.steps = {left, l.regs.y + l.regs.h + 12.0f, mainWidth, std::max(60.0f, bottom - (l.regs.y + l.regs.h + 12.0f))};
-    const float rx = left + mainWidth + 12.0f;
-    l.console = {rx, top, rightWidth, 120.0f};
-    const float rest = bottom - (top + 132.0f);
-    l.memory = {rx, top + 132.0f, rightWidth, rest * 0.64f};
-    l.stack = {rx, l.memory.y + l.memory.h + 12.0f, rightWidth, rest * 0.36f - 12.0f};
+PanelLayout panelLayout(const SDL_FRect& area) {
+    PanelLayout l;
+    const float left = area.x + 10.0f;
+    const float width = area.w - 20.0f;
+    const float top = area.y + 58.0f;
+    const float bottom = area.y + area.h - 10.0f;
+    const float boxes = std::clamp(area.h * 0.3f, 150.0f, 260.0f);
+    l.plan = {left, top, width, std::max(120.0f, bottom - boxes - 10.0f - top)};
+    const float memoryWidth = std::min(420.0f, width * 0.4f);
+    l.steps = {left, bottom - boxes, width - memoryWidth - 10.0f, boxes};
+    l.memory = {left + width - memoryWidth, bottom - boxes, memoryWidth, boxes};
     return l;
 }
 
@@ -6849,7 +6846,7 @@ void drawMemory32(SDL_Renderer* renderer, const Computer32State& state, const De
     const std::uint32_t total = usedRows32(state, debug);
     const int visible = memoryPanelVisible(box);
     const int maxFirst = std::max(0, static_cast<int>(total) - visible);
-    const auto first = static_cast<std::uint32_t>(std::clamp(debug != nullptr ? debug->memoryRow32 : 0, 0, maxFirst));
+    const auto first = static_cast<std::uint32_t>(std::clamp(debug != nullptr ? debug->memoryRow : 0, 0, maxFirst));
     write(renderer, Face::Regular, 11.5f, box.x, box.y + 8.0f,
           first == 0 ? "… antes de .data: o fim da RAM, onde fica a pilha" : i18n::format("… {} palavras acima: role para ver", {std::to_string(first)}),
           kTextOff);
@@ -6895,7 +6892,7 @@ void drawMemory32(SDL_Renderer* renderer, const Computer32State& state, const De
 
 // What each instruction run did, the last at the top: its address and text, then what changed.
 void drawSteps32(SDL_Renderer* renderer, const DebugView* debug, const SDL_FRect& box) {
-    const std::vector<Step32>* steps = debug != nullptr ? debug->steps32 : nullptr;
+    const std::vector<Step32>* steps = debug != nullptr ? debug->steps : nullptr;
     if (steps == nullptr || steps->empty()) {
         const std::vector<std::string> lines =
             wrapped(renderer, Face::Regular, 13.0f,
@@ -6915,21 +6912,85 @@ void drawSteps32(SDL_Renderer* renderer, const DebugView* debug, const SDL_FRect
     }
 }
 
+// The RAM words a 16-bit program uses, from address 0: holding something, read or written now, or just changed.
+// The list grows to two words past the last of them.
+std::uint32_t usedRows16(const ComputerState& state, const DebugView* debug) {
+    const auto words = static_cast<std::uint32_t>(state.ramWords.size());
+    std::uint32_t last = 0;
+    for (std::uint32_t w = 0; w < words; ++w) {
+        bool used = state.ramWords[w] != 0 || static_cast<int>(w) == state.accessed;
+        if (debug != nullptr && debug->hasBefore && debug->ramBefore16.size() == words && debug->ramBefore16[w] != state.ramWords[w]) used = true;
+        if (used) last = w;
+    }
+    return std::min(words, std::max(8u, last + 3u));
+}
+
+// The 16-bit RAM as the program uses it: each word's address, its value and, when the last instruction changed
+// it, what it was. The word the next LD or ST uses is framed. Lines above and below say there is more.
+void drawMemory16(SDL_Renderer* renderer, const ComputerState& state, const DebugView* debug, const SDL_FRect& box) {
+    const auto words = static_cast<std::uint32_t>(state.ramWords.size());
+    if (words == 0) {
+        write(renderer, Face::Regular, 12.5f, box.x, box.y + 12.0f, "Este computador não tem RAM ligada.", kTextDim);
+        return;
+    }
+    const std::uint32_t total = usedRows16(state, debug);
+    const int visible = memoryPanelVisible(box);
+    const int maxFirst = std::max(0, static_cast<int>(total) - visible);
+    const auto first = static_cast<std::uint32_t>(std::clamp(debug != nullptr ? debug->memoryRow : 0, 0, maxFirst));
+    write(renderer, Face::Regular, 12.0f, box.x, box.y + 8.0f,
+          first == 0 ? std::string(i18n::tr("Do endereço 0 em diante")) : i18n::format("… {} palavras acima: role para ver", {std::to_string(first)}), kTextDim);
+    for (std::uint32_t row = 0; row < static_cast<std::uint32_t>(visible); ++row) {
+        const std::uint32_t word = first + row;
+        if (word >= total) break;
+        const std::uint16_t value = state.ramWords[word];
+        const float y = box.y + 26.0f + kPanelMemoryRow * static_cast<float>(row);
+        const bool changed = debug != nullptr && debug->hasBefore && debug->ramBefore16.size() == words && debug->ramBefore16[word] != value;
+        if (changed) fillRound(renderer, {box.x - 4.0f, y - 12.0f, box.w + 8.0f, 16.0f}, 4, Color{92, 84, 30});
+        if (static_cast<int>(word) == state.accessed) frameRound(renderer, {box.x - 4.0f, y - 12.0f, box.w + 8.0f, 16.0f}, 4, 1.2f, kWirePreview);
+        write(renderer, Face::Mono, 12.0f, box.x, y, "0x" + hex32(word).substr(4), kTextDim);
+        write(renderer, Face::Mono, 12.0f, box.x + 64.0f, y, hex32(value).substr(4), value != 0 ? kKnobOn : kTextOff);
+        std::string decimal = std::to_string(static_cast<std::int16_t>(value));
+        if (changed) decimal = i18n::format("era {}, agora {}", {std::to_string(static_cast<std::int16_t>(debug->ramBefore16[word])), decimal});
+        const float w = textWidth(renderer, Face::Regular, 12.0f, decimal);
+        if (box.x + 110.0f + w <= box.x + box.w) write(renderer, Face::Regular, 12.0f, box.x + box.w - w, y, decimal, changed ? kText : kTextDim);
+    }
+    const std::uint32_t shownEnd = std::min(total, first + static_cast<std::uint32_t>(visible));
+    const std::string below = shownEnd < total ? i18n::format("… {} palavras abaixo: role para ver", {std::to_string(total - shownEnd)})
+                                               : i18n::format("… e mais {} palavras livres", {std::to_string(words - total)});
+    write(renderer, Face::Regular, 12.0f, box.x, box.y + 26.0f + kPanelMemoryRow * static_cast<float>(visible) + 2.0f, below, kTextDim);
+}
+
+void drawPanelBelow16(SDL_Renderer* renderer, const ComputerState& state, const DebugView* debug, const SDL_FRect& area) {
+    const PanelLayout l = panelLayout(area);
+    drawSteps32(renderer, debug, titledBox(renderer, l.steps, "Passo a passo: o que cada instrução fez"));
+    drawMemory16(renderer, state, debug, titledBox(renderer, l.memory, "Memória"));
+}
+
 }  // namespace
 
 int panel32MemoryMaxRow(const Computer32State& state, const DebugView& debug, const SDL_FRect& area) {
-    const SDL_FRect box = panel32Layout(area).memory;
+    const SDL_FRect box = panelLayout(area).memory;
     const SDL_FRect inner{box.x + 12.0f, box.y + 30.0f, box.w - 24.0f, box.h - 36.0f};  // as titledBox leaves it
     return std::max(0, static_cast<int>(usedRows32(state, &debug)) - memoryPanelVisible(inner));
 }
 
-SDL_FRect panel32MemoryArea(const SDL_FRect& area) { return panel32Layout(area).memory; }
+SDL_FRect panelMemoryArea(const SDL_FRect& area) { return panelLayout(area).memory; }
+
+SDL_FRect panelPlanArea(const SDL_FRect& area) { return panelLayout(area).plan; }
+
+int panel16MemoryMaxRow(const ComputerState& state, const DebugView& debug, const SDL_FRect& area) {
+    const SDL_FRect box = panelLayout(area).memory;
+    const SDL_FRect inner{box.x + 12.0f, box.y + 30.0f, box.w - 24.0f, box.h - 36.0f};  // as titledBox leaves it
+    return std::max(0, static_cast<int>(usedRows16(state, &debug)) - memoryPanelVisible(inner));
+}
 
 namespace {
 
 constexpr float kMemoryRowHeight = 26.0f;
 
 struct MemoryLayout {
+    SDL_FRect registers{};  // empty when there are none to show
+    float listRight = 0.0f;
     SDL_FRect base;
     std::vector<SDL_FRect> jumps;
     std::vector<std::string> note;
@@ -6954,6 +7015,11 @@ MemoryLayout memoryLayout(SDL_Renderer* renderer, const MemoryView& view, const 
     if (l.note.size() > 2) l.note.resize(2);
     l.listTop = area.y + 64.0f + 18.0f * static_cast<float>(l.note.size()) + 26.0f;
     l.rows = std::max(1, static_cast<int>((area.y + area.h - 30.0f - l.listTop) / kMemoryRowHeight));
+    const float registersWidth = view.registers.empty() ? 0.0f : view.registers.size() > 12 ? std::min(340.0f, area.w * 0.34f) : std::min(230.0f, area.w * 0.28f);
+    l.listRight = area.x + area.w - 16.0f - (registersWidth > 0.0f ? registersWidth + 18.0f : 0.0f);
+    if (registersWidth > 0.0f) {
+        l.registers = {area.x + area.w - 16.0f - registersWidth, l.listTop - 34.0f, registersWidth, area.y + area.h - 24.0f - (l.listTop - 34.0f)};
+    }
     return l;
 }
 
@@ -7001,11 +7067,16 @@ void drawMemoryView(SDL_Renderer* renderer, const MemoryView& view, const SDL_FR
         fillRound(renderer, l.jumps[i], 8, usable && inside(l.jumps[i], mouseX, mouseY) ? kPanelHover : kPanelButton);
         write(renderer, Face::Medium, kUiText, l.jumps[i].x + 12.0f, l.jumps[i].y + 20.0f, view.jumps[i].first, usable ? kText : kTextOff);
     }
-    // The columns: where each one starts.
+    // The columns: where each one starts; closer together when the registers take the right side.
     const float x0 = area.x + 16.0f;
-    const float xValue = x0 + 140.0f, xOther = xValue + 130.0f, xNames = xOther + 130.0f, xChange = xNames + 240.0f;
+    const bool roomy = l.listRight - x0 >= 800.0f;
     const char* valueHead = view.hex ? "Valor (hexadecimal)" : "Valor (decimal)";
     const char* otherHead = view.hex ? "Em decimal" : "Em hexadecimal";
+    // Each column at least as wide as its heading, so the headings never run into each other.
+    const float xValue = x0 + (roomy ? 140.0f : view.bits == 16 ? 90.0f : 116.0f);
+    const float xOther = xValue + std::max(roomy ? 130.0f : 96.0f, textWidth(renderer, Face::Medium, 12.0f, valueHead) + 18.0f);
+    const float xNames = xOther + std::max(roomy ? 130.0f : 96.0f, textWidth(renderer, Face::Medium, 12.0f, otherHead) + 18.0f);
+    const float xChange = xNames + (roomy ? 240.0f : 110.0f);
     write(renderer, Face::Medium, 12.0f, x0, l.listTop - 8.0f, "Endereço", kTextDim);
     write(renderer, Face::Medium, 12.0f, xValue, l.listTop - 8.0f, valueHead, kTextDim);
     write(renderer, Face::Medium, 12.0f, xOther, l.listTop - 8.0f, otherHead, kTextDim);
@@ -7018,7 +7089,7 @@ void drawMemoryView(SDL_Renderer* renderer, const MemoryView& view, const SDL_FR
         if (index >= total) break;
         const auto word = static_cast<std::uint32_t>(index);
         const std::uint32_t value = view.words[word];
-        const SDL_FRect row{x0 - 6.0f, l.listTop + kMemoryRowHeight * static_cast<float>(r), area.w - 20.0f, kMemoryRowHeight - 2.0f};
+        const SDL_FRect row{x0 - 6.0f, l.listTop + kMemoryRowHeight * static_cast<float>(r), l.listRight - x0 + 10.0f, kMemoryRowHeight - 2.0f};
         const bool changed = known && view.before[word] != value;
         if (changed) {
             fillRound(renderer, row, 5, Color{92, 84, 30});
@@ -7042,7 +7113,36 @@ void drawMemoryView(SDL_Renderer* renderer, const MemoryView& view, const SDL_FR
         if (changed) {
             const std::string was = i18n::format("era {}, agora {}", {view.hex ? memoryHexText(view, view.before[word]) : memoryDecimalText(view, view.before[word]),
                                                                        view.hex ? memoryHexText(view, value) : memoryDecimalText(view, value)});
-            write(renderer, Face::Regular, 13.0f, xChange, y, fitted(renderer, Face::Regular, 13.0f, was, area.x + area.w - 16.0f - xChange), kText);
+            write(renderer, Face::Regular, 13.0f, xChange, y, fitted(renderer, Face::Regular, 13.0f, was, l.listRight - xChange), kText);
+        }
+    }
+    // Every register, beside the RAM: what the last instruction changed is lit, as in the list.
+    if (l.registers.w > 0.0f) {
+        const SDL_FRect regs = titledBox(renderer, l.registers, "Registradores");
+        // The registers split evenly into the columns; the PC and what follows it go under the last column.
+        const int count = static_cast<int>(view.registers.size());
+        const int columns = count > 12 ? 2 : 1;
+        const int even = count > 12 ? 32 : 8;  // the computer's own registers
+        const int perColumn = std::min(count, even) / columns;
+        const int rows = perColumn + std::max(0, count - columns * perColumn);
+        const float columnWidth = regs.w / static_cast<float>(columns);
+        const float rowHeight = std::min(22.0f, regs.h / static_cast<float>(std::max(1, rows)));
+        for (int i = 0; i < count; ++i) {
+            const MemoryRegister& reg = view.registers[static_cast<std::size_t>(i)];
+            int column = i / std::max(1, perColumn);
+            int row = i % std::max(1, perColumn);
+            if (column >= columns) {
+                column = columns - 1;
+                row = perColumn + (i - columns * perColumn);
+            }
+            const float x = regs.x + static_cast<float>(column) * columnWidth;
+            const float y = regs.y + static_cast<float>(row) * rowHeight;
+            if (reg.changed) fillRound(renderer, {x - 4.0f, y, columnWidth - 6.0f, rowHeight - 2.0f}, 4, Color{92, 84, 30});
+            const float baseline = y + rowHeight / 2.0f + 4.0f;
+            write(renderer, Face::Medium, 12.5f, x, baseline, reg.name, kText);
+            const std::string value = view.hex ? memoryHexText(view, reg.value) : memoryDecimalText(view, reg.value);
+            const float w = textWidth(renderer, Face::Mono, 12.0f, value);
+            write(renderer, Face::Mono, 12.0f, x + columnWidth - 12.0f - w, baseline, value, reg.changed ? kText : reg.value != 0 ? kKnobOn : kTextOff);
         }
     }
     const std::string where = i18n::format("palavras {} a {} de {}. A roda do mouse rola.",
@@ -7050,9 +7150,16 @@ void drawMemoryView(SDL_Renderer* renderer, const MemoryView& view, const SDL_FR
     write(renderer, Face::Regular, 12.0f, area.x + area.w - 16.0f - textWidth(renderer, Face::Regular, 12.0f, where), area.y + area.h - 10.0f, where, kTextDim);
 }
 
+namespace {
+void drawXray32Plan(SDL_Renderer* renderer, const Trace32& t, bool running, const SDL_FRect& plan, int stage, float progress);  // below
+}  // namespace
+
+// The panel is the 16-bit one's twin: the instruction about to run in a sentence, and the computer's
+// architecture with every wire's value, all lit. Under it, what each instruction did and the memory.
 void drawComputer32Panel(SDL_Renderer* renderer, const Computer32State& state, const std::string& console, const DebugView* debug,
                          const SDL_FRect& area, float mouseX, float mouseY) {
-    fillRect(renderer, area, kPage);
+    static_cast<void>(console);  // the console is in the debugger, on the left
+    fillRect(renderer, area, kBackground);
     const SDL_FRect next = panelNextButton(area);
     fillRound(renderer, next, 8, inside(next, mouseX, mouseY) ? kPanelHover : kPanelButton);
     drawIcon(renderer, Icon::Step, {next.x + 20.0f, next.y + next.h / 2.0f}, 16, kText);
@@ -7060,46 +7167,12 @@ void drawComputer32Panel(SDL_Renderer* renderer, const Computer32State& state, c
     const float sentenceX = next.x + next.w + 18.0f;
     write(renderer, Face::Regular, 16.0f, sentenceX, next.y + 22.0f,
           fitted(renderer, Face::Regular, 16.0f, explainInstruction32(state), area.x + area.w - sentenceX - 16.0f), kText);
-    const Panel32Layout l = panel32Layout(area);
-
-    // The instruction about to run, and its bits.
-    const SDL_FRect now = titledBox(renderer, l.now, "Instrução no PC");
-    const float pcX = now.x + std::max(120.0f, textWidth(renderer, Face::Medium, 13.0f, "Instrução no PC") + 16.0f);
-    write(renderer, Face::Mono, 14.0f, pcX, now.y - 10.0f, "PC = 0x" + hex32(state.pc), kWirePreview);
-    write(renderer, Face::Mono, 16.0f, now.x, now.y + 14.0f, state.text, instructionTone32(state.instruction));
-    const std::string word = "0x" + hex32(state.instruction);
-    write(renderer, Face::Mono, 13.0f, now.x + now.w - textWidth(renderer, Face::Mono, 13.0f, word), now.y + 14.0f, word, kTextDim);
-    drawWordStrip32(renderer, state.instruction, {now.x, now.y + 24.0f, now.w, 18.0f});
-
-    // The 32 registers, in four columns; what the last instruction changed stands out.
-    const SDL_FRect regs = titledBox(renderer, l.regs, "Registradores");
-    const float column = regs.w / 4.0f;
-    const float row = std::min(22.0f, regs.h / 8.0f);
-    for (unsigned r = 0; r < 32; ++r) {
-        const float x = regs.x + static_cast<float>(r / 8) * column;
-        const float y = regs.y + static_cast<float>(r % 8) * row;
-        const bool changed = debug != nullptr && debug->hasBefore && debug->before32[r] != state.registers[r];
-        if (changed) fillRound(renderer, {x - 4.0f, y, column - 6.0f, row - 2.0f}, 4, Color{92, 84, 30});
-        write(renderer, Face::Medium, 12.5f, x, y + row / 2.0f + 4.0f, std::string(mips::registerName(r)), kText);
-        write(renderer, Face::Mono, 12.0f, x + 46.0f, y + row / 2.0f + 4.0f, hex32(state.registers[r]), state.registers[r] != 0 ? kKnobOn : kTextOff);
-        const std::string decimal = std::to_string(static_cast<std::int32_t>(state.registers[r]));
-        const float w = textWidth(renderer, Face::Regular, 11.5f, decimal);
-        if (x + 46.0f + 64.0f + w < x + column - 8.0f) {
-            write(renderer, Face::Regular, 11.5f, x + column - 10.0f - w, y + row / 2.0f + 4.0f, decimal, changed ? kText : kTextDim);
-        }
-    }
+    const PanelLayout l = panelLayout(area);
+    const Trace32 trace = traceInstruction32(state);
+    drawXray32Plan(renderer, trace, !state.halted || trace.halts, l.plan, kTraceStages - 1, 100.0f);
+    drawZoomButtons(renderer, l.plan, mouseX, mouseY);
     drawSteps32(renderer, debug, titledBox(renderer, l.steps, "Passo a passo: o que cada instrução fez"));
-
-    // Beside them: the console, the memory and the stack.
-    drawConsole(renderer, console, titledBox(renderer, l.console, "Console"));
     drawMemory32(renderer, state, debug, titledBox(renderer, l.memory, "Memória"));
-    const SDL_FRect stack = titledBox(renderer, l.stack, "Pilha (de $sp para cima)");
-    const auto stackRows = static_cast<std::size_t>(std::max(1.0f, stack.h / 17.0f));
-    for (std::size_t i = 0; i < state.stack.size() && i < stackRows; ++i) {
-        const float y = stack.y + 12.0f + 17.0f * static_cast<float>(i);
-        write(renderer, Face::Mono, 12.0f, stack.x, y, hex32(state.registers[mips::kSp] + static_cast<std::uint32_t>(4 * i)), kWirePreview);
-        write(renderer, Face::Mono, 12.0f, stack.x + 80.0f, y, hex32(state.stack[i]), state.stack[i] != 0 ? kKnobOn : kTextOff);
-    }
 }
 
 namespace {
@@ -7975,7 +8048,7 @@ void drawInterface(SDL_Renderer* renderer, const Session& session, const Palette
         }
     }
     const SDL_FRect computerArea{kDebugWidth, kToolbarHeight + about, rightEdge - kDebugWidth, h - kToolbarHeight - kStatusHeight - about};
-    if (text.view == kViewPanel && text.computer != nullptr) drawComputerPanel(renderer, *text.computer, computerArea, text.mouseX, text.mouseY);
+    if (text.view == kViewPanel && text.computer != nullptr) drawComputerPanel(renderer, *text.computer, text.debug, computerArea, text.mouseX, text.mouseY);
     if (text.computer32 != nullptr && text.view == kViewPanel) {
         drawComputer32Panel(renderer, *text.computer32, text.console != nullptr ? *text.console : std::string(), text.debug, computerArea, text.mouseX, text.mouseY);
     }

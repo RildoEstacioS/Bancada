@@ -851,6 +851,9 @@ public:
             debug.breakpoints = &breakpoints_;
             debug.before = registersBefore_;
             debug.memoryBefore = memoryBefore_;
+            debug.ramBefore16 = ram16Before_;
+            debug.steps = &steps16_;
+            debug.memoryRow = memoryPanelRow_;
             debug.hasBefore = hasBefore_;
             if (view_ == app::kViewMemory) fillMemoryView(&*computer, nullptr);
             debug.running = session_.running();
@@ -860,8 +863,8 @@ public:
             debug.breakpoints = &breakpoints_;
             debug.before32 = registers32Before_;
             debug.memoryBefore32 = memory32Before_;
-            debug.steps32 = &steps32_;
-            debug.memoryRow32 = memoryPanelRow_;
+            debug.steps = &steps32_;
+            debug.memoryRow = memoryPanelRow_;
             debug.hasBefore = hasBefore_;
             if (view_ == app::kViewMemory) fillMemoryView(nullptr, &*computer32);
             debug.running = session_.running();
@@ -1208,6 +1211,8 @@ public:
     void followComputer(const editor::ComputerState& computer) {
         if (computer.pc != debugPc_) {
             if (debugPc_ != UINT32_MAX) {
+                steps16_.push_back(describeStep16(computer));
+                if (steps16_.size() > 60) steps16_.erase(steps16_.begin());
                 registersBefore_ = registersNow_;
                 memoryBefore_ = memoryNow_;
                 hasBefore_ = true;
@@ -1217,6 +1222,8 @@ public:
             memoryNow_ = computer.memory;
             ram16Before_ = ram16Now_;
             ram16Now_ = computer.ramWords;
+            output16Now_ = computer.output;
+            lastText16_ = assembly::disassemble(computer.instruction, computer.pc);
             if (computer.pc != leavingBreakpoint_) leavingBreakpoint_ = UINT32_MAX;
         }
         const bool stop = std::find(breakpoints_.begin(), breakpoints_.end(), computer.pc) != breakpoints_.end();
@@ -1224,6 +1231,29 @@ public:
             session_.setRunning(false);
             showNote("Parou no ponto de parada.", false);
         }
+    }
+
+    // The same on the 16-bit computer: the registers and RAM words it changed, the output, and a jump.
+    app::Step32 describeStep16(const editor::ComputerState& now) const {
+        const auto dec = [](std::uint16_t v) { return std::to_string(static_cast<std::int16_t>(v)); };
+        app::Step32 step;
+        step.instruction = std::to_string(debugPc_) + "   " + lastText16_;
+        std::vector<std::string> said;
+        for (unsigned r = 0; r < 8; ++r) {
+            if (registersNow_[r] == now.registers[r]) continue;
+            said.push_back(i18n::format("{} passou de {} para {}", {"R" + std::to_string(r), dec(registersNow_[r]), dec(now.registers[r])}));
+        }
+        if (ram16Now_.size() == now.ramWords.size()) {
+            for (std::size_t w = 0; w < now.ramWords.size(); ++w) {
+                if (ram16Now_[w] == now.ramWords[w]) continue;
+                said.push_back(i18n::format("gravou {} no endereço {} (era {})", {dec(now.ramWords[w]), std::to_string(w), dec(ram16Now_[w])}));
+            }
+        }
+        if (now.output != output16Now_) said.push_back(i18n::format("mostrou {} na saída", {std::to_string(now.output)}));
+        if (now.pc != static_cast<std::uint16_t>(debugPc_ + 1u)) said.push_back(i18n::format("pulou para {}", {std::to_string(now.pc)}));
+        if (said.empty()) said.push_back(i18n::tr("nada mudou nos registradores nem na memória: seguiu para a próxima instrução"));
+        for (std::size_t i = 0; i < said.size(); ++i) step.effect += (i == 0 ? "" : "; ") + said[i];
+        return step;
     }
 
     // What the instruction that just ran did, in words: the registers and the words of memory it changed, where it
@@ -1269,6 +1299,7 @@ public:
     // The memory tab: the RAM of the computer on the board, with what names its words and what just changed.
     void fillMemoryView(const editor::ComputerState* computer, const editor::Computer32State* computer32) {
         app::MemoryView& v = memoryView_;
+        v.registers.clear();
         v.marks.clear();
         v.jumps.clear();
         v.hex = memoryHex_;
@@ -1294,6 +1325,11 @@ public:
             v.jumps.push_back({".data e $gp", static_cast<int>((computer32->registers[28] >> 2) % words)});
             v.jumps.push_back({"Pilha ($sp)", static_cast<int>((computer32->registers[mips::kSp] >> 2) % words)});
             v.jumps.push_back({"lw / sw", computer32->accessed});
+            for (unsigned r = 0; r < 32; ++r) {
+                const std::uint32_t value = computer32->registers[r];
+                v.registers.push_back({std::string(mips::registerName(r)), value, hasBefore_ && registers32Before_[r] != value});
+            }
+            v.registers.push_back({"PC", computer32->pc, false});
         } else if (computer != nullptr) {
             v.words.assign(computer->ramWords.begin(), computer->ramWords.end());
             v.before = hasBefore_ && ram16Before_.size() == computer->ramWords.size() ? std::vector<std::uint32_t>(ram16Before_.begin(), ram16Before_.end())
@@ -1305,6 +1341,12 @@ public:
             v.note = "Uma linha por palavra de 16 bits. Aqui cada endereço é uma palavra inteira, de 0 em diante, como LD e ST os usam.";
             v.jumps.push_back({"Início", 0});
             v.jumps.push_back({"LD / ST", computer->accessed});
+            for (unsigned r = 0; r < 8; ++r) {
+                const std::uint16_t value = computer->registers[r];
+                v.registers.push_back({"R" + std::to_string(r), value, hasBefore_ && registersBefore_[r] != value});
+            }
+            v.registers.push_back({"PC", computer->pc, false});
+            v.registers.push_back({std::string(i18n::tr("Saída")), computer->output, false});
         }
         const int total = static_cast<int>(v.words.size());
         memoryRow_ = std::clamp(memoryRow_, 0, std::max(0, total - app::memoryVisibleRows(renderer_, v, viewArea())));
@@ -1362,7 +1404,26 @@ public:
         hasBefore_ = false;
         debugPc_ = UINT32_MAX;
         steps32_.clear();
+        steps16_.clear();
         memoryPanelRow_ = 0;
+    }
+
+    // A computer's Rst switch left on holds the CPU at its first instruction: every clock sends the PC back
+    // to the start, so Rodar would seem to do nothing. Running or stepping lets go of it, and says so.
+    void releaseReset(bool tell) {
+        // Only on a computer's board: a circuit of the player's own may have a switch called Rst on purpose.
+        if (!editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards()) &&
+            !editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
+            return;
+        }
+        for (const editor::Part& part : session_.board().parts()) {
+            if (part.kind != editor::PartKind::Toggle || part.label != "Rst" || !session_.toggleOn(part.id)) continue;
+            const std::pair<editor::PartId, std::uint64_t> off{part.id, 0};
+            session_.setToggleValues(std::span(&off, 1));
+            resetComputer();
+            if (tell) showNote("A chave Rst estava ligada e segurava a CPU no começo do programa. Ela foi desligada para o programa andar.", false);
+            return;
+        }
     }
 
     // Play and pause, the same from the toolbar, the debugger and the space bar. Running on leaves a
@@ -1373,6 +1434,7 @@ public:
             session_.setRunning(false);
             return;
         }
+        releaseReset(true);
         const std::optional<editor::ComputerState> computer = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards());
         const std::optional<editor::Computer32State> computer32 = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards());
         if ((computer && computer->halted) || (computer32 && computer32->halted)) resetComputer();
@@ -1391,11 +1453,13 @@ public:
             case app::DebugAction::Pause: session_.setRunning(false); break;
             case app::DebugAction::Step:
                 session_.setRunning(false);
+                releaseReset(true);
                 session_.stepClock();
                 session_.stepClock();
                 break;
             case app::DebugAction::Stage:
                 session_.setRunning(false);
+                releaseReset(true);
                 if (xrayStage_ + 1 < editor::kTraceStages) {
                     chooseXrayStage(xrayStage_ + 1);
                 } else {
@@ -1579,6 +1643,7 @@ public:
         program32_ = false;
         projectName_ = "Meu programa";
         view_ = app::kViewPanel;
+        releaseReset(false);  // a reset left on when it was saved would hold the CPU at the start
         for (const editor::Part& part : session_.board().parts()) {
             if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom") && part.width == editor::kWordBits) {
                 session_.selectOnly(part.id);
@@ -1657,6 +1722,7 @@ public:
         console_.clear();
         projectName_ = "Meu programa 32 bits";
         view_ = app::kViewPanel;
+        releaseReset(false);
         for (const editor::Part& part : session_.board().parts()) {
             if (part.kind == editor::PartKind::Box && part.box == editor::boxFromKey("rom") && part.width == editor::kWord32Bits) {
                 session_.selectOnly(part.id);
@@ -2384,7 +2450,7 @@ private:
     std::optional<SDL_FRect> diagramArea() const {
         if (!computerHere_ || view_ == app::kViewBoard || modal()) return std::nullopt;
         if (view_ == app::kViewXray) return app::xrayParts(viewArea()).plan;
-        if (!is32_ && view_ == app::kViewPanel) return app::panelPlanArea(viewArea());
+        if (view_ == app::kViewPanel) return app::panelPlanArea(viewArea());
         return std::nullopt;
     }
 
@@ -2411,16 +2477,20 @@ private:
             zoomInside(mouseX_, mouseY_, std::pow(1.25f, amount));
             return;
         }
-        if (computerHere_ && is32_ && view_ == app::kViewPanel && !modal() && !codeVisible()) {
-            const SDL_FRect box = app::panel32MemoryArea(viewArea());
+        if (computerHere_ && view_ == app::kViewPanel && !modal() && !codeVisible()) {
+            const SDL_FRect box = app::panelMemoryArea(viewArea());
             if (mouseX_ >= box.x && mouseX_ < box.x + box.w && mouseY_ >= box.y && mouseY_ < box.y + box.h) {
+                app::DebugView debug;
+                debug.hasBefore = hasBefore_;
+                int last = 0;
                 if (const std::optional<editor::Computer32State> now = editor::readComputer32(session_.board(), session_.circuit(), session_.chipBoards())) {
-                    app::DebugView debug;
-                    debug.hasBefore = hasBefore_;
                     debug.memoryBefore32 = memory32Before_;
-                    const int last = app::panel32MemoryMaxRow(*now, debug, viewArea());
-                    memoryPanelRow_ = std::clamp(memoryPanelRow_ - static_cast<int>(std::lround(amount * 2.0f)), 0, last);
+                    last = app::panel32MemoryMaxRow(*now, debug, viewArea());
+                } else if (const std::optional<editor::ComputerState> now16 = editor::readComputer(session_.board(), session_.circuit(), session_.chipBoards())) {
+                    debug.ramBefore16 = ram16Before_;
+                    last = app::panel16MemoryMaxRow(*now16, debug, viewArea());
                 }
+                memoryPanelRow_ = std::clamp(memoryPanelRow_ - static_cast<int>(std::lround(amount * 2.0f)), 0, last);
                 return;
             }
         }
@@ -2610,7 +2680,10 @@ private:
     void pressSimButton(app::SimButton button) {
         switch (button) {
             case app::SimButton::RunPause: toggleRun(); break;
-            case app::SimButton::Step: session_.stepClock(); break;
+            case app::SimButton::Step:
+                releaseReset(true);
+                session_.stepClock();
+                break;
             case app::SimButton::Home:
                 // Nothing is lost: the circuit is saved, and Continuar brings it back.
                 session_.key(editor::Key::Escape);
@@ -2806,6 +2879,7 @@ private:
                 }
             }
             if (button == SDL_BUTTON_LEFT && hit(app::panelNextButton(area))) {
+                releaseReset(true);
                 session_.stepClock();
                 session_.stepClock();
             }
@@ -3333,6 +3407,9 @@ private:
     bool memoryHex_ = true;                   // its numbers in hexadecimal, or in decimal
     int memoryRow_ = 0;                       // its first row on screen
     std::vector<app::Step32> steps32_;        // the 32-bit panel's step by step, the newest last
+    std::vector<app::Step32> steps16_;        // and the 16-bit one's
+    std::string lastText16_;                  // the instruction the 16-bit computer was on
+    std::uint16_t output16Now_ = 0;
     std::string lastText32_;                  // the instruction the 32-bit computer was on
     std::size_t consoleMark32_ = 0;           // how much of the console it had printed then
     int memoryPanelRow_ = 0;                  // the panel's memory list, scrolled
@@ -4069,6 +4146,28 @@ int main(int argc, char** argv) {
         }
         if (const char* view = std::strchr(script + 10, ':'); view != nullptr) {
             const SDL_FRect r = app::viewSwitchRect(app.boardRightEdge(), std::atoi(view + 1));
+            s.clickScreen(r.x + 20.0f, r.y + 10.0f);
+        }
+        s.moveScreen(700, 400);
+    }
+    // memoria16:ID:N:V, the example ID (a 16-bit program) run N instructions, one at a time and drawn, then view V.
+    if (script != nullptr && std::strncmp(script, "memoria16:", 10) == 0) {
+        Script s(app, window);
+        const std::string_view spec(script + 10);
+        const std::string id(spec.substr(0, spec.find(':')));
+        for (int i = 0; i < static_cast<int>(editor::galleryItems().size()); ++i) {
+            if (editor::galleryItems()[static_cast<std::size_t>(i)].id == id) app.openGalleryItem(i);
+        }
+        app.draw("");
+        int steps = 0, view = -1;
+        std::sscanf(script + 10 + id.size(), ":%d:%d", &steps, &view);
+        for (int i = 0; i < steps; ++i) {
+            app.session().stepClock();
+            app.session().stepClock();
+            app.draw("");
+        }
+        if (view >= 0) {
+            const SDL_FRect r = app::viewSwitchRect(app.boardRightEdge(), view);
             s.clickScreen(r.x + 20.0f, r.y + 10.0f);
         }
         s.moveScreen(700, 400);

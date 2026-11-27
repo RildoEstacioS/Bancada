@@ -265,8 +265,9 @@ struct DebugView {
     std::array<std::uint16_t, 8> before{};                    // the registers before the last instruction
     std::array<std::uint32_t, 32> before32{};                 // the same, on the 32-bit computer
     std::vector<std::uint32_t> memoryBefore32;                // and its RAM before the last instruction
-    const std::vector<Step32>* steps32 = nullptr;             // what the instructions run so far did
-    int memoryRow32 = 0;                                      // the panel's memory list, scrolled
+    const std::vector<Step32>* steps = nullptr;               // what the instructions run so far did, on either computer
+    int memoryRow = 0;                                        // the panel's memory list, scrolled
+    std::vector<std::uint16_t> ramBefore16;                   // the 16-bit computer's whole RAM before the last instruction
     std::vector<std::uint16_t> memoryBefore;
     bool hasBefore = false;
     bool running = false;
@@ -278,7 +279,13 @@ struct MemoryMark {
     std::string name;      // a .data label, or a register holding an address on that word
     bool pointer = false;  // a register: drawn in the wires' colour
 };
+struct MemoryRegister {
+    std::string name;
+    std::uint32_t value = 0;
+    bool changed = false;  // by the last instruction
+};
 struct MemoryView {
+    std::vector<MemoryRegister> registers;  // beside the RAM: every register, and the PC
     std::vector<std::uint32_t> words;
     std::vector<std::uint32_t> before;  // the RAM before the last instruction; empty when not known
     unsigned bits = 32;
@@ -315,8 +322,9 @@ DebugHit debugger32At(const editor::Computer32State& state, const SDL_FRect& are
 void drawDebugger32(SDL_Renderer* renderer, const editor::Computer32State& state, const DebugView& view, const std::string& console,
                     const SDL_FRect& area, float mouseX, float mouseY);
 // The panel's memory box, and how far its list can scroll.
-SDL_FRect panel32MemoryArea(const SDL_FRect& area);
+SDL_FRect panelMemoryArea(const SDL_FRect& area);  // the memory box under either computer's panel
 int panel32MemoryMaxRow(const editor::Computer32State& state, const DebugView& debug, const SDL_FRect& area);
+int panel16MemoryMaxRow(const editor::ComputerState& state, const DebugView& debug, const SDL_FRect& area);
 void drawComputer32Panel(SDL_Renderer* renderer, const editor::Computer32State& state, const std::string& console, const DebugView* debug,
                          const SDL_FRect& area, float mouseX, float mouseY);
 void drawXray32(SDL_Renderer* renderer, const editor::Computer32State& state, const SDL_FRect& area, int stage, float progress, float mouseX, float mouseY);
