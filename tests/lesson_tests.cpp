@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <functional>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -1603,6 +1604,29 @@ TEST(an_act_opens_when_the_one_before_is_done) {
     // A reading done doesn't count as an exercise.
     std::vector<std::string> read{readingId(topics().front())};
     CHECK_EQ(actDone(0, read), 0);
+}
+
+// Every exercise has hints of its own: no two exercises give the same hint, and no two questions of one exercise,
+// so each one helps with what is being asked. An exercise to build has at least two, so pressing Dica again
+// always says something new.
+TEST(every_exercise_has_hints_of_its_own) {
+    std::map<std::string, std::string> seen;
+    for (const Lesson& lesson : lessons()) {
+        if (lesson.check != LessonCheck::Answer) CHECK(lesson.hints.size() >= 2);
+        for (const char* hint : lesson.hints) {
+            const auto [at, isNew] = seen.emplace(hint, lesson.id);
+            if (!isNew) std::printf("  %s and %s share: %s\n", at->second.c_str(), lesson.id, hint);
+            CHECK(isNew);
+        }
+        // A lesson of questions: each question has a hint, and no two questions share one.
+        for (std::size_t q = 0; q < lesson.questions.size(); ++q) {
+            const std::string where = std::string(lesson.id) + " #" + std::to_string(q + 1);
+            CHECK(lesson.questions[q].hint != nullptr && lesson.questions[q].hint[0] != '\0');
+            const auto [at, isNew] = seen.emplace(lesson.questions[q].hint, where);
+            if (!isNew) std::printf("  %s and %s share: %s\n", at->second.c_str(), where.c_str(), lesson.questions[q].hint);
+            CHECK(isNew);
+        }
+    }
 }
 
 int main() { return check::runAll(); }

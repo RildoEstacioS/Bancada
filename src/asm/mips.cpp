@@ -519,7 +519,7 @@ private:
             if (m == theirs) return fail(i18n::format("Instrução desconhecida: {}. No MIPS, use {}", {m, std::string(ours)})), emit(0);
         }
         if (m == "mul" || m == "mult" || m == "multu" || m == "div" || m == "divu" || m == "mflo" || m == "mfhi" || m == "rem") {
-            return fail(i18n::format("{} não existe neste computador: ele não tem multiplicador. Some num laço", {m})), emit(0);
+            return fail(i18n::format("{} não existe neste computador: ele não tem multiplicador. Some em um laço", {m})), emit(0);
         }
         if (m == "lb" || m == "lbu" || m == "sb" || m == "lh" || m == "lhu" || m == "sh") {
             return fail(i18n::format("{} ainda não existe neste computador: ele lê e grava palavras inteiras. Use lw e sw", {m})), emit(0);

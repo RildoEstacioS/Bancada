@@ -347,13 +347,13 @@ std::string explainStage(const InstructionTrace& t, int stage, bool hex) {
             if (t.readsA && t.readsB) fields.push_back(format("os registradores lidos são {} e {}", {r(t.registerA), r(t.registerB)}));
             else if (t.readsA) fields.push_back(format("o registrador lido é {}", {r(t.registerA)}));
             if (t.usesImmediate) {
-                fields.push_back(format("{} = {} é o imediato: um número escrito dentro da própria instrução ({}), não guardado num registrador",
+                fields.push_back(format("{} = {} é o imediato: um número escrito dentro da própria instrução ({}), não guardado em um registrador",
                                         {t.immediateField, immediateText, t.text}));
             }
             // And what the control turns on because of them: the row its ROM has for this op, a wire per bit.
             std::vector<std::string> signals;
             if (t.usesAlu) signals.push_back(format("OpULA = {} (a conta que a ULA vai fazer)", {aluName(t)}));
-            if (t.writeBack != WriteBack::None) signals.push_back(tr("RegEsc = 1 (guardar num registrador)"));
+            if (t.writeBack != WriteBack::None) signals.push_back(tr("RegEsc = 1 (guardar em um registrador)"));
             if (t.aluZeroesA) signals.push_back(tr("ZeraA = 1 (o MUX A manda 0 para a ULA)"));
             if (t.aluTakesImmediate) signals.push_back(tr("UsaImm = 1 (a ULA recebe o número da instrução)"));
             if (t.usesImmediate && t.op != kOpJmp && t.op != kOpCall) signals.push_back(format("QualImm = {} (que número o extensor entrega)", {t.immediateField}));
@@ -391,7 +391,7 @@ std::string explainStage(const InstructionTrace& t, int stage, bool hex) {
                 return tr("Esta instrução não faz conta: a ULA fica parada nesta etapa.");
             }
             if (t.aluZeroesA) {
-                return format("Para pôr um número num registrador, o controle liga ZeraA: o MUX A deixa passar o 0 fixo em vez de um registrador. E liga "
+                return format("Para pôr um número em um registrador, o controle liga ZeraA: o MUX A deixa passar o 0 fixo em vez de um registrador. E liga "
                               "UsaImm: o MUX B deixa passar o número da instrução, {}. Com OpULA = ADD, a ULA soma 0 + {} = {}: o número passa direto.",
                               {n(t.aluB), n(t.aluB), n(t.aluResult)});
             }

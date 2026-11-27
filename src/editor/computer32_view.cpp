@@ -486,7 +486,7 @@ std::string explainStage32(const Trace32& t, int stage, bool inHex) {
                 fields = format("Os 6 bits de cima, op = {}, dizem o formato: tipo I, com um imediato de 16 bits.", {std::to_string(t.op)});
             }
             if (t.syscall) {
-                fields += " " + format("Num syscall, o controle faz os registradores lerem $v0 ({}) e $a0 ({}).", {value(t.valueA), value(t.valueB)});
+                fields += " " + format("Em um syscall, o controle faz os registradores lerem $v0 ({}) e $a0 ({}).", {value(t.valueA), value(t.valueB)});
             } else if (t.readsA && t.readsB) {
                 fields += " " + format("Os registradores lidos são {} e {}.", {with(t.registerA, t.valueA), with(t.registerB, t.valueB)});
             } else if (t.readsA) {

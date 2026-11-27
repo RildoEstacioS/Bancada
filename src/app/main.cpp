@@ -789,6 +789,13 @@ public:
         info.about = i18n::format("{} atos, {} aulas teóricas e {} exercícios, cada um verificado pelo próprio circuito.",
                                   {std::to_string(editor::lessonActs().size()), std::to_string(editor::topics().size()), std::to_string(info.total)});
         for (std::size_t act = 0; act < editor::lessonActs().size(); ++act) {
+            const int a = static_cast<int>(act);
+            const std::string title(i18n::tr(editor::lessonActs()[act].title));
+            const std::size_t colon = title.find(": ");
+            info.acts.push_back({colon == std::string::npos ? title : title.substr(colon + 2), editor::actDone(a, finished),
+                                 static_cast<int>(editor::actLessons(a).size()), editor::actOpen(a, finished)});
+        }
+        for (std::size_t act = 0; act < editor::lessonActs().size(); ++act) {
             const int count = static_cast<int>(editor::actLessons(static_cast<int>(act)).size());
             if (count > 0 && editor::actDone(static_cast<int>(act), finished) < count) {
                 info.next = i18n::tr(editor::lessonActs()[act].title);
@@ -4222,6 +4229,10 @@ int main(int argc, char** argv) {
         if (std::strstr(script + 5, ":v") != nullptr) {
             const SDL_FRect strip = app.lessonStripArea();
             s.clickScreen(strip.x + strip.w - 106.0f, strip.y + 33.0f);
+        }
+        // :h, :hh..., Dica pressed that many times.
+        if (const char* hints = std::strstr(script + 5, ":h"); hints != nullptr) {
+            for (const char* c = hints + 1; *c == 'h'; ++c) app.pressLessonButton(app::LessonButton::Hint);
         }
         s.moveScreen(700, 560);
         if (std::strstr(script + 5, ":r") != nullptr) {

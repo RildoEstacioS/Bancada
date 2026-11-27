@@ -335,7 +335,15 @@ void showInsideOnMenu(bool open);
 SDL_FRect insideLockRect(int width, int height);  // the button that asks for it
 
 // What the lessons' card says: how far the player got, and the act that comes next.
+struct HomeAct {
+    std::string name;  // "Eletricidade"
+    int done = 0;
+    int total = 0;
+    bool open = false;
+};
+
 struct HomeInfo {
+    std::vector<HomeAct> acts;  // the course, act by act
     std::string lessonsLine;  // "8 de 55 exercícios feitos"
     std::string about;        // what the course has
     std::string next;         // the first act not finished, or ""

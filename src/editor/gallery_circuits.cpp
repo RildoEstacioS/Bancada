@@ -1716,7 +1716,7 @@ std::vector<GalleryItem> circuitExamples() {
            "O LED fica com cerca de 2 V; os 3 V que sobram ficam no resistor de 330 Ω, que deixa passar I = 3 V ÷ 330 Ω ≈ 9 mA, uma "
            "corrente segura para o LED."}},
          -1,
-         "O circuito elétrico mais simples: uma bateria, um resistor e um LED em série, num caminho fechado. A corrente "
+         "O circuito elétrico mais simples: uma bateria, um resistor e um LED em série, em um caminho fechado. A corrente "
          "sai do + da bateria, atravessa o resistor e o LED e volta pelo -. O resistor limita a corrente, para o LED "
          "acender sem queimar.",
          "Passe o mouse sobre cada peça para ler a tensão e a corrente. Para trocar o resistor, use Editar uma cópia e "
@@ -1731,7 +1731,7 @@ std::vector<GalleryItem> circuitExamples() {
          "Feche só uma chave de cada lado e compare: apenas o LED da direita acende."},
         {"fonte-terra", kGroupElectronics, "Fonte e terra", "O mesmo circuito, do jeito dos esquemas",
          {{"Circuito", sourceAndGroundExample,
-           "A fonte é a bateria desenhada como nos esquemas: o traço comprido é o +. O - vai num terra, e o LED volta por outro terra, que é o "
+           "A fonte é a bateria desenhada como nos esquemas: o traço comprido é o +. O - vai em um terra, e o LED volta por outro terra, que é o "
            "mesmo ponto: em vez de um fio comprido até o -, cada peça liga no terra mais perto."}},
          -1,
          "O LED e o resistor do primeiro circuito, agora com fonte e terra. O terra é o ponto de 0 V, a referência das tensões, e todos os "
@@ -1976,7 +1976,7 @@ std::vector<GalleryItem> circuitExamples() {
         {"conta-bits", kGroupMoreMath, "Contador de bits", "Quantos bits estão em 1",
          {{kReady, [] { return readyBox("bit_count", 8); }, kReadyHow},
           {"Somadores", bitCountAdders,
-           "Cada bit de D vira um número de 7 bits, 0 ou 1, e entra numa fila de somadores: o total cresce um bit de cada vez. Circuitos rápidos "
+           "Cada bit de D vira um número de 7 bits, 0 ou 1, e entra em uma fila de somadores: o total cresce um bit de cada vez. Circuitos rápidos "
            "somam em árvore, aos pares, mas a conta é a mesma."}},
          -1,
          "Conta quantos bits de D estão em 1, a contagem de população. Serve para paridade, para medir a diferença entre duas palavras e em "
@@ -1989,7 +1989,7 @@ std::vector<GalleryItem> circuitExamples() {
            "fazer isso, o mais baixo, é o que sai em I. V é um OU de todos os bits."}},
          -1,
          "Dá em I o número do bit mais baixo de D que está em 1, e V diz se há algum. Encontrar o primeiro 1 ajuda a achar o primeiro espaço "
-         "livre numa lista e a escolher a próxima tarefa de um sistema.",
+         "livre em uma lista e a escolher a próxima tarefa de um sistema.",
          "Ponha 12 em D (bits 2 e 3): I mostra 2."},
 
         // Sums of one bit.
@@ -2019,10 +2019,10 @@ std::vector<GalleryItem> circuitExamples() {
          {{kReady, [] { return readyBox("full_subtractor"); }, kReadyHow},
           {kGates, subtractorGates,
            "D vem de duas XORs, como a soma. Vs é 1 quando A é 0 e B é 1, ou quando A e B são iguais e chega um empresta-um: as duas condições, "
-           "cada uma com uma E, juntam-se num OU."},
+           "cada uma com uma E, juntam-se em um OU."},
           {kTransistors, subtractorTransistors,
            "Nove NANDs, como no somador. As XORs dão D, e os dois sinais intermediários que valem B e não A, e Ve e não (A XOR B), juntam-se "
-           "numa última NAND, que dá Vs."}},
+           "em uma última NAND, que dá Vs."}},
          -1,
          "Calcula A − B − Ve, um bit por vez: Ve é o empresta-um que vem da coluna anterior. Dá a diferença D e o empresta-um seguinte, Vs, "
          "que vale 1 quando a conta fica abaixo de zero e precisa pedir à coluna de cima.",
@@ -2037,7 +2037,7 @@ std::vector<GalleryItem> circuitExamples() {
          "Compara dois bits e liga uma de três saídas: A>B, A=B ou A<B. Comparadores decidem os desvios: quando a CPU executa um BEQ, é uma "
          "comparação que escolhe o caminho do programa.",
          "Passe pelas quatro combinações: só uma saída acende de cada vez."},
-        {"ula1", kGroupOneBit, "ULA de 1 bit", "Quatro operações num bit",
+        {"ula1", kGroupOneBit, "ULA de 1 bit", "Quatro operações em um bit",
          {{kReady, [] { return readyBox("alu1"); }, kReadyHow},
           {"Blocos", aluBitBlocks,
            "As quatro operações são calculadas ao mesmo tempo, cada uma por seu circuito: uma E, uma OU, uma XOR e um somador. Um multiplexador "
